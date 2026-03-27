@@ -50,7 +50,7 @@ export default function SAMHeadDashboard() {
 
   // Check authorization
   useEffect(() => {
-    if (user && user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN') {
+    if (user && user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -99,7 +99,7 @@ export default function SAMHeadDashboard() {
   }, []);
 
   useEffect(() => {
-    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN') {
+    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER') {
       fetchStats();
       fetchCustomers();
       fetchExecutives();
@@ -107,7 +107,7 @@ export default function SAMHeadDashboard() {
   }, [user, fetchStats, fetchCustomers, fetchExecutives]);
 
   // Auto-refresh when socket events arrive
-  useSocketRefresh(() => { fetchStats(); fetchCustomers(); }, { enabled: user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' });
+  useSocketRefresh(() => { fetchStats(); fetchCustomers(); }, { enabled: user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER' });
 
   // Handle assignment
   const openAssignModal = (customer, isReassign = false) => {
@@ -161,7 +161,7 @@ export default function SAMHeadDashboard() {
     }
   };
 
-  if (!user || (user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN')) {
+  if (!user || (user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER')) {
     return null;
   }
 

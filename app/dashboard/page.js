@@ -649,11 +649,11 @@ export default function DashboardPage() {
         {/* ── Pipeline Stats (Row 1) ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           {[
-            { label: `Login (${dashStats.loginCount || 0})`, value: formatCurrency(dashStats.loginAmount), icon: LogIn, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-950/40', iconText: 'text-cyan-600 dark:text-cyan-400', link: '/dashboard/pipeline-arc' },
-            { label: `PO Received (${dashStats.poReceivedCount || 0})`, value: formatCurrency(dashStats.poReceivedAmount), icon: Receipt, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-950/40', iconText: 'text-emerald-600 dark:text-emerald-400', link: '/dashboard/pipeline-arc' },
-            { label: `Installation Done (${dashStats.installDoneCount || 0})`, value: formatCurrency(dashStats.installDoneAmount), icon: Wrench, borderColor: 'border-l-amber-500', iconBg: 'bg-amber-100 dark:bg-amber-950/40', iconText: 'text-amber-600 dark:text-amber-400', link: '/dashboard/pipeline-arc' },
-            { label: `Customer Accept (${dashStats.custAcceptCount || 0})`, value: formatCurrency(dashStats.custAcceptAmount), icon: UserCheck, borderColor: 'border-l-blue-500', iconBg: 'bg-blue-100 dark:bg-blue-950/40', iconText: 'text-blue-600 dark:text-blue-400', link: '/dashboard/pipeline-arc' },
-            { label: `FTB Received (${dashStats.ftbCount || 0})`, value: formatCurrency(dashStats.ftbAmount), icon: Banknote, borderColor: 'border-l-green-500', iconBg: 'bg-green-100 dark:bg-green-950/40', iconText: 'text-green-600 dark:text-green-400', link: '/dashboard/pipeline-arc' },
+            { label: `Login (${dashStats.loginCount || 0})`, value: formatCurrency(dashStats.loginAmount), icon: LogIn, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-950/40', iconText: 'text-cyan-600 dark:text-cyan-400', link: '/dashboard/pipeline-arc?stage=login' },
+            { label: `PO Received (${dashStats.poReceivedCount || 0})`, value: formatCurrency(dashStats.poReceivedAmount), icon: Receipt, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-950/40', iconText: 'text-emerald-600 dark:text-emerald-400', link: '/dashboard/pipeline-arc?stage=po' },
+            { label: `Installation Done (${dashStats.installDoneCount || 0})`, value: formatCurrency(dashStats.installDoneAmount), icon: Wrench, borderColor: 'border-l-amber-500', iconBg: 'bg-amber-100 dark:bg-amber-950/40', iconText: 'text-amber-600 dark:text-amber-400', link: '/dashboard/pipeline-arc?stage=install' },
+            { label: `Customer Accept (${dashStats.custAcceptCount || 0})`, value: formatCurrency(dashStats.custAcceptAmount), icon: UserCheck, borderColor: 'border-l-blue-500', iconBg: 'bg-blue-100 dark:bg-blue-950/40', iconText: 'text-blue-600 dark:text-blue-400', link: '/dashboard/pipeline-arc?stage=accept' },
+            { label: `FTB Received (${dashStats.ftbCount || 0})`, value: formatCurrency(dashStats.ftbAmount), icon: Banknote, borderColor: 'border-l-green-500', iconBg: 'bg-green-100 dark:bg-green-950/40', iconText: 'text-green-600 dark:text-green-400', link: '/dashboard/pipeline-arc?stage=ftb' },
           ].map((stat, i) => (
             <Card
               key={i}

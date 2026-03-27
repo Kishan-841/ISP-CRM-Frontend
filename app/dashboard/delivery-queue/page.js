@@ -75,7 +75,9 @@ const PIPELINE_STAGES = [
 
 export default function DeliveryQueuePage() {
   const router = useRouter();
-  const { user, isDeliveryTeam, isBDMTeamLeader, isSuperAdmin: isAdmin } = useRoleCheck();
+  const { user, isDeliveryTeam: _isDeliveryTeam, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
+  const isDeliveryTeam = isMaster ? true : _isDeliveryTeam;
+  const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
   const {
     deliveryQueue,
     deliveryStats,

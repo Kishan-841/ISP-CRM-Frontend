@@ -67,7 +67,7 @@ export default function IndividualAccountsDashboard() {
 
   // Check authorization
   useEffect(() => {
-    if (user && user.role !== 'SUPER_ADMIN') {
+    if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -94,12 +94,12 @@ export default function IndividualAccountsDashboard() {
   }, [userId, timeFilter]);
 
   useEffect(() => {
-    if (user?.role === 'SUPER_ADMIN' && userId) {
+    if (user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER' && userId) {
       fetchData();
     }
   }, [user, userId, fetchData]);
 
-  if (!user || user.role !== 'SUPER_ADMIN') {
+  if (!user || user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
     return null;
   }
 

@@ -62,7 +62,7 @@ export default function MOMDetailPage() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
-  const allowedRoles = ['SAM_EXECUTIVE', 'SAM_HEAD', 'SUPER_ADMIN'];
+  const allowedRoles = ['SAM_EXECUTIVE', 'SAM_HEAD', 'SUPER_ADMIN', 'MASTER'];
 
   useEffect(() => {
     if (user && !allowedRoles.includes(user.role)) {

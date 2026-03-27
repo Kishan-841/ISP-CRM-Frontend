@@ -239,9 +239,10 @@ export default function ServiceOrderDetail() {
 
   if (!order) return null;
 
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isMaster = user?.role === 'MASTER';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
   const isAccountsOrNOC = user?.role === 'ACCOUNTS_TEAM' || user?.role === 'NOC';
-  const isSAM = user?.role === 'SAM_EXECUTIVE' || user?.role === 'SAM_HEAD';
+  const isSAM = user?.role === 'SAM_EXECUTIVE' || user?.role === 'SAM_HEAD' || isMaster;
   const attachments = Array.isArray(order.attachments) ? order.attachments : [];
   const isNonDisconnection = ['UPGRADE', 'DOWNGRADE', 'RATE_REVISION'].includes(order.orderType);
   const pipeline = isNonDisconnection ? UPGRADE_PIPELINE : DISCONNECTION_PIPELINE;

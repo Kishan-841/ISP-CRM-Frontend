@@ -80,8 +80,9 @@ export default function POApprovalPage() {
   const [warehouses, setWarehouses] = useState([]);
 
 
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const isAdmin = user?.role === 'ADMIN';
+  const isMaster = user?.role === 'MASTER';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
+  const isAdmin = user?.role === 'ADMIN' || isMaster;
   const canAccess = isSuperAdmin || isAdmin;
 
   // Modal accessibility: Escape-to-close, scroll lock, autofocus

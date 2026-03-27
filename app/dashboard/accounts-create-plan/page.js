@@ -1046,7 +1046,14 @@ export default function AccountsCreatePlanPage() {
                     <div key={lead.id} className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                       <div className="px-3 py-2.5 bg-blue-50 dark:bg-blue-900/20 flex items-center justify-between">
                         <div className="min-w-0">
-                          <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">{lead.company}</p>
+                          <div className="flex items-center">
+                            <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">{lead.company}</p>
+                            {lead.isImported && (
+                              <Badge variant="outline" className="ml-2 text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                                Imported
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-xs text-slate-500">{lead.name || '-'} {lead.city ? `• ${lead.city}` : ''}</p>
                         </div>
                         {lead.bandwidthRequirement && (
@@ -1130,7 +1137,14 @@ export default function AccountsCreatePlanPage() {
                         <Building2 className="h-4 w-4 text-blue-600" />
                       </div>
                       <div>
-                        <p className="font-medium text-slate-900 dark:text-white">{lead.company}</p>
+                        <div className="flex items-center">
+                          <p className="font-medium text-slate-900 dark:text-white">{lead.company}</p>
+                          {lead.isImported && (
+                            <Badge variant="outline" className="ml-2 text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                              Imported
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500">{lead.name || '-'}</p>
                         <p className="text-xs text-slate-400">{lead.city || '-'}</p>
                       </div>

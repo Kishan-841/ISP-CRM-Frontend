@@ -40,7 +40,10 @@ import { PageHeader } from '@/components/PageHeader';
 
 export default function FeasibilityQueuePage() {
   const router = useRouter();
-  const { user, isFeasibilityTeam, isBDMTeamLeader } = useRoleCheck();
+  const { user, isFeasibilityTeam: _isFeasibilityTeam, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
+  const isFeasibilityTeam = isMaster ? false : _isFeasibilityTeam;
+  const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
+  const canAccessFeasibility = isFeasibilityTeam || isBDMTeamLeader || isAdmin;
   const {
     feasibilityQueue,
     feasibilityStats,
@@ -197,33 +200,33 @@ export default function FeasibilityQueuePage() {
 
   // Redirect non-FT users
   useEffect(() => {
-    if (user && !isFeasibilityTeam && !isBDMTeamLeader) {
+    if (user && !canAccessFeasibility) {
       router.push('/dashboard');
     }
-  }, [user, isFeasibilityTeam, isBDMTeamLeader, router]);
+  }, [user, canAccessFeasibility, router]);
 
-  useSocketRefresh(fetchFeasibilityQueue, { enabled: isFeasibilityTeam || isBDMTeamLeader });
+  useSocketRefresh(fetchFeasibilityQueue, { enabled: canAccessFeasibility });
 
   // Fetch review counts on initial load (for tab badges)
   useEffect(() => {
-    if (isFeasibilityTeam || isBDMTeamLeader) {
+    if (canAccessFeasibility) {
       fetchFeasibilityReviewHistory('all'); // Fetch counts for approved/rejected tabs
     }
-  }, [isFeasibilityTeam, isBDMTeamLeader, fetchFeasibilityReviewHistory]);
+  }, [canAccessFeasibility, fetchFeasibilityReviewHistory]);
 
   // Fetch vendors for dropdown
   useEffect(() => {
-    if (isFeasibilityTeam || isBDMTeamLeader) {
+    if (canAccessFeasibility) {
       fetchVendors('', true, 'PENDING_ACCOUNTS,APPROVED'); // Fetch admin-approved + fully-approved vendors
     }
-  }, [isFeasibilityTeam, isBDMTeamLeader, fetchVendors]);
+  }, [canAccessFeasibility, fetchVendors]);
 
   // Fetch store products for equipment dropdowns
   useEffect(() => {
-    if (isFeasibilityTeam || isBDMTeamLeader) {
+    if (canAccessFeasibility) {
       api.get('/store/products').then(res => setStoreProducts(res.data)).catch(() => {});
     }
-  }, [isFeasibilityTeam, isBDMTeamLeader]);
+  }, [canAccessFeasibility]);
 
   // Helper: filter products by category
   const getProductsByCategory = (category) => storeProducts.filter(p => p.category === category);
@@ -242,14 +245,14 @@ export default function FeasibilityQueuePage() {
 
   // Fetch data based on active tab
   useEffect(() => {
-    if (isFeasibilityTeam || isBDMTeamLeader) {
+    if (canAccessFeasibility) {
       if (activeTab === 'pending') {
         fetchFeasibilityQueue();
       } else {
         fetchFeasibilityReviewHistory(activeTab === 'approved' ? 'approved' : 'rejected');
       }
     }
-  }, [isFeasibilityTeam, isBDMTeamLeader, activeTab, fetchFeasibilityQueue, fetchFeasibilityReviewHistory]);
+  }, [canAccessFeasibility, activeTab, fetchFeasibilityQueue, fetchFeasibilityReviewHistory]);
 
   const resetDecision = () => {
     setDecision('');
@@ -480,7 +483,7 @@ export default function FeasibilityQueuePage() {
   // Get current list based on active tab
   const currentList = activeTab === 'pending' ? feasibilityQueue : feasibilityReviewHistory;
 
-  if (!isFeasibilityTeam && !isBDMTeamLeader) {
+  if (!canAccessFeasibility) {
     return null;
   }
 

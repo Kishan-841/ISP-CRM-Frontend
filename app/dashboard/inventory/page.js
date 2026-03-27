@@ -70,8 +70,9 @@ export default function InventoryPage() {
   // Quantity adjustment state
   const [quantityAdjustment, setQuantityAdjustment] = useState(0);
 
-  const isAdmin = user?.role === 'SUPER_ADMIN';
-  const isStoreManager = user?.role === 'STORE_MANAGER';
+  const isMaster = user?.role === 'MASTER';
+  const isAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
+  const isStoreManager = user?.role === 'STORE_MANAGER' || isMaster;
   const canAccess = isAdmin || isStoreManager;
 
   // Modal accessibility: Escape-to-close, scroll lock, autofocus

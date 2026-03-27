@@ -119,9 +119,10 @@ export default function VendorsPage() {
   const [mobilePage, setMobilePage] = useState(1);
   const mobilePageSize = 10;
 
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const isAccountsTeam = user?.role === 'ACCOUNTS_TEAM';
-  const isFeasibilityTeam = user?.role === 'FEASIBILITY_TEAM';
+  const isMaster = user?.role === 'MASTER';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
+  const isAccountsTeam = user?.role === 'ACCOUNTS_TEAM' || isMaster;
+  const isFeasibilityTeam = user?.role === 'FEASIBILITY_TEAM' || isMaster;
   const hasAccess = isSuperAdmin || isAccountsTeam || isFeasibilityTeam;
   const canCreate = hasAccess;
 

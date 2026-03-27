@@ -65,7 +65,10 @@ const getDocumentsCount = (documents) => {
 
 export default function AccountsVerificationPage() {
   const router = useRouter();
-  const { user, isAccountsTeam, isBDMTeamLeader, isSuperAdmin: isAdmin, isBDM } = useRoleCheck();
+  const { user, isAccountsTeam: _isAccountsTeam, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isBDM: _isBDM, isMaster } = useRoleCheck();
+  const isAccountsTeam = isMaster ? true : _isAccountsTeam;
+  const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
+  const isBDM = isMaster ? false : _isBDM;
   const {
     accountsQueue,
     accountsStats,

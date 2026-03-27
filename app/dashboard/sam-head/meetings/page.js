@@ -59,7 +59,7 @@ export default function SAMHeadMeetings() {
   });
 
   useEffect(() => {
-    if (user && user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN') {
+    if (user && user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -101,7 +101,7 @@ export default function SAMHeadMeetings() {
   }, []);
 
   useEffect(() => {
-    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN') {
+    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER') {
       fetchExecutives();
       fetchMeetings();
       fetchCustomers();
@@ -228,7 +228,7 @@ export default function SAMHeadMeetings() {
     }
   };
 
-  if (!user || (user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN')) {
+  if (!user || (user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER')) {
     return null;
   }
 

@@ -25,9 +25,10 @@ export default function SAMHeadCustomerReferralsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
 
+  const isMaster = user?.role === 'MASTER';
   const isSAMHead = user?.role === 'SAM_HEAD';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const isAllowed = isSAMHead || isSuperAdmin;
+  const isAllowed = isSAMHead || isSuperAdmin || isMaster;
 
   const [enquiries, setEnquiries] = useState([]);
   const [isrUsers, setIsrUsers] = useState([]);

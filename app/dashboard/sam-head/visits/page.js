@@ -45,7 +45,7 @@ export default function SAMHeadVisits() {
 
   // Check authorization
   useEffect(() => {
-    if (user && user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN') {
+    if (user && user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -108,14 +108,14 @@ export default function SAMHeadVisits() {
 
   // Initial data fetch
   useEffect(() => {
-    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN') {
+    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER') {
       fetchExecutives();
     }
   }, [user, fetchExecutives]);
 
   // Fetch visits and stats when filters/pagination change
   useEffect(() => {
-    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN') {
+    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER') {
       fetchVisits();
       fetchStats();
     }
@@ -282,7 +282,7 @@ export default function SAMHeadVisits() {
     </>
   );
 
-  if (!user || (user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN')) {
+  if (!user || (user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER')) {
     return null;
   }
 

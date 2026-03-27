@@ -73,8 +73,9 @@ export default function GoodsReceiptPage() {
   const [batchHistory, setBatchHistory] = useState([]);
 
 
-  const isAdmin = user?.role === 'ADMIN';
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isMaster = user?.role === 'MASTER';
+  const isAdmin = user?.role === 'ADMIN' || isMaster;
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
   const canAccess = isAdmin || isSuperAdmin;
 
   useEffect(() => {

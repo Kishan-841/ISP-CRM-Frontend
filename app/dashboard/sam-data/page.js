@@ -107,7 +107,7 @@ export default function SAMDataPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const isSAM = user?.role === 'SAM';
+  const isSAM = user?.role === 'SAM' || user?.role === 'MASTER';
 
   // Redirect non-SAM users
   useEffect(() => {

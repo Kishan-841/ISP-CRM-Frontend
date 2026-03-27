@@ -46,7 +46,7 @@ export default function SAMExecutiveCustomers() {
 
   // Check authorization
   useEffect(() => {
-    if (user && user.role !== 'SAM_EXECUTIVE') {
+    if (user && user.role !== 'SAM_EXECUTIVE' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -74,7 +74,7 @@ export default function SAMExecutiveCustomers() {
   }, [page, search]);
 
   useEffect(() => {
-    if (user?.role === 'SAM_EXECUTIVE') {
+    if (user?.role === 'SAM_EXECUTIVE' || user?.role === 'MASTER') {
       fetchCustomers();
     }
   }, [user, fetchCustomers]);
@@ -93,7 +93,7 @@ export default function SAMExecutiveCustomers() {
     return daysSinceMeeting > 30;
   }).length;
 
-  if (!user || user.role !== 'SAM_EXECUTIVE') {
+  if (!user || user.role !== 'SAM_EXECUTIVE' && user.role !== 'MASTER') {
     return null;
   }
 

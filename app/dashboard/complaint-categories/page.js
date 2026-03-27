@@ -55,7 +55,7 @@ export default function ComplaintCategoriesPage() {
   // Toggle loading for inline status toggles
   const [togglingId, setTogglingId] = useState(null);
 
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER';
 
   // Redirect non-admin users
   useEffect(() => {

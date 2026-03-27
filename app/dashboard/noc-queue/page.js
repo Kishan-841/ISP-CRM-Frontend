@@ -35,7 +35,9 @@ import TabBar from '@/components/TabBar';
 
 export default function NocQueuePage() {
   const router = useRouter();
-  const { user, isNOC, isBDMTeamLeader, isSuperAdmin: isAdmin } = useRoleCheck();
+  const { user, isNOC: _isNOC, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
+  const isNOC = isMaster ? true : _isNOC;
+  const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
   const {
     nocQueue,
     nocStats,

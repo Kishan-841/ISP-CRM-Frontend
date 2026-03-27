@@ -57,8 +57,9 @@ export default function SuperAdmin2ApprovalPage() {
   useModal(showDetailModal, () => setShowDetailModal(false));
   useModal(showDispositionModal, () => !isSaving && setShowDispositionModal(false));
 
-  const isSA2 = user?.role === 'SUPER_ADMIN_2';
-  const isAdmin = user?.role === 'SUPER_ADMIN';
+  const isMaster = user?.role === 'MASTER';
+  const isSA2 = user?.role === 'SUPER_ADMIN_2' || isMaster;
+  const isAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
 
   useEffect(() => {
     if (user && !isSA2 && !isAdmin) {

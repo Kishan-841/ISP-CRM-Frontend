@@ -33,10 +33,11 @@ export default function SAMLeadsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
 
+  const isMaster = user?.role === 'MASTER';
   const isSAMExecutive = user?.role === 'SAM_EXECUTIVE';
   const isSAMHead = user?.role === 'SAM_HEAD';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const isAllowed = isSAMExecutive || isSAMHead || isSuperAdmin;
+  const isAllowed = isSAMExecutive || isSAMHead || isSuperAdmin || isMaster;
 
   // Tab state
   const [activeTab, setActiveTab] = useState('create');

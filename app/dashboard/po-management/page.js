@@ -98,9 +98,10 @@ export default function POManagementPage() {
   const [isSavingInventory, setIsSavingInventory] = useState(false);
 
   // Access control
+  const isMaster = user?.role === 'MASTER';
   const isStoreManager = user?.role === 'STORE_MANAGER';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const hasAccess = isStoreManager || isSuperAdmin;
+  const hasAccess = isStoreManager || isSuperAdmin || isMaster;
 
   // Modal accessibility: Escape-to-close, scroll lock, autofocus
   useModal(showCreateModal, () => !isSubmitting && setShowCreateModal(false));

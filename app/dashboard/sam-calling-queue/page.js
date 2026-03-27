@@ -65,7 +65,7 @@ export default function SAMCallingQueuePage() {
   const [callLaterDate, setCallLaterDate] = useState('');
   const [callLaterTime, setCallLaterTime] = useState('');
 
-  const isSAM = user?.role === 'SAM';
+  const isSAM = user?.role === 'SAM' || user?.role === 'MASTER';
 
   // Filter to only SAM Self campaigns
   const samCampaigns = assignedCampaigns.filter(c =>

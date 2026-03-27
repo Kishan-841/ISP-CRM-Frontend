@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeadStore, useProductStore, useEmailStore, useUserStore } from '@/lib/store';
+import api from '@/lib/api';
 import { useRoleCheck } from '@/lib/useRoleCheck';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -156,8 +157,10 @@ const STAGES = [
 
 export default function QuotationManagementPage() {
   const router = useRouter();
-  const { user, isBDM, isBDMTeamLeader, isSuperAdmin: isAdmin } = useRoleCheck();
-  const canAccessBDM = isBDM || isBDMTeamLeader;
+  const { user, isBDM: _isBDM, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
+  const isBDM = isMaster ? false : _isBDM;
+  const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
+  const canAccessBDM = isBDM || isBDMTeamLeader || isAdmin;
   const {
     leads,
     isLoading,
@@ -891,22 +894,6 @@ export default function QuotationManagementPage() {
     }
   };
 
-  // Fast Track - bypass ALL approval stages (SUPER_ADMIN only)
-  const handleFastTrack = async (lead) => {
-    if (!confirm(`⚡ FAST TRACK: This will instantly approve ALL pipeline stages for ${lead.company}.\n\n✓ OPS Approval\n✓ Docs Verification\n✓ Accounts Verification\n✓ Demo Plan Assignment\n\nContinue?`)) {
-      return;
-    }
-
-    try {
-      const response = await api.post(`/leads/${lead.id}/bypass-pipeline`);
-      toast.success('⚡ Fast-tracked! All stages approved.', { duration: 4000 });
-      fetchLeads();
-    } catch (error) {
-      console.error('Fast track error:', error);
-      toast.error(error.response?.data?.message || 'Failed to fast-track lead');
-    }
-  };
-
   // Push to installation
   const handlePushToInstallation = async () => {
     if (!selectedLead) return;
@@ -1523,18 +1510,6 @@ export default function QuotationManagementPage() {
                       <td className="py-4 px-4">
                         <div className="flex items-center justify-end gap-2">
                           {getActionButton(lead)}
-
-                          {/* Fast Track Button - SUPER_ADMIN only */}
-                          {isAdmin && activeStage !== 'installation' && !isPushedToInstallation(lead) && (
-                            <Button
-                              size="icon"
-                              onClick={() => handleFastTrack(lead)}
-                              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white h-8 w-8 shadow-lg"
-                              title="⚡ Fast Track (Bypass All Stages)"
-                            >
-                              <Zap size={16} />
-                            </Button>
-                          )}
 
                           <Button
                             size="icon"

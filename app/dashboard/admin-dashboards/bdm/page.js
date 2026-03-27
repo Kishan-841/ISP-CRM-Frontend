@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/StatCard';
 import api from '@/lib/api';
+import { Badge } from '@/components/ui/badge';
 import {
   Users,
   ArrowLeft,
@@ -18,7 +19,16 @@ import {
   Package,
   Truck,
   AlertTriangle,
-  Zap
+  Zap,
+  LogIn,
+  Receipt,
+  Wrench,
+  UserCheck,
+  Banknote,
+  CalendarCheck,
+  Building2,
+  MapPin,
+  ArrowRight
 } from 'lucide-react';
 import {
   PieChart,
@@ -37,6 +47,8 @@ export default function BDMOverallDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState('7days');
   const [bdmList, setBdmList] = useState([]);
+  const [allMeetings, setAllMeetings] = useState([]);
+  const [meetingStats, setMeetingStats] = useState({ upcoming: 0, today: 0 });
   const [aggregatedData, setAggregatedData] = useState({
     summary: {
       totalLeads: 0,
@@ -57,6 +69,18 @@ export default function BDMOverallDashboard() {
       followUp: 0,
       dropped: 0
     },
+    pipelineStats: {
+      loginCount: 0,
+      loginAmount: 0,
+      poReceivedCount: 0,
+      poReceivedAmount: 0,
+      installDoneCount: 0,
+      installDoneAmount: 0,
+      custAcceptCount: 0,
+      custAcceptAmount: 0,
+      ftbCount: 0,
+      ftbAmount: 0,
+    },
     todayStats: {
       dispositions: 0,
       qualified: 0,
@@ -70,7 +94,7 @@ export default function BDMOverallDashboard() {
     }
   });
 
-  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'BDM_TEAM_LEADER';
+  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER' || user?.role === 'BDM_TEAM_LEADER';
 
   // Check authorization
   useEffect(() => {
@@ -103,6 +127,37 @@ export default function BDMOverallDashboard() {
 
       const dashboardResults = await Promise.all(dashboardPromises);
 
+      // Fetch meetings for all BDMs
+      const meetingPromises = bdmUsers.map(bdm =>
+        api.get(`/leads/bdm/meetings?userId=${bdm.id}`).catch(() => ({ data: null }))
+      );
+      const meetingResults = await Promise.all(meetingPromises);
+
+      // Combine all meetings and sort by date
+      const combinedMeetings = [];
+      let upcomingCount = 0;
+      let todayCount = 0;
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrowStart = new Date(todayStart);
+      tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+      meetingResults.forEach(result => {
+        if (result.data) {
+          const meetings = Array.isArray(result.data) ? result.data : (result.data.meetings || []);
+          meetings.forEach(m => {
+            combinedMeetings.push(m);
+            const mDate = new Date(m.meetingDate);
+            if (mDate >= todayStart) upcomingCount++;
+            if (mDate >= todayStart && mDate < tomorrowStart) todayCount++;
+          });
+        }
+      });
+
+      combinedMeetings.sort((a, b) => new Date(a.meetingDate) - new Date(b.meetingDate));
+      setAllMeetings(combinedMeetings);
+      setMeetingStats({ upcoming: upcomingCount, today: todayCount });
+
       // Aggregate data from all BDMs
       const aggregated = {
         summary: {
@@ -123,6 +178,18 @@ export default function BDMOverallDashboard() {
           notFeasible: 0,
           followUp: 0,
           dropped: 0
+        },
+        pipelineStats: {
+          loginCount: 0,
+          loginAmount: 0,
+          poReceivedCount: 0,
+          poReceivedAmount: 0,
+          installDoneCount: 0,
+          installDoneAmount: 0,
+          custAcceptCount: 0,
+          custAcceptAmount: 0,
+          ftbCount: 0,
+          ftbAmount: 0,
         },
         todayStats: {
           dispositions: 0,
@@ -163,6 +230,18 @@ export default function BDMOverallDashboard() {
           aggregated.summary.notFeasible += summary.notFeasible || 0;
           aggregated.summary.followUp += summary.followUp || 0;
           aggregated.summary.dropped += summary.dropped || 0;
+
+          // Aggregate pipeline stats
+          aggregated.pipelineStats.loginCount += dashboardStats.loginCount || 0;
+          aggregated.pipelineStats.loginAmount += dashboardStats.loginAmount || 0;
+          aggregated.pipelineStats.poReceivedCount += dashboardStats.poReceivedCount || dashboardStats.poReceived || 0;
+          aggregated.pipelineStats.poReceivedAmount += dashboardStats.poReceivedAmount || dashboardStats.totalPOAmount || 0;
+          aggregated.pipelineStats.installDoneCount += dashboardStats.installDoneCount || 0;
+          aggregated.pipelineStats.installDoneAmount += dashboardStats.installDoneAmount || 0;
+          aggregated.pipelineStats.custAcceptCount += dashboardStats.custAcceptCount || 0;
+          aggregated.pipelineStats.custAcceptAmount += dashboardStats.custAcceptAmount || 0;
+          aggregated.pipelineStats.ftbCount += dashboardStats.ftbCount || 0;
+          aggregated.pipelineStats.ftbAmount += dashboardStats.ftbAmount || 0;
 
           // Aggregate today stats
           aggregated.todayStats.dispositions += todayStats.dispositions || 0;
@@ -222,7 +301,17 @@ export default function BDMOverallDashboard() {
     return null;
   }
 
-  const { summary, todayStats, followUpSchedule } = aggregatedData;
+  const { summary, pipelineStats, todayStats, followUpSchedule } = aggregatedData;
+
+  // Format currency for stat cards
+  const formatCurrency = (amount) => {
+    const num = Number(amount);
+    if (!num || isNaN(num)) return '₹0';
+    if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
+    if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
+    if (num >= 1000) return `₹${(num / 1000).toFixed(1)}K`;
+    return `₹${num.toLocaleString('en-IN')}`;
+  };
 
   // Status distribution for pie chart
   const statusData = [
@@ -284,88 +373,175 @@ export default function BDMOverallDashboard() {
         </div>
       ) : (
         <>
-          {/* Key Performance Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            <StatCard color="orange" icon={Users} label="Total Leads" value={summary.totalLeads || 0} />
-            <StatCard color="teal" icon={Calendar} label="Meetings Done" value={summary.meetingsDone || 0} />
-            <StatCard color="indigo" icon={Send} label="Funnel Value" value={formatCompactCurrency(summary.funnelValue || 0)} />
-            <StatCard color="blue" icon={Send} label="Quotation Sent" value={formatCompactCurrency(summary.quotationValue || 0)} />
-            <StatCard color="green" icon={FileCheck} label="PO Received" value={formatCompactCurrency(summary.poValue || 0)} />
-            <StatCard color="orange" icon={Package} label="Pending Install" value={formatCompactCurrency(summary.pendingInstallValue || 0)} />
-            <StatCard color="emerald" icon={Truck} label="Delivered" value={formatCompactCurrency(summary.deliveredValue || 0)} />
+          {/* ── Pipeline Stats (Row 1) ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+            {[
+              { label: `Login (${pipelineStats.loginCount || 0})`, value: formatCurrency(pipelineStats.loginAmount), icon: LogIn, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-950/40', iconText: 'text-cyan-600 dark:text-cyan-400', stage: 'login' },
+              { label: `PO Received (${pipelineStats.poReceivedCount || 0})`, value: formatCurrency(pipelineStats.poReceivedAmount), icon: Receipt, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-950/40', iconText: 'text-emerald-600 dark:text-emerald-400', stage: 'po' },
+              { label: `Installation Done (${pipelineStats.installDoneCount || 0})`, value: formatCurrency(pipelineStats.installDoneAmount), icon: Wrench, borderColor: 'border-l-amber-500', iconBg: 'bg-amber-100 dark:bg-amber-950/40', iconText: 'text-amber-600 dark:text-amber-400', stage: 'install' },
+              { label: `Customer Accept (${pipelineStats.custAcceptCount || 0})`, value: formatCurrency(pipelineStats.custAcceptAmount), icon: UserCheck, borderColor: 'border-l-blue-500', iconBg: 'bg-blue-100 dark:bg-blue-950/40', iconText: 'text-blue-600 dark:text-blue-400', stage: 'accept' },
+              { label: `FTB Received (${pipelineStats.ftbCount || 0})`, value: formatCurrency(pipelineStats.ftbAmount), icon: Banknote, borderColor: 'border-l-green-500', iconBg: 'bg-green-100 dark:bg-green-950/40', iconText: 'text-green-600 dark:text-green-400', stage: 'ftb' },
+            ].map((stat, i) => (
+              <Card
+                key={i}
+                className={`rounded-xl md:rounded-2xl bg-white dark:bg-card border border-l-4 ${stat.borderColor} shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer group`}
+                onClick={() => router.push(`/dashboard/pipeline-arc?stage=${stat.stage}`)}
+              >
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] md:text-xs font-medium text-muted-foreground">{stat.label}</p>
+                      <p className="text-xl md:text-2xl font-bold mt-0.5 md:mt-1 tracking-tight">{stat.value}</p>
+                    </div>
+                    <div className={`h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl ${stat.iconBg} flex items-center justify-center`}>
+                      <stat.icon className={`h-4 w-4 md:h-5 md:w-5 ${stat.iconText}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
-          {/* Lead Status Cards */}
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{summary.newLeads || 0}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">New</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{summary.qualified || 0}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Qualified</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{summary.feasible || 0}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Feasible</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{summary.notFeasible || 0}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Not Feasible</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{summary.followUp || 0}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Follow Up</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-red-600 dark:text-red-400">{summary.dropped || 0}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Dropped</p>
-              </CardContent>
-            </Card>
+          {/* ── Other Stats (Row 2) ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+            {[
+              { label: 'Total Leads', value: summary.totalLeads || 0, icon: Users, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400' },
+              { label: 'Meetings Done', value: summary.meetingsDone || 0, icon: Calendar, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-900/40', iconText: 'text-cyan-600 dark:text-cyan-400' },
+              { label: 'Funnel Value', value: formatCurrency(summary.funnelValue), icon: Send, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400' },
+            ].map((stat, i) => (
+              <Card
+                key={i}
+                className={`rounded-xl md:rounded-2xl bg-white dark:bg-card border border-l-4 ${stat.borderColor} shadow-sm hover:shadow-lg transition-all duration-200`}
+              >
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] md:text-xs font-medium text-muted-foreground">{stat.label}</p>
+                      <p className="text-xl md:text-2xl font-bold mt-0.5 md:mt-1 tracking-tight">{typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}</p>
+                    </div>
+                    <div className={`h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl ${stat.iconBg} flex items-center justify-center`}>
+                      <stat.icon className={`h-4 w-4 md:h-5 md:w-5 ${stat.iconText}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
-          {/* Today's Activity */}
-          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                <Zap size={18} className="text-orange-600 dark:text-orange-400" />
-                Today's Activity (All BDMs)
+          <hr className="my-6 md:my-8 border-slate-200 dark:border-slate-800" />
+
+          {/* ── Today's Activity Section ── */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-5 w-1 bg-orange-500 rounded-full" />
+              <h2 className="text-sm md:text-base font-bold text-foreground">Today&apos;s Activity (All BDMs)</h2>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
+              {[
+                { label: 'UPCOMING MEETINGS', value: meetingStats?.upcoming || 0, color: 'text-blue-600 dark:text-blue-400' },
+                { label: 'FEASIBLE', value: todayStats.feasible || 0, color: 'text-orange-600 dark:text-orange-400' },
+                { label: 'FOLLOW UP', value: todayStats.followUp || 0, color: 'text-amber-600 dark:text-amber-400' },
+                { label: 'DROPPED', value: todayStats.dropped || 0, color: 'text-red-600 dark:text-red-400' },
+              ].map((item, i) => (
+                <Card key={i} className="rounded-lg bg-white dark:bg-card border shadow-sm">
+                  <CardContent className="p-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{item.label}</p>
+                    <p className={`text-xl md:text-2xl font-bold mt-0.5 ${item.color}`}>{item.value}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <hr className="my-6 md:my-8 border-slate-200 dark:border-slate-800" />
+
+          {/* ── Upcoming Meetings (All BDMs) ── */}
+          <Card className="bg-white dark:bg-card border shadow-sm rounded-xl">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm md:text-base font-bold text-foreground flex items-center gap-2">
+                <div className="h-5 w-1 bg-orange-500 rounded-full" />
+                Upcoming Meetings (All BDMs)
+                {meetingStats.today > 0 && (
+                  <Badge className="ml-2 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300">
+                    {meetingStats.today} Today
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">DISPOSITIONS</p>
-                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{todayStats.dispositions || 0}</p>
+            <CardContent className="p-0">
+              {allMeetings && allMeetings.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">BDM</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Company</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Contact</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Date & Time</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Location</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allMeetings.slice(0, 10).map((meeting) => {
+                        const meetingDate = new Date(meeting.meetingDate);
+                        const nowDate = new Date();
+                        const today = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        const isToday = meetingDate >= today && meetingDate < tomorrow;
+                        const isPast = meetingDate < today;
+
+                        return (
+                          <tr
+                            key={meeting.id}
+                            className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                          >
+                            <td className="px-4 py-3">
+                              <span className="text-sm font-medium text-orange-600 dark:text-orange-400">{meeting.bdmName || meeting.assignedTo?.name || '-'}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <Building2 size={14} className="text-slate-400" />
+                                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{meeting.company}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-sm text-slate-600 dark:text-slate-400">{meeting.name}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-sm ${isToday ? 'font-semibold text-cyan-600 dark:text-cyan-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                                {meetingDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {meetingDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
+                                <MapPin size={12} className="text-slate-400" />
+                                <span className="truncate max-w-[150px]">{meeting.meetingPlace || '-'}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {isPast ? (
+                                <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">Overdue</Badge>
+                              ) : isToday ? (
+                                <Badge className="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400">Today</Badge>
+                              ) : (
+                                <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">Upcoming</Badge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">QUALIFIED</p>
-                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{todayStats.qualified || 0}</p>
+              ) : (
+                <div className="py-12 text-center">
+                  <CalendarCheck size={40} className="mx-auto text-slate-300 dark:text-slate-700 mb-3" />
+                  <p className="text-slate-500 dark:text-slate-400">No scheduled meetings</p>
+                  <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Meetings will appear here when scheduled</p>
                 </div>
-                <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">FEASIBLE</p>
-                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{todayStats.feasible || 0}</p>
-                </div>
-                <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">FOLLOW UP</p>
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{todayStats.followUp || 0}</p>
-                </div>
-                <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">DROPPED</p>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{todayStats.dropped || 0}</p>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 

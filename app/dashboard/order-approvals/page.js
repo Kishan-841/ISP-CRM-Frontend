@@ -36,7 +36,7 @@ export default function OrderApprovals() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user && user.role !== 'SUPER_ADMIN') {
+    if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);

@@ -79,7 +79,7 @@ export default function SAMExecutiveDashboard() {
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    if (user && user.role !== 'SAM_EXECUTIVE') {
+    if (user && user.role !== 'SAM_EXECUTIVE' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -145,7 +145,7 @@ export default function SAMExecutiveDashboard() {
   }, [getDateRange]);
 
   useEffect(() => {
-    if (user?.role === 'SAM_EXECUTIVE') {
+    if (user?.role === 'SAM_EXECUTIVE' || user?.role === 'MASTER') {
       fetchDashboardData();
     }
   }, [user, fetchDashboardData]);
@@ -266,7 +266,7 @@ export default function SAMExecutiveDashboard() {
   const rateRevisionCount = orders.filter(o => o.orderType === 'RATE_REVISION').length;
   const disconnectionCount = orders.filter(o => o.orderType === 'DISCONNECTION').length;
 
-  if (!user || user.role !== 'SAM_EXECUTIVE') {
+  if (!user || user.role !== 'SAM_EXECUTIVE' && user.role !== 'MASTER') {
     return null;
   }
 

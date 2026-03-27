@@ -34,7 +34,7 @@ export default function NocOrderRequests() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user && user.role !== 'NOC_TEAM' && user.role !== 'NOC' && user.role !== 'SUPER_ADMIN') {
+    if (user && user.role !== 'NOC_TEAM' && user.role !== 'NOC' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);

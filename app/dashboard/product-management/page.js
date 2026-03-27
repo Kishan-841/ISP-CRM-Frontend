@@ -45,9 +45,10 @@ export default function ProductManagementPage() {
     unit: 'pcs'
   });
 
+  const isMaster = user?.role === 'MASTER';
   const isStoreManager = user?.role === 'STORE_MANAGER';
   const isAdmin = user?.role === 'SUPER_ADMIN';
-  const hasAccess = isStoreManager || isAdmin;
+  const hasAccess = isStoreManager || isAdmin || isMaster;
 
   // Modal accessibility: Escape-to-close, scroll lock, autofocus
   useModal(showCreateModal, () => !isSaving && handleCloseCreateModal());

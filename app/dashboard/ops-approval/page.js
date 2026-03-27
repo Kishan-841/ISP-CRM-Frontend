@@ -79,7 +79,9 @@ const getVendorTypeLabel = (vendorType) => {
 
 export default function OpsApprovalPage() {
   const router = useRouter();
-  const { user, isOpsTeam, isBDMTeamLeader } = useRoleCheck();
+  const { user, isOpsTeam: _isOpsTeam, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
+  const isOpsTeam = isMaster ? true : _isOpsTeam;
+  const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
   const {
     opsQueue,
     opsStats,

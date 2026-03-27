@@ -98,7 +98,7 @@ export default function SAMVisitsPage() {
 
   // Check authorization
   useEffect(() => {
-    if (user && user.role !== 'SAM_EXECUTIVE') {
+    if (user && user.role !== 'SAM_EXECUTIVE' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -139,7 +139,7 @@ export default function SAMVisitsPage() {
   }, []);
 
   useEffect(() => {
-    if (user?.role === 'SAM_EXECUTIVE') {
+    if (user?.role === 'SAM_EXECUTIVE' || user?.role === 'MASTER') {
       setIsLoading(true);
       Promise.all([fetchVisits(), fetchStats(), fetchCustomers()])
         .finally(() => setIsLoading(false));
@@ -238,7 +238,7 @@ export default function SAMVisitsPage() {
     return found || VISIT_STATUSES[0];
   };
 
-  if (!user || user.role !== 'SAM_EXECUTIVE') {
+  if (!user || user.role !== 'SAM_EXECUTIVE' && user.role !== 'MASTER') {
     return null;
   }
 

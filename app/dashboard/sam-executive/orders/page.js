@@ -61,8 +61,9 @@ export default function SAMExecutiveOrders() {
   const [selectedCustomerLabel, setSelectedCustomerLabel] = useState('');
   const customerSearchRef = useRef(null);
 
-  const isSAMHead = user?.role === 'SAM_HEAD';
-  const allowedRoles = ['SAM_EXECUTIVE', 'SAM_HEAD', 'SUPER_ADMIN'];
+  const isMaster = user?.role === 'MASTER';
+  const isSAMHead = user?.role === 'SAM_HEAD' || isMaster;
+  const allowedRoles = ['SAM_EXECUTIVE', 'SAM_HEAD', 'SUPER_ADMIN', 'MASTER'];
 
   useEffect(() => {
     if (user && !allowedRoles.includes(user.role)) {

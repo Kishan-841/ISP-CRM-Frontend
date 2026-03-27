@@ -204,8 +204,9 @@ export default function CustomerInvoiceDetailPage() {
     advanceAmount: ''
   });
 
-  const isAccountsTeam = user?.role === 'ACCOUNTS_TEAM';
-  const isAdmin = user?.role === 'SUPER_ADMIN';
+  const isMaster = user?.role === 'MASTER';
+  const isAccountsTeam = user?.role === 'ACCOUNTS_TEAM' || isMaster;
+  const isAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
 
   // Calculate selected total
   const selectedTotal = useMemo(() => {

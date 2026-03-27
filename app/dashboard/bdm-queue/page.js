@@ -39,7 +39,10 @@ import { PageHeader } from '@/components/PageHeader';
 
 export default function BDMQueuePage() {
   const router = useRouter();
-  const { user, isBDM, isBDMTeamLeader, isSuperAdmin: isAdmin } = useRoleCheck();
+  const { user, isBDM: _isBDM, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
+  // MASTER should behave as admin, not as BDM/TL (to avoid user-scoped views)
+  const isBDM = isMaster ? false : _isBDM;
+  const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
   const {
     bdmQueue,
     bdmStats,
@@ -1286,8 +1289,8 @@ export default function BDMQueuePage() {
                     </div>
                   </div>
 
-                  {/* Call Buttons - BDM and TL working on their own leads */}
-                  {(isBDM || isBDMTeamLeader) && <div className="mt-6">
+                  {/* Call Buttons - BDM, TL, and Admin/MASTER */}
+                  {(isBDM || isBDMTeamLeader || isAdmin) && <div className="mt-6">
                     {activeCall && activeCall.leadId === selectedLead.id ? (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 px-4 py-4 rounded-xl border border-red-200 dark:border-red-800">

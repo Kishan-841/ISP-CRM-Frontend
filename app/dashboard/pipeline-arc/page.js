@@ -18,17 +18,29 @@ import {
   Loader2,
   IndianRupee,
   Users,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/PageHeader';
 import { formatCurrency } from '@/lib/formatters';
 
+const STAGE_CONFIG = {
+  login: { label: 'Login', dateField: 'loginCompletedAt', color: 'bg-cyan-600' },
+  po: { label: 'PO Received', dateField: 'accountsVerifiedAt', color: 'bg-emerald-600' },
+  install: { label: 'Installation Done', dateField: 'installationCompletedAt', color: 'bg-amber-600' },
+  accept: { label: 'Customer Accept', dateField: 'customerAcceptanceAt', color: 'bg-blue-600' },
+  ftb: { label: 'FTB Received', dateField: 'ftbDate', color: 'bg-green-600' },
+};
+
 export default function PipelineARCPage() {
   const { user } = useAuthStore();
+  const searchParams = useSearchParams();
   const { fetchBDMDashboardStats, bdmDashboardStats, bdmDashboardLoading, fetchBDMUsers, bdmUsers } = useLeadStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBDM, setSelectedBDM] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState('ytd');
+  const [selectedBDM, setSelectedBDM] = useState(searchParams.get('userId') || '');
+  const [selectedPeriod, setSelectedPeriod] = useState(searchParams.get('period') || 'ytd');
+  const [stageFilter, setStageFilter] = useState(searchParams.get('stage') || '');
   const [customFromDate, setCustomFromDate] = useState('');
   const [customToDate, setCustomToDate] = useState('');
 
@@ -65,6 +77,11 @@ export default function PipelineARCPage() {
   const pipelineLeads = dashStats.pipelineLeads || [];
 
   const filteredLeads = pipelineLeads.filter((lead) => {
+    // Stage filter: only show leads that have the selected milestone
+    if (stageFilter && STAGE_CONFIG[stageFilter]) {
+      const dateField = STAGE_CONFIG[stageFilter].dateField;
+      if (!lead[dateField]) return false;
+    }
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return [lead.company, lead.contactName, lead.phone]
@@ -171,17 +188,34 @@ export default function PipelineARCPage() {
         )}
       </div>
 
+      {/* Active Stage Filter */}
+      {stageFilter && STAGE_CONFIG[stageFilter] && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-500">Filtered by:</span>
+          <Badge className={`${STAGE_CONFIG[stageFilter].color} text-white px-3 py-1 text-sm flex items-center gap-1.5`}>
+            {STAGE_CONFIG[stageFilter].label}
+            <button onClick={() => setStageFilter('')} className="ml-1 hover:opacity-80">
+              <X size={14} />
+            </button>
+          </Badge>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { label: 'Total ARC', value: totals.arc, borderClass: 'border-l-orange-500' },
-          { label: 'Login', value: totals.login, borderClass: 'border-l-cyan-500' },
-          { label: 'PO Received', value: totals.po, borderClass: 'border-l-emerald-500' },
-          { label: 'Installation', value: totals.install, borderClass: 'border-l-amber-500' },
-          { label: 'Cust. Accept', value: totals.accept, borderClass: 'border-l-blue-500' },
-          { label: 'FTB Received', value: totals.ftb, borderClass: 'border-l-green-500' },
+          { label: 'Total ARC', value: totals.arc, borderClass: 'border-l-orange-500', stage: '' },
+          { label: 'Login', value: totals.login, borderClass: 'border-l-cyan-500', stage: 'login' },
+          { label: 'PO Received', value: totals.po, borderClass: 'border-l-emerald-500', stage: 'po' },
+          { label: 'Installation', value: totals.install, borderClass: 'border-l-amber-500', stage: 'install' },
+          { label: 'Cust. Accept', value: totals.accept, borderClass: 'border-l-blue-500', stage: 'accept' },
+          { label: 'FTB Received', value: totals.ftb, borderClass: 'border-l-green-500', stage: 'ftb' },
         ].map((s) => (
-          <Card key={s.label} className={`border-l-4 ${s.borderClass} bg-white dark:bg-card`}>
+          <Card
+            key={s.label}
+            onClick={() => setStageFilter(stageFilter === s.stage ? '' : s.stage)}
+            className={`border-l-4 ${s.borderClass} bg-white dark:bg-card cursor-pointer hover:shadow-md transition-all ${stageFilter === s.stage ? 'ring-2 ring-orange-500 shadow-md' : ''}`}
+          >
             <CardContent className="p-3">
               <p className="text-[10px] font-medium text-muted-foreground uppercase">{s.label}</p>
               <p className="text-lg font-bold mt-0.5">{formatCurrency(s.value)}</p>

@@ -39,7 +39,7 @@ export default function SAMExecutiveBusinessImpact() {
   const [expandedRows, setExpandedRows] = useState(new Set());
 
   useEffect(() => {
-    if (user && user.role !== 'SAM_EXECUTIVE' && user.role !== 'SAM' && user.role !== 'SUPER_ADMIN') {
+    if (user && user.role !== 'SAM_EXECUTIVE' && user.role !== 'SAM' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -59,12 +59,12 @@ export default function SAMExecutiveBusinessImpact() {
   }, [startDate, endDate, customerTab, page, pageSize]);
 
   useEffect(() => {
-    if (user && (user.role === 'SAM_EXECUTIVE' || user.role === 'SAM' || user.role === 'SUPER_ADMIN')) {
+    if (user && (user.role === 'SAM_EXECUTIVE' || user.role === 'SAM' || user.role === 'SUPER_ADMIN' || user.role === 'MASTER')) {
       fetchData();
     }
   }, [user, fetchData]);
 
-  useSocketRefresh(() => { fetchData(); }, { enabled: user?.role === 'SAM_EXECUTIVE' || user?.role === 'SAM' });
+  useSocketRefresh(() => { fetchData(); }, { enabled: user?.role === 'SAM_EXECUTIVE' || user?.role === 'SAM' || user?.role === 'MASTER' });
 
   const toggleRow = (leadId) => {
     setExpandedRows(prev => {
@@ -75,7 +75,7 @@ export default function SAMExecutiveBusinessImpact() {
     });
   };
 
-  if (!user || (user.role !== 'SAM_EXECUTIVE' && user.role !== 'SAM' && user.role !== 'SUPER_ADMIN')) return null;
+  if (!user || (user.role !== 'SAM_EXECUTIVE' && user.role !== 'SAM' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER')) return null;
 
   const summary = data?.summary || {};
   const customers = data?.customers || [];

@@ -192,6 +192,7 @@ export default function Sidebar() {
   const isSAMExecutive = user?.role === 'SAM_EXECUTIVE';
   const isSupportTeam = user?.role === 'SUPPORT_TEAM';
   const isSuperAdmin2 = user?.role === 'SUPER_ADMIN_2';
+  const isMaster = user?.role === 'MASTER';
   const canApproveDeliveryRequest = isSuperAdmin || isAreaHead;
 
   // Accent colors
@@ -205,7 +206,194 @@ export default function Sidebar() {
     hoverText: 'hover:text-orange-600 dark:hover:text-orange-400',
   };
 
-  const navItems = [
+  // ── MASTER: Grouped sidebar with all team sections ──
+  const masterNavItems = [
+    {
+      name: 'ISR',
+      icon: PhoneCall,
+      menuKey: 'masterISR',
+      submenu: [
+        { name: 'Dashboard', path: '/dashboard' },
+        { name: 'Calling Queue', path: '/dashboard/calling-queue', badge: counts.callingQueue > 0 ? counts.callingQueue : null },
+        { name: 'Retry Queue', path: '/dashboard/retry-calls', badge: counts.retryQueue > 0 ? counts.retryQueue : null },
+        { name: 'Leads', path: '/dashboard/leads' },
+        { name: 'Follow-Ups', path: '/dashboard/follow-ups', badge: counts.followUps > 0 ? counts.followUps : null },
+        { name: 'Call History', path: '/dashboard/call-history' },
+      ]
+    },
+    {
+      name: 'BDM',
+      icon: Handshake,
+      menuKey: 'masterBDM',
+      submenu: [
+        { name: 'New Lead Assigned', path: '/dashboard/bdm-queue', badge: counts.queue > 0 ? counts.queue : null },
+        { name: 'Scheduled Meetings', path: '/dashboard/bdm-meetings', badge: counts.meetings > 0 ? counts.meetings : null },
+        { name: 'BDM Follow-Ups', path: '/dashboard/bdm-follow-ups', badge: counts.followUps > 0 ? counts.followUps : null },
+        { name: 'Lead Pipeline', path: '/dashboard/quotation-mgmt', badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
+        { name: 'Delivery Completed', path: '/dashboard/delivery-completed', badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
+      ]
+    },
+    {
+      name: 'Raw Data',
+      icon: Database,
+      menuKey: 'masterRawData',
+      submenu: [
+        { name: 'Campaign', path: '/dashboard/raw-data/campaign' },
+        { name: 'Self Data', path: '/dashboard/raw-data/self-data' },
+        { name: 'Social Media', path: '/dashboard/raw-data/social-media' },
+        { name: 'All Data', path: '/dashboard/raw-data/all-data' },
+      ]
+    },
+    {
+      name: 'Feasibility',
+      icon: Search,
+      menuKey: 'masterFeasibility',
+      submenu: [
+        { name: 'Feasibility Queue', path: '/dashboard/feasibility-queue', badge: counts.feasibilityPending > 0 ? counts.feasibilityPending : null },
+        { name: 'Vendors', path: '/dashboard/vendors', badge: counts.vendorDocsPending > 0 ? counts.vendorDocsPending : null },
+      ]
+    },
+    {
+      name: 'OPS',
+      icon: Settings,
+      menuKey: 'masterOPS',
+      submenu: [
+        { name: 'OPS Approval Queue', path: '/dashboard/ops-approval', badge: counts.opsPending > 0 ? counts.opsPending : null },
+      ]
+    },
+    {
+      name: 'Docs',
+      icon: FileText,
+      menuKey: 'masterDocs',
+      submenu: [
+        { name: 'Docs Verification', path: '/dashboard/docs-verification', badge: counts.docsPending > 0 ? counts.docsPending : null },
+        { name: 'Order Reviews', path: '/dashboard/docs-verification/order-reviews', badge: counts.docsOrderReviewPending > 0 ? counts.docsOrderReviewPending : null },
+      ]
+    },
+    {
+      name: 'Accounts',
+      icon: DollarSign,
+      menuKey: 'masterAccounts',
+      submenu: [
+        { name: 'Accounts Dashboard', path: '/dashboard/accounts-dashboard' },
+        { name: 'Accounts Verification', path: '/dashboard/accounts-verification', badge: counts.accountsPending > 0 ? counts.accountsPending : null },
+        { name: 'Add Customer', path: '/dashboard/accounts-add-customer' },
+        { name: 'Vendor Docs', path: '/dashboard/vendors', badge: counts.vendorDocsToVerify > 0 ? counts.vendorDocsToVerify : null },
+        { name: 'Demo Plan Assignment', path: '/dashboard/accounts-demo-plan', badge: counts.demoPlanPending > 0 ? counts.demoPlanPending : null },
+        { name: 'Create Plan', path: '/dashboard/accounts-create-plan', badge: (counts.createPlanPending || 0) + (counts.orderRequestsPending || 0) > 0 ? (counts.createPlanPending || 0) + (counts.orderRequestsPending || 0) : null },
+        { name: 'PO Creation', path: '/dashboard/accounts-po-creation' },
+        { name: 'Billing Management', path: '/dashboard/billing-mgmt' },
+        { name: 'Daily Collection', path: '/dashboard/accounts-dashboard/daily-collection' },
+        { name: 'Invoice Report', path: '/dashboard/accounts-dashboard/invoice-report' },
+        { name: 'Outstanding Report', path: '/dashboard/accounts-dashboard/outstanding-report' },
+        { name: 'Credit Note Report', path: '/dashboard/accounts-dashboard/credit-note-report' },
+        { name: 'Business Impact', path: '/dashboard/accounts-dashboard/business-impact' },
+        { name: 'Ageing Report', path: '/dashboard/accounts-dashboard/ageing-report' },
+        { name: 'Tax Report (TDS)', path: '/dashboard/accounts-dashboard/tax-report' },
+        { name: 'Call History', path: '/dashboard/accounts-dashboard/call-history' },
+      ]
+    },
+    {
+      name: 'Delivery',
+      icon: Package,
+      menuKey: 'masterDelivery',
+      submenu: [
+        { name: 'Delivery Queue', path: '/dashboard/delivery-queue', badge: counts.deliveryPending > 0 ? counts.deliveryPending : null },
+        { name: 'Delivery Report', path: '/dashboard/delivery-report' },
+      ]
+    },
+    {
+      name: 'NOC',
+      icon: Network,
+      menuKey: 'masterNOC',
+      submenu: [
+        { name: 'NOC Queue', path: '/dashboard/noc-queue', badge: counts.nocPending > 0 ? counts.nocPending : null },
+        { name: 'Order Requests', path: '/dashboard/noc-queue/order-requests', badge: counts.nocOrdersPending > 0 ? counts.nocOrdersPending : null },
+        { name: 'Users Created', path: '/dashboard/noc-users-created' },
+      ]
+    },
+    {
+      name: 'SAM Head',
+      icon: Users,
+      menuKey: 'masterSAMHead',
+      submenu: [
+        { name: 'Customer Assignment', path: '/dashboard/sam-head', badge: counts.unassignedCustomers > 0 ? counts.unassignedCustomers : null },
+        { name: 'SAM Executives', path: '/dashboard/sam-head/executives' },
+        { name: 'Customer Referrals', path: '/dashboard/sam-head/customer-referrals', badge: counts.pendingEnquiries > 0 ? counts.pendingEnquiries : null },
+        { name: 'All MOMs', path: '/dashboard/sam-head/meetings' },
+        { name: 'Order Mgmt', path: '/dashboard/sam-head/orders', badge: (counts.allOrdersPending || 0) + (counts.samActivationPending || 0) > 0 ? (counts.allOrdersPending || 0) + (counts.samActivationPending || 0) : null },
+        { name: 'Business Impact', path: '/dashboard/sam-head/business-impact' },
+        { name: 'SAM Leads', path: '/dashboard/sam-leads' },
+      ]
+    },
+    {
+      name: 'SAM Executive',
+      icon: UserCircle,
+      menuKey: 'masterSAMExec',
+      submenu: [
+        { name: 'SAM Dashboard', path: '/dashboard/sam-executive' },
+        { name: 'My Customers', path: '/dashboard/sam-executive/customers' },
+        { name: 'Meeting MOM', path: '/dashboard/sam-executive/meetings', badge: counts.pendingMomEmails > 0 ? counts.pendingMomEmails : null },
+        { name: 'Order Mgmt', path: '/dashboard/sam-executive/orders', badge: (counts.ordersPending || 0) + (counts.samActivationPending || 0) > 0 ? (counts.ordersPending || 0) + (counts.samActivationPending || 0) : null },
+        { name: 'Business Impact', path: '/dashboard/sam-executive/business-impact' },
+        { name: 'SAM Leads', path: '/dashboard/sam-leads' },
+      ]
+    },
+    {
+      name: 'Store',
+      icon: Warehouse,
+      menuKey: 'masterStore',
+      submenu: [
+        { name: 'Product Management', path: '/dashboard/product-management' },
+        { name: 'PO Management', path: '/dashboard/po-management' },
+        { name: 'Store Inventory', path: '/dashboard/store-inventory' },
+        { name: 'Inventory', path: '/dashboard/inventory' },
+        { name: 'Store Requests', path: '/dashboard/store-requests', badge: counts.storeRequests > 0 ? counts.storeRequests : null },
+      ]
+    },
+    {
+      name: 'Complaints',
+      icon: Headphones,
+      menuKey: 'masterComplaints',
+      submenu: [
+        { name: 'Complaints', path: '/dashboard/complaints', badge: ((counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0)) > 0 ? (counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0) : null },
+        { name: 'Customer Complaints', path: '/dashboard/customer-complaints' },
+        { name: 'Complaint Settings', path: '/dashboard/complaint-categories' },
+      ]
+    },
+    {
+      name: 'Approvals',
+      icon: CheckCircle2,
+      menuKey: 'masterApprovals',
+      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) > 0
+        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0)
+        : null,
+      submenu: [
+        { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
+        { name: 'PO Approval', path: '/dashboard/po-approval', badge: counts.poApprovalPending > 0 ? counts.poApprovalPending : null },
+        { name: 'Goods Receipt', path: '/dashboard/goods-receipt' },
+        { name: 'Delivery Approval', path: '/dashboard/delivery-request-approval', badge: counts.deliveryRequestPending > 0 ? counts.deliveryRequestPending : null },
+        { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.orderApprovalPending > 0 ? counts.orderApprovalPending : null },
+        { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
+        { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
+      ]
+    },
+    {
+      name: 'Admin',
+      icon: LayoutDashboard,
+      menuKey: 'masterAdmin',
+      submenu: [
+        { name: 'Team Dashboard', path: '/dashboard/admin-dashboards' },
+        { name: 'Customer 360', path: '/dashboard/customer-360' },
+        { name: 'Employees', path: '/dashboard/employees' },
+        { name: 'Vendors', path: '/dashboard/vendors' },
+        { name: 'Products', path: '/dashboard/products' },
+        { name: 'Inventory', path: '/dashboard/inventory' },
+      ]
+    },
+  ];
+
+  const navItems = isMaster ? masterNavItems : [
     // Super Admin top item
     ...(isSuperAdmin ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
     ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
@@ -286,6 +474,7 @@ export default function Sidebar() {
     ...(isAccountsTeam ? [
       { name: 'Accounts Dashboard', path: '/dashboard/accounts-dashboard', icon: LayoutDashboard },
       { name: 'Accounts Verification', path: '/dashboard/accounts-verification', icon: DollarSign, badge: counts.accountsPending > 0 ? counts.accountsPending : null },
+      { name: 'Add Customer', path: '/dashboard/accounts-add-customer', icon: UserPlus },
       { name: 'Vendor Docs', path: '/dashboard/vendors', icon: Building2, badge: counts.vendorDocsToVerify > 0 ? counts.vendorDocsToVerify : null },
       { name: 'Demo Plan Assignment', path: '/dashboard/accounts-demo-plan', icon: FileText, badge: counts.demoPlanPending > 0 ? counts.demoPlanPending : null },
       { name: 'Create Plan', path: '/dashboard/accounts-create-plan', icon: FileText, badge: (counts.createPlanPending || 0) + (counts.orderRequestsPending || 0) > 0 ? (counts.createPlanPending || 0) + (counts.orderRequestsPending || 0) : null },

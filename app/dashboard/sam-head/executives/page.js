@@ -24,7 +24,7 @@ export default function SAMExecutivesManagement() {
   const [togglingId, setTogglingId] = useState(null);
 
   useEffect(() => {
-    if (user && user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN') {
+    if (user && user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -42,7 +42,7 @@ export default function SAMExecutivesManagement() {
   }, [showInactive]);
 
   useEffect(() => {
-    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN') {
+    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER') {
       fetchExecutives();
     }
   }, [user, fetchExecutives]);
@@ -84,7 +84,7 @@ export default function SAMExecutivesManagement() {
     }
   };
 
-  if (!user || (user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN')) return null;
+  if (!user || (user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER')) return null;
 
   return (
     <div className="space-y-6">
