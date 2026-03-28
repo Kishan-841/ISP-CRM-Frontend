@@ -171,7 +171,7 @@ export default function BDMMeetingsPage() {
     setFromLatitude('');
     setFromLongitude('');
     // Other fields
-    setBandwidthRequirement('');
+    setBandwidthRequirement(meeting.bandwidthRequirement || '');
     setNumberOfIPs('');
     setInterestLevel('');
     setSelectedParentProduct('');
@@ -257,7 +257,8 @@ export default function BDMMeetingsPage() {
       dispositionData.fromLatitude = fromLatitude.trim() ? parseFloat(fromLatitude) : null;
       dispositionData.fromLongitude = fromLongitude.trim() ? parseFloat(fromLongitude) : null;
       // Other fields
-      dispositionData.bandwidthRequirement = bandwidthRequirement.trim() || null;
+      const bwNum = String(bandwidthRequirement).replace(/\D/g, '');
+      dispositionData.bandwidthRequirement = bwNum ? `${bwNum} Mbps` : null;
       dispositionData.numberOfIPs = numberOfIPs.trim() ? parseInt(numberOfIPs) : null;
       dispositionData.interestLevel = interestLevel;
       dispositionData.tentativePrice = tentativePrice.trim() ? parseFloat(tentativePrice) : null;
@@ -856,13 +857,18 @@ export default function BDMMeetingsPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                     <div>
                       <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Bandwidth
+                        Bandwidth {bandwidthRequirement && (
+                          <span className="text-orange-600 dark:text-orange-400 font-normal">
+                            ({(() => { const n = parseInt(String(bandwidthRequirement).replace(/\D/g, '')); return n >= 1000 ? `${(n/1000).toFixed(n%1000===0?0:1)} Gbps` : `${n} Mbps`; })()})
+                          </span>
+                        )}
                       </label>
                       <input
-                        type="text"
-                        value={bandwidthRequirement}
+                        type="number"
+                        value={String(bandwidthRequirement).replace(/\D/g, '')}
                         onChange={(e) => setBandwidthRequirement(e.target.value)}
-                        placeholder="100 Mbps"
+                        placeholder="e.g. 200"
+                        min="1"
                         className="w-full h-9 px-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded text-slate-900 dark:text-slate-100 text-sm"
                       />
                     </div>

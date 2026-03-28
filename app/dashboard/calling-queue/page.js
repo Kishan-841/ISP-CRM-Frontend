@@ -64,6 +64,9 @@ export default function CallingQueuePage() {
   const [followUpAction, setFollowUpAction] = useState('');
   const [selectedBDM, setSelectedBDM] = useState('');
 
+  // Bandwidth
+  const [bandwidth, setBandwidth] = useState('');
+
   // Share tracking
   const [sharedViaWhatsApp, setSharedViaWhatsApp] = useState(false);
   const [sharedViaEmail, setSharedViaEmail] = useState(false);
@@ -185,6 +188,7 @@ export default function CallingQueuePage() {
     setSharedViaEmail(false);
     setCallLaterDate('');
     setCallLaterTime('');
+    setBandwidth('');
   };
 
   const handleStartCall = async () => {
@@ -269,11 +273,12 @@ export default function CallingQueuePage() {
         .map(p => p.title)
         .join(', ');
 
+      const bwText = bandwidth ? `\nBandwidth: ${Number(bandwidth) >= 1000 ? `${(Number(bandwidth) / 1000).toFixed(Number(bandwidth) % 1000 === 0 ? 0 : 1)} Gbps` : `${bandwidth} Mbps`}` : '';
       if (followUpAction === 'meeting') {
         const assigneeName = teamLeaders.find(b => b.id === selectedBDM)?.name || bdmUsers.find(b => b.id === selectedBDM)?.name || 'Not assigned';
-        finalNotes = `Products: ${productNames}\nFollow-up: Meeting Scheduled\nAssigned to: ${assigneeName}\n${notes}`;
+        finalNotes = `Products: ${productNames}${bwText}\nFollow-up: Meeting Scheduled\nAssigned to: ${assigneeName}\n${notes}`;
       } else {
-        finalNotes = `Products: ${productNames}\nFollow-up: Share Details\nShared via: ${getSharedVia()}\n${notes}`;
+        finalNotes = `Products: ${productNames}${bwText}\nFollow-up: Share Details\nShared via: ${getSharedVia()}\n${notes}`;
       }
     }
 
@@ -296,7 +301,8 @@ export default function CallingQueuePage() {
           productIds: selectedProducts,
           assignedToId: effectiveBDM,
           type: leadType,
-          sharedVia: followUpAction === 'share' ? getSharedVia() : null
+          sharedVia: followUpAction === 'share' ? getSharedVia() : null,
+          bandwidthRequirement: bandwidth ? `${bandwidth} Mbps` : null
         });
 
         if (leadResult.success) {
@@ -327,9 +333,11 @@ export default function CallingQueuePage() {
       .map(p => p.title)
       .join(', ');
 
-    const message = encodeURIComponent(
-      `Hi ${selectedData.name || 'there'},\n\nThank you for your interest in our products!\n\nProducts of interest: ${productNames}\n\nPlease feel free to reach out if you have any questions.\n\nBest regards,\n${user?.name || 'Team'}`
-    );
+    const message = productNames
+      ? encodeURIComponent(
+          `Hi ${selectedData.name || 'there'},\n\nThank you for your interest in our products!\n\nProducts of interest: ${productNames}\n\nPlease feel free to reach out if you have any questions.\n\nBest regards,\n${user?.name || 'Team'}`)
+      : encodeURIComponent(
+          `Hi ${selectedData.name || 'there'},\n\nThank you for your time on the call. We would love to discuss how our solutions can help your business.\n\nPlease feel free to reach out if you have any questions.\n\nBest regards,\n${user?.name || 'Team'}`);
 
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
     setSharedViaWhatsApp(true);
@@ -348,10 +356,12 @@ export default function CallingQueuePage() {
       .map(p => p.title)
       .join(', ');
 
-    const subject = encodeURIComponent('Thank you for your interest - Product Information');
-    const body = encodeURIComponent(
-      `Hi ${selectedData.name || 'there'},\n\nThank you for your interest in our products!\n\nProducts of interest:\n- ${productNames.split(', ').join('\n- ')}\n\nPlease feel free to reach out if you have any questions.\n\nBest regards,\n${user?.name || 'Team'}`
-    );
+    const subject = encodeURIComponent(productNames ? 'Thank you for your interest - Product Information' : 'Thank you for your time - Follow up');
+    const body = productNames
+      ? encodeURIComponent(
+          `Hi ${selectedData.name || 'there'},\n\nThank you for your interest in our products!\n\nProducts of interest:\n- ${productNames.split(', ').join('\n- ')}\n\nPlease feel free to reach out if you have any questions.\n\nBest regards,\n${user?.name || 'Team'}`)
+      : encodeURIComponent(
+          `Hi ${selectedData.name || 'there'},\n\nThank you for your time on the call. We would love to discuss how our solutions can help your business.\n\nPlease feel free to reach out if you have any questions.\n\nBest regards,\n${user?.name || 'Team'}`);
 
     window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
     setSharedViaEmail(true);
@@ -977,6 +987,36 @@ export default function CallingQueuePage() {
                     })()}
                   </div>
 
+                  {/* Bandwidth */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                      Bandwidth Requirement
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={bandwidth}
+                        onChange={(e) => setBandwidth(e.target.value)}
+                        placeholder="e.g. 200"
+                        min="1"
+                        className="flex-1 h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap min-w-[60px]">
+                        {bandwidth && Number(bandwidth) >= 1000
+                          ? `${(Number(bandwidth) / 1000).toFixed(Number(bandwidth) % 1000 === 0 ? 0 : 1)} Gbps`
+                          : 'Mbps'}
+                      </span>
+                    </div>
+                    {bandwidth && (
+                      <p className="text-[11px] text-orange-600 dark:text-orange-400 mt-1.5 flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        {Number(bandwidth) >= 1000
+                          ? `${(Number(bandwidth) / 1000).toFixed(Number(bandwidth) % 1000 === 0 ? 0 : 1)} Gbps (${bandwidth} Mbps)`
+                          : `${bandwidth} Mbps`}
+                      </p>
+                    )}
+                  </div>
+
                   {/* Divider */}
                   <div className="border-t border-slate-100 dark:border-slate-800" />
 
@@ -1114,6 +1154,40 @@ export default function CallingQueuePage() {
                       })}
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Share Details for Call Later (optional) */}
+              {callOutcome === 'CALL_LATER' && (
+                <div className="space-y-2.5 p-3.5 bg-slate-50/50 dark:bg-slate-800/30 rounded-lg border border-slate-200/60 dark:border-slate-700/40">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Share Details <span className="text-[10px] font-normal normal-case text-slate-400">(optional)</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleShareWhatsApp}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                        sharedViaWhatsApp
+                          ? 'bg-green-600 text-white border-green-600'
+                          : 'bg-white dark:bg-slate-800 text-green-600 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950/30'
+                      }`}
+                    >
+                      {sharedViaWhatsApp ? <Check size={13} /> : <MessageSquare size={13} />}
+                      WhatsApp
+                    </button>
+                    <button
+                      onClick={handleShareEmail}
+                      disabled={!selectedData?.email}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                        sharedViaEmail
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white dark:bg-slate-800 text-blue-600 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/30'
+                      } disabled:opacity-40 disabled:cursor-not-allowed`}
+                    >
+                      {sharedViaEmail ? <Check size={13} /> : <Mail size={13} />}
+                      Email
+                    </button>
+                  </div>
                 </div>
               )}
 

@@ -191,6 +191,58 @@ export default function FeasibilityQueuePage() {
 
   const [showCreateVendorModal, setShowCreateVendorModal] = useState(false);
 
+  // POP Location state
+  const [popLocations, setPopLocations] = useState([]);
+  const [showPopDropdown, setShowPopDropdown] = useState(false);
+  const [showAddPopModal, setShowAddPopModal] = useState(false);
+  const [newPopName, setNewPopName] = useState('');
+  const [newPopLat, setNewPopLat] = useState('');
+  const [newPopLng, setNewPopLng] = useState('');
+  const [popSaving, setPopSaving] = useState(false);
+
+  const handlePopSearch = async (query) => {
+    if (!query || query.trim().length < 2) {
+      setPopLocations([]);
+      setShowPopDropdown(false);
+      return;
+    }
+    try {
+      const res = await api.get(`/pop-locations?search=${encodeURIComponent(query.trim())}`);
+      setPopLocations(res.data.locations || []);
+      setShowPopDropdown(true);
+    } catch (e) {
+      console.error('POP search error:', e);
+    }
+  };
+
+  const handleAddPop = async () => {
+    if (!newPopName.trim()) {
+      toast.error('POP name is required');
+      return;
+    }
+    setPopSaving(true);
+    try {
+      const res = await api.post('/pop-locations', {
+        name: newPopName.trim(),
+        latitude: newPopLat || null,
+        longitude: newPopLng || null,
+      });
+      const pop = res.data.location;
+      toast.success(`POP "${pop.name}" created`);
+      setShowAddPopModal(false);
+      // Auto-fill the current vendor type's POP fields
+      if (vendorType) {
+        updateVendorField(vendorType, 'popLocation', pop.name);
+        updateVendorField(vendorType, 'popLatitude', pop.latitude ? String(pop.latitude) : '');
+        updateVendorField(vendorType, 'popLongitude', pop.longitude ? String(pop.longitude) : '');
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to create POP');
+    } finally {
+      setPopSaving(false);
+    }
+  };
+
   const openCreateVendorModal = () => {
     setShowCreateVendorModal(true);
   };
@@ -1306,39 +1358,99 @@ export default function FeasibilityQueuePage() {
                         {VENDOR_TYPES.find(t => t.id === vendorType)?.label} Details
                       </h4>
 
-                      {/* POP Location - Common for all vendor types */}
+                      {/* POP Location - Searchable dropdown with Add New */}
                       <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                         <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2">POP Location</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div>
+                        <div className="space-y-3">
+                          <div className="relative">
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">POP Location Name</label>
                             <input
                               type="text"
                               value={vendorData[vendorType]?.popLocation || ''}
-                              onChange={(e) => updateVendorField(vendorType, 'popLocation', e.target.value)}
+                              onChange={(e) => {
+                                updateVendorField(vendorType, 'popLocation', e.target.value);
+                                handlePopSearch(e.target.value);
+                              }}
+                              onBlur={() => setTimeout(() => setShowPopDropdown(false), 200)}
                               className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                              placeholder="e.g., POP-Sector 62"
+                              placeholder="Type min 2 chars to search..."
+                              autoComplete="off"
                             />
+                            {showPopDropdown && popLocations.length > 0 && (
+                              <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-52 overflow-auto">
+                                {popLocations.map((pop) => (
+                                  <button
+                                    key={pop.id}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 last:border-0 flex items-center gap-2"
+                                    onClick={() => {
+                                      updateVendorField(vendorType, 'popLocation', pop.name);
+                                      updateVendorField(vendorType, 'popLatitude', pop.latitude ? String(pop.latitude) : '');
+                                      updateVendorField(vendorType, 'popLongitude', pop.longitude ? String(pop.longitude) : '');
+                                      setShowPopDropdown(false);
+                                    }}
+                                  >
+                                    <MapPin size={14} className="text-blue-500 flex-shrink-0" />
+                                    <span className="font-medium truncate">{pop.name}</span>
+                                  </button>
+                                ))}
+                                <button
+                                  type="button"
+                                  className="w-full text-left px-3 py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2"
+                                  onClick={() => {
+                                    setShowPopDropdown(false);
+                                    setShowAddPopModal(true);
+                                    setNewPopName(vendorData[vendorType]?.popLocation || '');
+                                    setNewPopLat('');
+                                    setNewPopLng('');
+                                  }}
+                                >
+                                  <Plus size={14} className="text-blue-500" />
+                                  Add New POP
+                                </button>
+                              </div>
+                            )}
+                            {showPopDropdown && popLocations.length === 0 && vendorData[vendorType]?.popLocation?.length >= 2 && (
+                              <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl">
+                                <div className="px-3 py-2.5 text-xs text-slate-400">No matching POP found</div>
+                                <button
+                                  type="button"
+                                  className="w-full text-left px-3 py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2"
+                                  onClick={() => {
+                                    setShowPopDropdown(false);
+                                    setShowAddPopModal(true);
+                                    setNewPopName(vendorData[vendorType]?.popLocation || '');
+                                    setNewPopLat('');
+                                    setNewPopLng('');
+                                  }}
+                                >
+                                  <Plus size={14} className="text-blue-500" />
+                                  Add New POP
+                                </button>
+                              </div>
+                            )}
                           </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Latitude</label>
-                            <input
-                              type="text"
-                              value={vendorData[vendorType]?.popLatitude || ''}
-                              onChange={(e) => updateVendorField(vendorType, 'popLatitude', e.target.value)}
-                              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                              placeholder="e.g., 28.6139"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Longitude</label>
-                            <input
-                              type="text"
-                              value={vendorData[vendorType]?.popLongitude || ''}
-                              onChange={(e) => updateVendorField(vendorType, 'popLongitude', e.target.value)}
-                              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                              placeholder="e.g., 77.2090"
-                            />
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Latitude</label>
+                              <input
+                                type="text"
+                                value={vendorData[vendorType]?.popLatitude || ''}
+                                onChange={(e) => updateVendorField(vendorType, 'popLatitude', e.target.value)}
+                                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                                placeholder="e.g., 28.6139"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Longitude</label>
+                              <input
+                                type="text"
+                                value={vendorData[vendorType]?.popLongitude || ''}
+                                onChange={(e) => updateVendorField(vendorType, 'popLongitude', e.target.value)}
+                                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                                placeholder="e.g., 77.2090"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1959,6 +2071,59 @@ export default function FeasibilityQueuePage() {
         onClose={() => setShowCreateVendorModal(false)}
         onSuccess={() => fetchVendors('', true, 'PENDING_ACCOUNTS,APPROVED')}
       />
+
+      {/* Add New POP Location Modal */}
+      {showAddPopModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setShowAddPopModal(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Add New POP Location</h3>
+              <button onClick={() => setShowAddPopModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">POP Name *</label>
+                <input
+                  type="text"
+                  value={newPopName}
+                  onChange={(e) => setNewPopName(e.target.value)}
+                  placeholder="e.g., POP-Sector 62"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Latitude</label>
+                  <input
+                    type="text"
+                    value={newPopLat}
+                    onChange={(e) => setNewPopLat(e.target.value)}
+                    placeholder="e.g., 28.6139"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Longitude</label>
+                  <input
+                    type="text"
+                    value={newPopLng}
+                    onChange={(e) => setNewPopLng(e.target.value)}
+                    placeholder="e.g., 77.2090"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <Button variant="outline" onClick={() => setShowAddPopModal(false)} className="flex-1">Cancel</Button>
+              <Button onClick={handleAddPop} disabled={popSaving || !newPopName.trim()} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                {popSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                Add POP
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
