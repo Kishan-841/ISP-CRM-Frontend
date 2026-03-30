@@ -296,6 +296,8 @@ export default function DeliveryQueuePage() {
       if (getQtyInt(products.patchChord) > 0) items.push({ productType: 'PATCH_CORD', productId: getModelId(products.patchChord), quantity: getQtyInt(products.patchChord), productName: 'Patch Cord' });
       if (getQtyInt(products.rf) > 0) items.push({ productType: 'RF', productId: getModelId(products.rf), quantity: getQtyInt(products.rf), productName: 'RF' });
       if (getQtyInt(products.fiberRequired) > 0) items.push({ productType: 'FIBER', productId: getModelId(products.fiberRequired), quantity: getQtyInt(products.fiberRequired), productName: 'Fiber' });
+      if (getQtyInt(products.mediaConverter) > 0) items.push({ productType: 'MEDIA_CONVERTER', productId: getModelId(products.mediaConverter), quantity: getQtyInt(products.mediaConverter), productName: 'Media Converter' });
+      if (getQtyInt(products.router) > 0) items.push({ productType: 'ROUTER', productId: getModelId(products.router), quantity: getQtyInt(products.router), productName: 'Router' });
 
       // If items from productItems array exist, use those instead
       if (products.items && Array.isArray(products.items)) {
@@ -668,7 +670,9 @@ export default function DeliveryQueuePage() {
       'CLOSURE': 'CLOSURE',
       'PATCH_CORD': 'PATCH_CORD',
       'RF': 'RF',
-      'FIBER': 'FIBER'
+      'FIBER': 'FIBER',
+      'MEDIA_CONVERTER': 'MEDIA_CONVERTER',
+      'ROUTER': 'ROUTER'
     };
     const category = categoryMap[productType] || productType;
     return storeProducts.filter(p => p.category === category);
@@ -1844,6 +1848,8 @@ export default function DeliveryQueuePage() {
                                 <option value="PATCH_CORD">Patch Cord</option>
                                 <option value="RF">RF</option>
                                 <option value="FIBER">Fiber</option>
+                                <option value="MEDIA_CONVERTER">Media Converter</option>
+                                <option value="ROUTER">Router</option>
                               </select>
                               <select
                                 value={item.productId}
@@ -2020,6 +2026,8 @@ export default function DeliveryQueuePage() {
                             <option value="PATCH_CORD">Patch Cord</option>
                             <option value="RF">RF</option>
                             <option value="FIBER">Fiber</option>
+                            <option value="MEDIA_CONVERTER">Media Converter</option>
+                            <option value="ROUTER">Router</option>
                           </select>
                           <select
                             value={item.productId}

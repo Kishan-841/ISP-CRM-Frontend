@@ -371,6 +371,10 @@ export default function CustomerInvoiceDetailPage() {
       toast.error('Please select bank account');
       return;
     }
+    if (['CHEQUE', 'NEFT', 'ONLINE'].includes(advancePaymentForm.paymentMode) && !advancePaymentForm.provisionalReceiptNo?.trim()) {
+      toast.error('Reference / Transaction No is required');
+      return;
+    }
 
     setIsProcessingAdvancePayment(true);
     try {
@@ -494,6 +498,11 @@ export default function CustomerInvoiceDetailPage() {
     // Validate bank account for CHEQUE/NEFT/ONLINE
     if (!useAdvance && ['CHEQUE', 'NEFT', 'ONLINE'].includes(paymentForm.paymentMode) && !paymentForm.bankAccount) {
       toast.error('Please select bank account');
+      return;
+    }
+    // Validate reference number for CHEQUE/NEFT/ONLINE
+    if (!useAdvance && ['CHEQUE', 'NEFT', 'ONLINE'].includes(paymentForm.paymentMode) && !paymentForm.provisionalReceiptNo?.trim()) {
+      toast.error('Reference / Transaction No is required');
       return;
     }
     // For TDS, only tdsAmount is required; for others, paidAmount is required (unless using advance)
@@ -711,16 +720,7 @@ export default function CustomerInvoiceDetailPage() {
         remarks: creditNoteForm.remarks
       });
 
-      // Show success message with advance payment info if applicable
-      if (response.data.advancePayment) {
-        toast.success(
-          `Credit Note ${response.data.creditNote.creditNoteNumber} created successfully. ` +
-          `${formatCurrency(response.data.advancePayment.amount)} added to advance payment (Receipt: ${response.data.advancePayment.receiptNumber})`,
-          { duration: 6000 }
-        );
-      } else {
-        toast.success(`Credit Note ${response.data.creditNote.creditNoteNumber} created successfully`);
-      }
+      toast.success(`Credit Note ${response.data.creditNote.creditNoteNumber} created and sent for admin approval`);
 
       setShowCreditNoteModal(false);
       fetchCustomerDetail(); // Refresh invoice data
@@ -1662,7 +1662,7 @@ export default function CustomerInvoiceDetailPage() {
                   {/* Provisional Receipt - Show in separate row when bank is shown */}
                   {['CHEQUE', 'NEFT', 'ONLINE'].includes(paymentForm.paymentMode) && (
                     <div>
-                      <Label htmlFor="provisionalReceiptNo">Reference / Transaction No</Label>
+                      <Label htmlFor="provisionalReceiptNo">Reference / Transaction No <span className="text-red-500">*</span></Label>
                       <Input
                         id="provisionalReceiptNo"
                         value={paymentForm.provisionalReceiptNo}
@@ -2664,11 +2664,13 @@ export default function CustomerInvoiceDetailPage() {
                           <div>
                             <p className="font-bold text-lg text-red-600">-{formatCurrency(cn.totalAmount)}</p>
                             <Badge className={
+                              cn.status === 'PENDING_APPROVAL' ? 'bg-amber-100 text-amber-700' :
+                              cn.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
                               cn.status === 'ISSUED' ? 'bg-blue-100 text-blue-700' :
                               cn.status === 'ADJUSTED' ? 'bg-orange-100 text-orange-700' :
                               'bg-emerald-100 text-emerald-700'
                             }>
-                              {cn.status}
+                              {cn.status === 'PENDING_APPROVAL' ? 'Pending Approval' : cn.status}
                             </Badge>
                           </div>
                           <Eye className="h-5 w-5 text-slate-400" />
@@ -2981,7 +2983,7 @@ export default function CustomerInvoiceDetailPage() {
                 {/* Reference - Show in separate row when bank is shown */}
                 {['CHEQUE', 'NEFT', 'ONLINE'].includes(advancePaymentForm.paymentMode) && (
                   <div>
-                    <Label htmlFor="advRefNo2">Reference / Transaction No</Label>
+                    <Label htmlFor="advRefNo2">Reference / Transaction No <span className="text-red-500">*</span></Label>
                     <Input
                       id="advRefNo2"
                       value={advancePaymentForm.provisionalReceiptNo}

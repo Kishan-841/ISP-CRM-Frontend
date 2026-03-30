@@ -426,20 +426,6 @@ export default function AccountsVerificationPage() {
         toast.error('Valid OTC amount is required for approval');
         return;
       }
-      // Validate accounts incharge
-      if (!accountsInchargeMobile || accountsInchargeMobile.trim().length === 0) {
-        toast.error('Accounts incharge mobile is required for approval');
-        return;
-      }
-      if (!accountsInchargeEmail || accountsInchargeEmail.trim().length === 0) {
-        toast.error('Accounts incharge email is required for approval');
-        return;
-      }
-      // Validate BDM name
-      if (!bdmName || bdmName.trim().length === 0) {
-        toast.error('BDM name is required for approval');
-        return;
-      }
       // Validate legal name
       if (!customerLegalName || customerLegalName.trim().length === 0) {
         toast.error('Legal name (as per GST) is required for approval');
@@ -1733,94 +1719,14 @@ export default function AccountsVerificationPage() {
                         </div>
                       </div>
 
-                      {/* PO & Billing Details */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">PO Number</Label>
-                          <Input
-                            value={poNumber}
-                            onChange={(e) => setPoNumber(e.target.value)}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">PO Expiry Date</Label>
-                          <Input
-                            type="date"
-                            value={poExpiryDate}
-                            onChange={(e) => setPoExpiryDate(e.target.value)}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">Bill Date</Label>
-                          <Input
-                            type="date"
-                            value={billDate}
-                            onChange={(e) => setBillDate(e.target.value)}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Contact Details */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">Technical Incharge Mobile</Label>
-                          <Input
-                            value={technicalInchargeMobile}
-                            onChange={(e) => setTechnicalInchargeMobile(e.target.value)}
-                            className="h-9 text-sm mt-1"
-                            maxLength={10}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">Technical Incharge Email</Label>
-                          <Input
-                            type="email"
-                            value={technicalInchargeEmail}
-                            onChange={(e) => setTechnicalInchargeEmail(e.target.value)}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">Accounts Incharge Mobile</Label>
-                          <Input
-                            value={accountsInchargeMobile}
-                            onChange={(e) => setAccountsInchargeMobile(e.target.value)}
-                            className="h-9 text-sm mt-1"
-                            maxLength={10}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">Accounts Incharge Email</Label>
-                          <Input
-                            type="email"
-                            value={accountsInchargeEmail}
-                            onChange={(e) => setAccountsInchargeEmail(e.target.value)}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Manager Details */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">BDM Name</Label>
-                          <Input
-                            value={bdmName}
-                            onChange={(e) => setBdmName(e.target.value)}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">Service Manager</Label>
-                          <Input
-                            value={serviceManager}
-                            onChange={(e) => setServiceManager(e.target.value)}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
+                      {/* PO Details */}
+                      <div>
+                        <Label className="text-xs text-green-700 dark:text-green-400">PO Number</Label>
+                        <Input
+                          value={poNumber}
+                          onChange={(e) => setPoNumber(e.target.value)}
+                          className="h-9 text-sm mt-1"
+                        />
                       </div>
                     </div>
                   ) : (
@@ -1910,68 +1816,12 @@ export default function AccountsVerificationPage() {
                         </div>
                       )}
 
-                      {/* PO & Billing Details */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                        <div>
-                          <p className="text-xs text-green-600 dark:text-green-400">PO Number</p>
-                          <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                            {selectedLead.poNumber || '-'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-green-600 dark:text-green-400">PO Expiry Date</p>
-                          <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                            {selectedLead.poExpiryDate ? new Date(selectedLead.poExpiryDate).toLocaleDateString('en-IN') : '-'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-green-600 dark:text-green-400">Bill Date</p>
-                          <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                            {selectedLead.billDate ? new Date(selectedLead.billDate).toLocaleDateString('en-IN') : '-'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Contact Details */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        <div>
-                          <p className="text-xs text-green-600 dark:text-green-400">Technical Incharge</p>
-                          <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                            {selectedLead.technicalInchargeMobile || selectedLead.technicalInchargeEmail ? (
-                              <>
-                                {selectedLead.technicalInchargeMobile && <span className="flex items-center gap-1"><Phone size={12} /> {selectedLead.technicalInchargeMobile}</span>}
-                                {selectedLead.technicalInchargeEmail && <span className="flex items-center gap-1 text-xs"><Mail size={12} /> {selectedLead.technicalInchargeEmail}</span>}
-                              </>
-                            ) : '-'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-green-600 dark:text-green-400">Accounts Incharge</p>
-                          <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                            {selectedLead.accountsInchargeMobile || selectedLead.accountsInchargeEmail ? (
-                              <>
-                                {selectedLead.accountsInchargeMobile && <span className="flex items-center gap-1"><Phone size={12} /> {selectedLead.accountsInchargeMobile}</span>}
-                                {selectedLead.accountsInchargeEmail && <span className="flex items-center gap-1 text-xs"><Mail size={12} /> {selectedLead.accountsInchargeEmail}</span>}
-                              </>
-                            ) : '-'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Manager Details */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        <div>
-                          <p className="text-xs text-green-600 dark:text-green-400">BDM Name</p>
-                          <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                            {selectedLead.bdmName || '-'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-green-600 dark:text-green-400">Service Manager</p>
-                          <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                            {selectedLead.serviceManager || '-'}
-                          </p>
-                        </div>
+                      {/* PO Details */}
+                      <div>
+                        <p className="text-xs text-green-600 dark:text-green-400">PO Number</p>
+                        <p className="text-sm font-semibold text-green-800 dark:text-green-200">
+                          {selectedLead.poNumber || '-'}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -2403,7 +2253,7 @@ export default function AccountsVerificationPage() {
               {/* Customer Details Form (shown for APPROVED) */}
               {decision === 'APPROVED' && (
                 <div className="space-y-4">
-                  {/* Test Prefill Button - for development/testing */}
+                  {/* Test Prefill Button */}
                   <div className="flex justify-end">
                     <Button
                       type="button"
@@ -2422,88 +2272,88 @@ export default function AccountsVerificationPage() {
                         setPoNumber(poNumber || 'PO-2024-001');
                         setArcAmount(arcAmount || '15000');
                         setOtcAmount(otcAmount || '5000');
-                        setAccountsInchargeMobile(accountsInchargeMobile || '9876543210');
-                        setAccountsInchargeEmail(accountsInchargeEmail || 'accounts@testcompany.com');
-                        setBdmName(bdmName || 'Test BDM');
                         toast.success('Test data prefilled!');
                       }}
                       className="text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
                     >
-                      🧪 Prefill Test Data
+                      Prefill Test Data
                     </Button>
                   </div>
-                  {/* Company & Tax Details */}
-                  <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800">
-                    <h4 className="text-sm font-semibold text-orange-700 dark:text-orange-400 mb-3 flex items-center gap-2">
-                      <Building2 size={16} />
-                      Company & Tax Details
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs text-orange-600 dark:text-orange-400 mb-1 block">Company Name *</Label>
-                        <Input
-                          type="text"
-                          value={companyName}
-                          onChange={(e) => setCompanyName(e.target.value)}
-                          placeholder="Enter company name"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-orange-600 dark:text-orange-400 mb-1 block">GST Number *</Label>
-                        <Input
-                          type="text"
-                          value={customerGstNo}
-                          onChange={(e) => setCustomerGstNo(e.target.value.toUpperCase())}
-                          placeholder="e.g., 27AABCU9603R1ZM"
-                          maxLength={15}
-                          className="h-9 text-sm font-mono uppercase"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-orange-600 dark:text-orange-400 mb-1 block">PAN Card No *</Label>
-                        <Input
-                          type="text"
-                          value={panCardNo}
-                          onChange={(e) => setPanCardNo(e.target.value.toUpperCase())}
-                          placeholder="e.g., AAAAA1234A"
-                          maxLength={10}
-                          className="h-9 text-sm font-mono uppercase"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-orange-600 dark:text-orange-400 mb-1 block">TAN Number *</Label>
-                        <Input
-                          type="text"
-                          value={tanNumber}
-                          onChange={(e) => setTanNumber(e.target.value.toUpperCase())}
-                          placeholder="Enter TAN number"
-                          className="h-9 text-sm font-mono uppercase"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-xs text-orange-600 dark:text-orange-400 mb-1 block">Legal Name (as per GST) *</Label>
-                        <Input
-                          type="text"
-                          value={customerLegalName}
-                          onChange={(e) => setCustomerLegalName(e.target.value)}
-                          placeholder="Enter legal name as per GST certificate"
-                          className="h-9 text-sm"
-                        />
+
+                  {/* Bento Grid Layout */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+
+                    {/* Company & Tax Details - spans full width */}
+                    <div className="lg:col-span-2 p-4 bg-orange-50/60 dark:bg-orange-900/10 rounded-xl border border-orange-200/60 dark:border-orange-800/40">
+                      <h4 className="text-xs font-semibold text-orange-600 dark:text-orange-400 mb-3 flex items-center gap-2 uppercase tracking-wider">
+                        <Building2 size={14} />
+                        Company & Tax Details
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">Company Name *</Label>
+                          <Input
+                            type="text"
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            placeholder="Enter company name"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">GST Number *</Label>
+                          <Input
+                            type="text"
+                            value={customerGstNo}
+                            onChange={(e) => setCustomerGstNo(e.target.value.toUpperCase())}
+                            placeholder="e.g., 27AABCU9603R1ZM"
+                            maxLength={15}
+                            className="h-9 text-sm font-mono uppercase"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">PAN Card No *</Label>
+                          <Input
+                            type="text"
+                            value={panCardNo}
+                            onChange={(e) => setPanCardNo(e.target.value.toUpperCase())}
+                            placeholder="e.g., AAAAA1234A"
+                            maxLength={10}
+                            className="h-9 text-sm font-mono uppercase"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">TAN Number *</Label>
+                          <Input
+                            type="text"
+                            value={tanNumber}
+                            onChange={(e) => setTanNumber(e.target.value.toUpperCase())}
+                            placeholder="Enter TAN number"
+                            className="h-9 text-sm font-mono uppercase"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">Legal Name (as per GST) *</Label>
+                          <Input
+                            type="text"
+                            value={customerLegalName}
+                            onChange={(e) => setCustomerLegalName(e.target.value)}
+                            placeholder="Enter legal name as per GST certificate"
+                            className="h-9 text-sm"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Address Details */}
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                    <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-3 flex items-center gap-2">
-                      <MapPin size={16} />
-                      Address Details
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                        <div className="sm:col-span-3">
-                          <Label className="text-xs text-blue-600 dark:text-blue-400 mb-1 block">Billing Address * (100 char limit)</Label>
+                    {/* Billing Address */}
+                    <div className="p-4 bg-blue-50/60 dark:bg-blue-900/10 rounded-xl border border-blue-200/60 dark:border-blue-800/40">
+                      <h4 className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-3 flex items-center gap-2 uppercase tracking-wider">
+                        <MapPin size={14} />
+                        Billing Address
+                      </h4>
+                      <div className="space-y-2">
+                        <div>
+                          <Label className="text-xs text-blue-600/80 dark:text-blue-400/80 mb-1 block">Address * (100 char limit)</Label>
                           <Input
                             type="text"
                             value={billingAddress}
@@ -2512,23 +2362,31 @@ export default function AccountsVerificationPage() {
                             maxLength={100}
                             className="h-9 text-sm"
                           />
-                          <p className="text-[10px] text-blue-500 mt-0.5">{billingAddress.length}/100 characters</p>
+                          <p className="text-[10px] text-blue-400 mt-0.5">{billingAddress.length}/100 characters</p>
                         </div>
                         <div>
-                          <Label className="text-xs text-blue-600 dark:text-blue-400 mb-1 block">Pincode *</Label>
+                          <Label className="text-xs text-blue-600/80 dark:text-blue-400/80 mb-1 block">Pincode *</Label>
                           <Input
                             type="text"
                             value={billingPincode}
                             onChange={(e) => setBillingPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             placeholder="000000"
                             maxLength={6}
-                            className="h-9 text-sm"
+                            className="h-9 text-sm w-32"
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                        <div className="sm:col-span-3">
-                          <Label className="text-xs text-blue-600 dark:text-blue-400 mb-1 block">Installation Address * (100 char limit)</Label>
+                    </div>
+
+                    {/* Installation Address */}
+                    <div className="p-4 bg-violet-50/60 dark:bg-violet-900/10 rounded-xl border border-violet-200/60 dark:border-violet-800/40">
+                      <h4 className="text-xs font-semibold text-violet-600 dark:text-violet-400 mb-3 flex items-center gap-2 uppercase tracking-wider">
+                        <MapPin size={14} />
+                        Installation Address
+                      </h4>
+                      <div className="space-y-2">
+                        <div>
+                          <Label className="text-xs text-violet-600/80 dark:text-violet-400/80 mb-1 block">Address * (100 char limit)</Label>
                           <Input
                             type="text"
                             value={installationAddress}
@@ -2537,32 +2395,30 @@ export default function AccountsVerificationPage() {
                             maxLength={100}
                             className="h-9 text-sm"
                           />
-                          <p className="text-[10px] text-blue-500 mt-0.5">{installationAddress.length}/100 characters</p>
+                          <p className="text-[10px] text-violet-400 mt-0.5">{installationAddress.length}/100 characters</p>
                         </div>
                         <div>
-                          <Label className="text-xs text-blue-600 dark:text-blue-400 mb-1 block">Pincode *</Label>
+                          <Label className="text-xs text-violet-600/80 dark:text-violet-400/80 mb-1 block">Pincode *</Label>
                           <Input
                             type="text"
                             value={installationPincode}
                             onChange={(e) => setInstallationPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             placeholder="000000"
                             maxLength={6}
-                            className="h-9 text-sm"
+                            className="h-9 text-sm w-32"
                           />
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* PO & Billing Details */}
-                  <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
-                    <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-3 flex items-center gap-2">
-                      <FileText size={16} />
-                      PO & Billing Details
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* PO Number */}
+                    <div className="p-4 bg-amber-50/60 dark:bg-amber-900/10 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
+                      <h4 className="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-3 flex items-center gap-2 uppercase tracking-wider">
+                        <FileText size={14} />
+                        PO Details
+                      </h4>
                       <div>
-                        <Label className="text-xs text-amber-600 dark:text-amber-400 mb-1 block">PO Number *</Label>
+                        <Label className="text-xs text-amber-600/80 dark:text-amber-400/80 mb-1 block">PO Number *</Label>
                         <Input
                           type="text"
                           value={poNumber}
@@ -2571,155 +2427,56 @@ export default function AccountsVerificationPage() {
                           className="h-9 text-sm"
                         />
                       </div>
-                      <div>
-                        <Label className="text-xs text-amber-600 dark:text-amber-400 mb-1 block">PO Expiry Date</Label>
-                        <Input
-                          type="date"
-                          value={poExpiryDate}
-                          onChange={(e) => setPoExpiryDate(e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-amber-600 dark:text-amber-400 mb-1 block">Bill Date</Label>
-                        <Input
-                          type="date"
-                          value={billDate}
-                          onChange={(e) => setBillDate(e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                      </div>
                     </div>
-                  </div>
 
-                  {/* Financial Details */}
-                  <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
-                    <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3 flex items-center gap-2">
-                      <IndianRupee size={16} />
-                      Financial Details (Auto-fetched)
-                    </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div>
-                        <Label className="text-xs text-emerald-600 dark:text-emerald-400 mb-1 block">ARC (Monthly) *</Label>
-                        <Input
-                          type="number"
-                          value={arcAmount}
-                          disabled
-                          className="h-9 text-sm bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-emerald-600 dark:text-emerald-400 mb-1 block">OTC (One-time) *</Label>
-                        <Input
-                          type="number"
-                          value={otcAmount}
-                          disabled
-                          className="h-9 text-sm bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-emerald-600 dark:text-emerald-400 mb-1 block">Advance Amount</Label>
-                        <Input
-                          type="number"
-                          value={advanceAmount}
-                          onChange={(e) => setAdvanceAmount(e.target.value)}
-                          placeholder="Enter advance"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-emerald-600 dark:text-emerald-400 mb-1 block">Payment Terms</Label>
-                        <Input
-                          type="text"
-                          value={paymentTerms}
-                          onChange={(e) => setPaymentTerms(e.target.value)}
-                          placeholder="e.g., Net 30"
-                          className="h-9 text-sm"
-                        />
+                    {/* Financial Details */}
+                    <div className="p-4 bg-emerald-50/60 dark:bg-emerald-900/10 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40">
+                      <h4 className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-3 flex items-center gap-2 uppercase tracking-wider">
+                        <IndianRupee size={14} />
+                        Financial Details
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mb-1 block">ARC (Monthly) *</Label>
+                          <Input
+                            type="number"
+                            value={arcAmount}
+                            disabled
+                            className="h-9 text-sm bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mb-1 block">OTC (One-time) *</Label>
+                          <Input
+                            type="number"
+                            value={otcAmount}
+                            disabled
+                            className="h-9 text-sm bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mb-1 block">Advance Amount</Label>
+                          <Input
+                            type="number"
+                            value={advanceAmount}
+                            onChange={(e) => setAdvanceAmount(e.target.value)}
+                            placeholder="Enter advance"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mb-1 block">Payment Terms</Label>
+                          <Input
+                            type="text"
+                            value={paymentTerms}
+                            onChange={(e) => setPaymentTerms(e.target.value)}
+                            placeholder="e.g., Net 30"
+                            className="h-9 text-sm"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Contact Details */}
-                  <div className="p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl border border-cyan-200 dark:border-cyan-800">
-                    <h4 className="text-sm font-semibold text-cyan-700 dark:text-cyan-400 mb-3 flex items-center gap-2">
-                      <Phone size={16} />
-                      Contact Details
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs text-cyan-600 dark:text-cyan-400 mb-1 block">Technical Incharge Mobile</Label>
-                        <Input
-                          type="tel"
-                          value={technicalInchargeMobile}
-                          onChange={(e) => setTechnicalInchargeMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                          placeholder="Enter mobile number"
-                          maxLength={10}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-cyan-600 dark:text-cyan-400 mb-1 block">Technical Incharge Email</Label>
-                        <Input
-                          type="email"
-                          value={technicalInchargeEmail}
-                          onChange={(e) => setTechnicalInchargeEmail(e.target.value)}
-                          placeholder="Enter email address"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-cyan-600 dark:text-cyan-400 mb-1 block">Accounts Incharge Mobile *</Label>
-                        <Input
-                          type="tel"
-                          value={accountsInchargeMobile}
-                          onChange={(e) => setAccountsInchargeMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                          placeholder="Enter mobile number"
-                          maxLength={10}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-cyan-600 dark:text-cyan-400 mb-1 block">Accounts Incharge Email *</Label>
-                        <Input
-                          type="email"
-                          value={accountsInchargeEmail}
-                          onChange={(e) => setAccountsInchargeEmail(e.target.value)}
-                          placeholder="Enter email address"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Team Details */}
-                  <div className="p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
-                      <User size={16} />
-                      Team Details
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs text-slate-600 dark:text-slate-400 mb-1 block">BDM Name *</Label>
-                        <Input
-                          type="text"
-                          value={bdmName}
-                          onChange={(e) => setBdmName(e.target.value)}
-                          placeholder="Enter BDM name"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-slate-600 dark:text-slate-400 mb-1 block">Service Manager</Label>
-                        <Input
-                          type="text"
-                          value={serviceManager}
-                          onChange={(e) => setServiceManager(e.target.value)}
-                          placeholder="Enter service manager name"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}

@@ -286,14 +286,17 @@ export default function FeasibilityQueuePage() {
   // Category mapping: equipment field name → StoreProductType
   const EQUIPMENT_CATEGORY_MAP = {
     fiberRequired: 'FIBER',
+    ownFiber: 'FIBER',
     switch: 'SWITCH',
     sfp: 'SFP',
     closure: 'CLOSURE',
     patchChord: 'PATCH_CORD',
-    rf: 'RF'
+    rf: 'RF',
+    mediaConverter: 'MEDIA_CONVERTER',
+    router: 'ROUTER'
   };
 
-  const EQUIPMENT_FIELDS = ['fiberRequired', 'switch', 'sfp', 'closure', 'patchChord', 'rf'];
+  const EQUIPMENT_FIELDS = ['fiberRequired', 'ownFiber', 'switch', 'sfp', 'closure', 'patchChord', 'rf', 'mediaConverter', 'router'];
 
   // Fetch data based on active tab
   useEffect(() => {
@@ -311,11 +314,11 @@ export default function FeasibilityQueuePage() {
     setNotes('');
     setVendorType('');
     setVendorData({
-      ownNetwork: { popLocation: '', popLatitude: '', popLongitude: '', fiberRequired: defaultEquipment(), switch: defaultEquipment(), sfp: defaultEquipment(), closure: defaultEquipment(), patchChord: defaultEquipment(), rf: defaultEquipment(), capex: 0 },
-      fiberVendor: { popLocation: '', popLatitude: '', popLongitude: '', vendorName: '', vendorDetails: null, fiberRequired: defaultEquipment(), perMtrCost: '', switch: defaultEquipment(), sfp: defaultEquipment(), closure: defaultEquipment(), patchChord: defaultEquipment(), capex: 0, opex: 0 },
-      commissionVendor: { popLocation: '', popLatitude: '', popLongitude: '', vendorName: '', vendorDetails: null, percentage: '', switch: defaultEquipment(), sfp: defaultEquipment(), closure: defaultEquipment(), patchChord: defaultEquipment(), capex: 0, opex: 0 },
+      ownNetwork: { popLocation: '', popLatitude: '', popLongitude: '', fiberRequired: defaultEquipment(), switch: defaultEquipment(), sfp: defaultEquipment(), closure: defaultEquipment(), patchChord: defaultEquipment(), rf: defaultEquipment(), mediaConverter: defaultEquipment(), router: defaultEquipment(), capex: 0 },
+      fiberVendor: { popLocation: '', popLatitude: '', popLongitude: '', vendorName: '', vendorDetails: null, fiberRequired: defaultEquipment(), perMtrCost: '', ownFiber: defaultEquipment(), switch: defaultEquipment(), sfp: defaultEquipment(), closure: defaultEquipment(), patchChord: defaultEquipment(), mediaConverter: defaultEquipment(), router: defaultEquipment(), capex: 0, opex: 0 },
+      commissionVendor: { popLocation: '', popLatitude: '', popLongitude: '', vendorName: '', vendorDetails: null, percentage: '', ownFiber: defaultEquipment(), switch: defaultEquipment(), sfp: defaultEquipment(), closure: defaultEquipment(), patchChord: defaultEquipment(), mediaConverter: defaultEquipment(), router: defaultEquipment(), capex: 0, opex: 0 },
       thirdParty: { popLocation: '', popLatitude: '', popLongitude: '', vendorName: '', vendorDetails: null, bandwidth: '', arc: '', otc: '' },
-      telco: { popLocation: '', popLatitude: '', popLongitude: '', provider: '', p2pCapacity: '', perMbCost: '', fiberMtrReq: '', costPerMtr: '', fiberRequired: defaultEquipment(), vendorName: '', vendorDetails: null, switch: defaultEquipment(), sfp: defaultEquipment(), closure: defaultEquipment(), patchChord: defaultEquipment(), rf: defaultEquipment(), capex: 0, opex: 0 }
+      telco: { popLocation: '', popLatitude: '', popLongitude: '', provider: '', p2pCapacity: '', perMbCost: '', fiberMtrReq: '', costPerMtr: '', fiberRequired: defaultEquipment(), ownFiber: defaultEquipment(), vendorName: '', vendorDetails: null, switch: defaultEquipment(), sfp: defaultEquipment(), closure: defaultEquipment(), patchChord: defaultEquipment(), rf: defaultEquipment(), mediaConverter: defaultEquipment(), router: defaultEquipment(), capex: 0, opex: 0 }
     });
   };
 
@@ -416,10 +419,10 @@ export default function FeasibilityQueuePage() {
       setVendorData(newData);
     }
   }, [
-    vendorData.ownNetwork?.fiberRequired, vendorData.ownNetwork?.switch, vendorData.ownNetwork?.sfp, vendorData.ownNetwork?.closure, vendorData.ownNetwork?.patchChord, vendorData.ownNetwork?.rf,
-    vendorData.fiberVendor?.fiberRequired, vendorData.fiberVendor?.perMtrCost, vendorData.fiberVendor?.switch, vendorData.fiberVendor?.sfp, vendorData.fiberVendor?.closure, vendorData.fiberVendor?.patchChord,
-    vendorData.commissionVendor?.percentage, vendorData.commissionVendor?.switch, vendorData.commissionVendor?.sfp, vendorData.commissionVendor?.closure, vendorData.commissionVendor?.patchChord, selectedLead?.tentativePrice, selectedLead?.arcAmount,
-    vendorData.telco?.fiberRequired, vendorData.telco?.switch, vendorData.telco?.sfp, vendorData.telco?.closure, vendorData.telco?.patchChord, vendorData.telco?.rf, vendorData.telco?.p2pCapacity, vendorData.telco?.perMbCost, vendorData.telco?.fiberMtrReq, vendorData.telco?.costPerMtr
+    vendorData.ownNetwork?.fiberRequired, vendorData.ownNetwork?.switch, vendorData.ownNetwork?.sfp, vendorData.ownNetwork?.closure, vendorData.ownNetwork?.patchChord, vendorData.ownNetwork?.rf, vendorData.ownNetwork?.mediaConverter, vendorData.ownNetwork?.router,
+    vendorData.fiberVendor?.fiberRequired, vendorData.fiberVendor?.perMtrCost, vendorData.fiberVendor?.ownFiber, vendorData.fiberVendor?.switch, vendorData.fiberVendor?.sfp, vendorData.fiberVendor?.closure, vendorData.fiberVendor?.patchChord, vendorData.fiberVendor?.mediaConverter, vendorData.fiberVendor?.router,
+    vendorData.commissionVendor?.percentage, vendorData.commissionVendor?.ownFiber, vendorData.commissionVendor?.switch, vendorData.commissionVendor?.sfp, vendorData.commissionVendor?.closure, vendorData.commissionVendor?.patchChord, vendorData.commissionVendor?.mediaConverter, vendorData.commissionVendor?.router, selectedLead?.tentativePrice, selectedLead?.arcAmount,
+    vendorData.telco?.fiberRequired, vendorData.telco?.ownFiber, vendorData.telco?.switch, vendorData.telco?.sfp, vendorData.telco?.closure, vendorData.telco?.patchChord, vendorData.telco?.rf, vendorData.telco?.mediaConverter, vendorData.telco?.router, vendorData.telco?.p2pCapacity, vendorData.telco?.perMbCost, vendorData.telco?.fiberMtrReq, vendorData.telco?.costPerMtr
   ]);
 
   const handleViewDetails = async (lead) => {
@@ -1464,7 +1467,9 @@ export default function FeasibilityQueuePage() {
                             { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
                             { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
                             { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' },
-                            { field: 'rf', label: 'RF', category: 'RF', unit: 'nos' }
+                            { field: 'rf', label: 'RF', category: 'RF', unit: 'nos' },
+                            { field: 'mediaConverter', label: 'Media Converter', category: 'MEDIA_CONVERTER', unit: 'nos' },
+                            { field: 'router', label: 'Router', category: 'ROUTER', unit: 'nos' }
                           ].map(({ field, label, category, unit }) => {
                             const products = getProductsByCategory(category);
                             const eq = vendorData.ownNetwork[field] || {};
@@ -1555,98 +1560,103 @@ export default function FeasibilityQueuePage() {
                               </p>
                             )}
                           </div>
-                          {/* Fiber - manual per mtr cost */}
-                          <div className="grid grid-cols-12 gap-2 items-end">
-                            <div className="col-span-4">
-                              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Fiber Required (Mtr)</label>
-                              <input
-                                type="number"
-                                value={vendorData.fiberVendor.fiberRequired?.quantity || ''}
-                                onChange={(e) => updateEquipmentField('fiberVendor', 'fiberRequired', { quantity: e.target.value })}
-                                className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                placeholder="0"
-                              />
-                            </div>
-                            <div className="col-span-4">
-                              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Per Mtr Cost (₹)</label>
-                              <input
-                                type="number"
-                                value={vendorData.fiberVendor.perMtrCost}
-                                onChange={(e) => updateVendorField('fiberVendor', 'perMtrCost', e.target.value)}
-                                className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                placeholder="0"
-                              />
-                            </div>
-                            <div className="col-span-4">
-                              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Fiber Amount (₹)</label>
-                              <div className="w-full px-2 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
-                                ₹{((parseFloat(vendorData.fiberVendor.fiberRequired?.quantity) || 0) * (parseFloat(vendorData.fiberVendor.perMtrCost) || 0)).toLocaleString('en-IN')}
-                              </div>
-                            </div>
-                          </div>
-                          {/* Equipment with dropdowns */}
-                          {[
-                            { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
-                            { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
-                            { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
-                            { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' }
-                          ].map(({ field, label, category, unit }) => {
-                            const products = getProductsByCategory(category);
-                            const eq = vendorData.fiberVendor[field] || {};
-                            return (
-                              <div key={field} className="grid grid-cols-12 gap-2 items-end">
-                                <div className="col-span-5">
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label} - Model</label>
-                                  <select
-                                    value={eq.modelId || ''}
-                                    onChange={(e) => {
-                                      const product = storeProducts.find(p => p.id === e.target.value);
-                                      updateEquipmentField('fiberVendor', field, {
-                                        modelId: product?.id || '',
-                                        modelNumber: product?.modelNumber || '',
-                                        unitPrice: product?.price || 0,
-                                        quantity: eq.quantity || ''
-                                      });
-                                    }}
-                                    className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                  >
-                                    <option value="">Select Model</option>
-                                    {products.map(p => (
-                                      <option key={p.id} value={p.id}>{p.brandName} - {p.modelNumber} (₹{p.price}/{p.unit})</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div className="col-span-3">
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Qty ({unit})</label>
-                                  <input
-                                    type="number"
-                                    value={eq.quantity || ''}
-                                    onChange={(e) => updateEquipmentField('fiberVendor', field, { quantity: e.target.value })}
-                                    className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div className="col-span-4">
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
-                                  <div className="w-full px-2 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
-                                    ₹{(eq.total || 0).toLocaleString('en-IN')}
+
+                          {/* CAPEX Section */}
+                          <div className="p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-3">
+                            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">CAPEX - Equipment</p>
+                            {[
+                              { field: 'ownFiber', label: 'Own Fiber', category: 'FIBER', unit: 'mtr' },
+                              { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
+                              { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
+                              { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
+                              { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' },
+                              { field: 'mediaConverter', label: 'Media Converter', category: 'MEDIA_CONVERTER', unit: 'nos' },
+                              { field: 'router', label: 'Router', category: 'ROUTER', unit: 'nos' }
+                            ].map(({ field, label, category, unit }) => {
+                              const products = getProductsByCategory(category);
+                              const eq = vendorData.fiberVendor[field] || {};
+                              return (
+                                <div key={field} className="grid grid-cols-12 gap-2 items-end">
+                                  <div className="col-span-5">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label} - Model</label>
+                                    <select
+                                      value={eq.modelId || ''}
+                                      onChange={(e) => {
+                                        const product = storeProducts.find(p => p.id === e.target.value);
+                                        updateEquipmentField('fiberVendor', field, {
+                                          modelId: product?.id || '',
+                                          modelNumber: product?.modelNumber || '',
+                                          unitPrice: product?.price || 0,
+                                          quantity: eq.quantity || ''
+                                        });
+                                      }}
+                                      className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                    >
+                                      <option value="">Select Model</option>
+                                      {products.map(p => (
+                                        <option key={p.id} value={p.id}>{p.brandName} - {p.modelNumber} (₹{p.price}/{p.unit})</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="col-span-3">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Qty ({unit})</label>
+                                    <input
+                                      type="number"
+                                      value={eq.quantity || ''}
+                                      onChange={(e) => updateEquipmentField('fiberVendor', field, { quantity: e.target.value })}
+                                      className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div className="col-span-4">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
+                                    <div className="w-full px-2 py-2 bg-white/60 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
+                                      ₹{(eq.total || 0).toLocaleString('en-IN')}
+                                    </div>
                                   </div>
                                 </div>
+                              );
+                            })}
+                            <div className="pt-2 border-t border-emerald-200 dark:border-emerald-800 flex justify-between items-center">
+                              <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Total CAPEX</span>
+                              <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{(vendorData.fiberVendor.capex || 0).toLocaleString('en-IN')}</span>
+                            </div>
+                          </div>
+
+                          {/* OPEX Section */}
+                          <div className="p-3 bg-orange-50/50 dark:bg-orange-900/10 rounded-xl border border-orange-200 dark:border-orange-800 space-y-3">
+                            <p className="text-xs font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wide">OPEX - Fiber Cost</p>
+                            <div className="grid grid-cols-12 gap-2 items-end">
+                              <div className="col-span-4">
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Fiber Required (Mtr)</label>
+                                <input
+                                  type="number"
+                                  value={vendorData.fiberVendor.fiberRequired?.quantity || ''}
+                                  onChange={(e) => updateEquipmentField('fiberVendor', 'fiberRequired', { quantity: e.target.value })}
+                                  className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                  placeholder="0"
+                                />
                               </div>
-                            );
-                          })}
-                          <div className="mt-2 grid grid-cols-2 gap-3">
-                            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Total CAPEX</span>
-                                <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{(vendorData.fiberVendor.capex || 0).toLocaleString('en-IN')}</span>
+                              <div className="col-span-4">
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Per Mtr Cost (₹)</label>
+                                <input
+                                  type="number"
+                                  value={vendorData.fiberVendor.perMtrCost}
+                                  onChange={(e) => updateVendorField('fiberVendor', 'perMtrCost', e.target.value)}
+                                  className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="col-span-4">
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Fiber Amount (₹)</label>
+                                <div className="w-full px-2 py-2 bg-white/60 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
+                                  ₹{((parseFloat(vendorData.fiberVendor.fiberRequired?.quantity) || 0) * (parseFloat(vendorData.fiberVendor.perMtrCost) || 0)).toLocaleString('en-IN')}
+                                </div>
                               </div>
                             </div>
-                            <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-bold text-orange-700 dark:text-orange-300">Total OPEX (Fiber Cost)</span>
-                                <span className="text-lg font-bold text-orange-700 dark:text-orange-300">₹{(vendorData.fiberVendor.opex || 0).toLocaleString('en-IN')}</span>
-                              </div>
+                            <div className="pt-2 border-t border-orange-200 dark:border-orange-800 flex justify-between items-center">
+                              <span className="text-sm font-bold text-orange-700 dark:text-orange-300">Total OPEX</span>
+                              <span className="text-lg font-bold text-orange-700 dark:text-orange-300">₹{(vendorData.fiberVendor.opex || 0).toLocaleString('en-IN')}</span>
                             </div>
                           </div>
                         </div>
@@ -1688,75 +1698,83 @@ export default function FeasibilityQueuePage() {
                               </p>
                             )}
                           </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Percentage (%)</label>
-                            <input
-                              type="number"
-                              value={vendorData.commissionVendor.percentage}
-                              onChange={(e) => updateVendorField('commissionVendor', 'percentage', e.target.value)}
-                              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                              placeholder="0"
-                            />
-                          </div>
-                          {/* Equipment with dropdowns */}
-                          {[
-                            { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
-                            { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
-                            { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
-                            { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' }
-                          ].map(({ field, label, category, unit }) => {
-                            const products = getProductsByCategory(category);
-                            const eq = vendorData.commissionVendor[field] || {};
-                            return (
-                              <div key={field} className="grid grid-cols-12 gap-2 items-end">
-                                <div className="col-span-5">
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label} - Model</label>
-                                  <select
-                                    value={eq.modelId || ''}
-                                    onChange={(e) => {
-                                      const product = storeProducts.find(p => p.id === e.target.value);
-                                      updateEquipmentField('commissionVendor', field, {
-                                        modelId: product?.id || '',
-                                        modelNumber: product?.modelNumber || '',
-                                        unitPrice: product?.price || 0,
-                                        quantity: eq.quantity || ''
-                                      });
-                                    }}
-                                    className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                  >
-                                    <option value="">Select Model</option>
-                                    {products.map(p => (
-                                      <option key={p.id} value={p.id}>{p.brandName} - {p.modelNumber} (₹{p.price}/{p.unit})</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div className="col-span-3">
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Qty ({unit})</label>
-                                  <input
-                                    type="number"
-                                    value={eq.quantity || ''}
-                                    onChange={(e) => updateEquipmentField('commissionVendor', field, { quantity: e.target.value })}
-                                    className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div className="col-span-4">
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
-                                  <div className="w-full px-2 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
-                                    ₹{(eq.total || 0).toLocaleString('en-IN')}
+
+                          {/* CAPEX Section */}
+                          <div className="p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-3">
+                            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">CAPEX - Equipment</p>
+                            {[
+                              { field: 'ownFiber', label: 'Own Fiber', category: 'FIBER', unit: 'mtr' },
+                              { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
+                              { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
+                              { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
+                              { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' },
+                              { field: 'mediaConverter', label: 'Media Converter', category: 'MEDIA_CONVERTER', unit: 'nos' },
+                              { field: 'router', label: 'Router', category: 'ROUTER', unit: 'nos' }
+                            ].map(({ field, label, category, unit }) => {
+                              const products = getProductsByCategory(category);
+                              const eq = vendorData.commissionVendor[field] || {};
+                              return (
+                                <div key={field} className="grid grid-cols-12 gap-2 items-end">
+                                  <div className="col-span-5">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label} - Model</label>
+                                    <select
+                                      value={eq.modelId || ''}
+                                      onChange={(e) => {
+                                        const product = storeProducts.find(p => p.id === e.target.value);
+                                        updateEquipmentField('commissionVendor', field, {
+                                          modelId: product?.id || '',
+                                          modelNumber: product?.modelNumber || '',
+                                          unitPrice: product?.price || 0,
+                                          quantity: eq.quantity || ''
+                                        });
+                                      }}
+                                      className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                    >
+                                      <option value="">Select Model</option>
+                                      {products.map(p => (
+                                        <option key={p.id} value={p.id}>{p.brandName} - {p.modelNumber} (₹{p.price}/{p.unit})</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="col-span-3">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Qty ({unit})</label>
+                                    <input
+                                      type="number"
+                                      value={eq.quantity || ''}
+                                      onChange={(e) => updateEquipmentField('commissionVendor', field, { quantity: e.target.value })}
+                                      className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div className="col-span-4">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
+                                    <div className="w-full px-2 py-2 bg-white/60 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
+                                      ₹{(eq.total || 0).toLocaleString('en-IN')}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                          <div className="mt-2 grid grid-cols-2 gap-3">
-                            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Total CAPEX</span>
-                                <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{(vendorData.commissionVendor.capex || 0).toLocaleString('en-IN')}</span>
-                              </div>
+                              );
+                            })}
+                            <div className="pt-2 border-t border-emerald-200 dark:border-emerald-800 flex justify-between items-center">
+                              <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Total CAPEX</span>
+                              <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{(vendorData.commissionVendor.capex || 0).toLocaleString('en-IN')}</span>
                             </div>
-                            <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                          </div>
+
+                          {/* OPEX Section */}
+                          <div className="p-3 bg-orange-50/50 dark:bg-orange-900/10 rounded-xl border border-orange-200 dark:border-orange-800 space-y-3">
+                            <p className="text-xs font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wide">OPEX - Commission</p>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Percentage (%)</label>
+                              <input
+                                type="number"
+                                value={vendorData.commissionVendor.percentage}
+                                onChange={(e) => updateVendorField('commissionVendor', 'percentage', e.target.value)}
+                                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                placeholder="0"
+                              />
+                            </div>
+                            <div className="pt-2 border-t border-orange-200 dark:border-orange-800">
                               <div className="flex justify-between items-center">
                                 <span className="text-sm font-bold text-orange-700 dark:text-orange-300">Total OPEX</span>
                                 <span className="text-lg font-bold text-orange-700 dark:text-orange-300">₹{(vendorData.commissionVendor.opex || 0).toLocaleString('en-IN')}</span>
@@ -1889,123 +1907,133 @@ export default function FeasibilityQueuePage() {
                               </p>
                             )}
                           </div>
-                          <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                            <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-2">P2P Details</p>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">P2P Capacity (MB)</label>
-                                <input
-                                  type="number"
-                                  value={vendorData.telco.p2pCapacity}
-                                  onChange={(e) => updateVendorField('telco', 'p2pCapacity', e.target.value)}
-                                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                  placeholder="e.g. 100"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Per MB Cost (₹)</label>
-                                <input
-                                  type="number"
-                                  value={vendorData.telco.perMbCost}
-                                  onChange={(e) => updateVendorField('telco', 'perMbCost', e.target.value)}
-                                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                  placeholder="0"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          {vendorData.telco.vendorDetails && (
-                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                              <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2">Vendor Fiber Details</p>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Fiber Mtr Req</label>
-                                  <input
-                                    type="number"
-                                    value={vendorData.telco.fiberMtrReq}
-                                    onChange={(e) => updateVendorField('telco', 'fiberMtrReq', e.target.value)}
-                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Cost Per Mtr (₹)</label>
-                                  <input
-                                    type="number"
-                                    value={vendorData.telco.costPerMtr}
-                                    onChange={(e) => updateVendorField('telco', 'costPerMtr', e.target.value)}
-                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                    placeholder="0"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          {/* Equipment with dropdowns */}
-                          {[
-                            { field: 'fiberRequired', label: 'Fiber', category: 'FIBER', unit: 'mtr' },
-                            { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
-                            { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
-                            { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
-                            { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' },
-                            { field: 'rf', label: 'RF', category: 'RF', unit: 'nos' }
-                          ].map(({ field, label, category, unit }) => {
-                            const products = getProductsByCategory(category);
-                            const eq = vendorData.telco[field] || {};
-                            return (
-                              <div key={field} className="grid grid-cols-12 gap-2 items-end">
-                                <div className="col-span-5">
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label} - Model</label>
-                                  <select
-                                    value={eq.modelId || ''}
-                                    onChange={(e) => {
-                                      const product = storeProducts.find(p => p.id === e.target.value);
-                                      updateEquipmentField('telco', field, {
-                                        modelId: product?.id || '',
-                                        modelNumber: product?.modelNumber || '',
-                                        unitPrice: product?.price || 0,
-                                        quantity: eq.quantity || ''
-                                      });
-                                    }}
-                                    className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                  >
-                                    <option value="">Select Model</option>
-                                    {products.map(p => (
-                                      <option key={p.id} value={p.id}>{p.brandName} - {p.modelNumber} (₹{p.price}/{p.unit})</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div className="col-span-3">
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Qty ({unit})</label>
-                                  <input
-                                    type="number"
-                                    value={eq.quantity || ''}
-                                    onChange={(e) => updateEquipmentField('telco', field, { quantity: e.target.value })}
-                                    className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div className="col-span-4">
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
-                                  <div className="w-full px-2 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
-                                    ₹{(eq.total || 0).toLocaleString('en-IN')}
+                          {/* CAPEX Section */}
+                          <div className="p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-3">
+                            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">CAPEX - Equipment</p>
+                            {[
+                              { field: 'fiberRequired', label: 'Fiber', category: 'FIBER', unit: 'mtr' },
+                              { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
+                              { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
+                              { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
+                              { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' },
+                              { field: 'rf', label: 'RF', category: 'RF', unit: 'nos' },
+                              { field: 'mediaConverter', label: 'Media Converter', category: 'MEDIA_CONVERTER', unit: 'nos' },
+                              { field: 'router', label: 'Router', category: 'ROUTER', unit: 'nos' }
+                            ].map(({ field, label, category, unit }) => {
+                              const products = getProductsByCategory(category);
+                              const eq = vendorData.telco[field] || {};
+                              return (
+                                <div key={field} className="grid grid-cols-12 gap-2 items-end">
+                                  <div className="col-span-5">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label} - Model</label>
+                                    <select
+                                      value={eq.modelId || ''}
+                                      onChange={(e) => {
+                                        const product = storeProducts.find(p => p.id === e.target.value);
+                                        updateEquipmentField('telco', field, {
+                                          modelId: product?.id || '',
+                                          modelNumber: product?.modelNumber || '',
+                                          unitPrice: product?.price || 0,
+                                          quantity: eq.quantity || ''
+                                        });
+                                      }}
+                                      className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                    >
+                                      <option value="">Select Model</option>
+                                      {products.map(p => (
+                                        <option key={p.id} value={p.id}>{p.brandName} - {p.modelNumber} (₹{p.price}/{p.unit})</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="col-span-3">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Qty ({unit})</label>
+                                    <input
+                                      type="number"
+                                      value={eq.quantity || ''}
+                                      onChange={(e) => updateEquipmentField('telco', field, { quantity: e.target.value })}
+                                      className="w-full px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div className="col-span-4">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
+                                    <div className="w-full px-2 py-2 bg-white/60 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
+                                      ₹{(eq.total || 0).toLocaleString('en-IN')}
+                                    </div>
                                   </div>
                                 </div>
+                              );
+                            })}
+                            <div className="pt-2 border-t border-emerald-200 dark:border-emerald-800 flex justify-between items-center">
+                              <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Total CAPEX</span>
+                              <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{(vendorData.telco.capex || 0).toLocaleString('en-IN')}</span>
+                            </div>
+                          </div>
+
+                          {/* OPEX Section */}
+                          <div className="p-3 bg-orange-50/50 dark:bg-orange-900/10 rounded-xl border border-orange-200 dark:border-orange-800 space-y-3">
+                            <p className="text-xs font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wide">OPEX - Recurring Cost</p>
+                            <div className="p-3 bg-white/60 dark:bg-slate-800/60 rounded-lg space-y-2">
+                              <p className="text-xs font-semibold text-orange-700 dark:text-orange-300">P2P Details</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">P2P Capacity (MB)</label>
+                                  <input
+                                    type="number"
+                                    value={vendorData.telco.p2pCapacity}
+                                    onChange={(e) => updateVendorField('telco', 'p2pCapacity', e.target.value)}
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                    placeholder="e.g. 100"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Per MB Cost (₹)</label>
+                                  <input
+                                    type="number"
+                                    value={vendorData.telco.perMbCost}
+                                    onChange={(e) => updateVendorField('telco', 'perMbCost', e.target.value)}
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                    placeholder="0"
+                                  />
+                                </div>
                               </div>
-                            );
-                          })}
-                          <div className="mt-2 grid grid-cols-2 gap-3">
-                            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Total CAPEX</span>
-                                <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{(vendorData.telco.capex || 0).toLocaleString('en-IN')}</span>
+                              <div className="text-xs text-orange-600 dark:text-orange-400">
+                                P2P Cost: ₹{((parseFloat(vendorData.telco.p2pCapacity) || 0) * (parseFloat(vendorData.telco.perMbCost) || 0)).toLocaleString('en-IN')}
                               </div>
                             </div>
-                            <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-bold text-orange-700 dark:text-orange-300">Total OPEX</span>
-                                <span className="text-lg font-bold text-orange-700 dark:text-orange-300">₹{(vendorData.telco.opex || 0).toLocaleString('en-IN')}</span>
+                            {vendorData.telco.vendorDetails && (
+                              <div className="p-3 bg-white/60 dark:bg-slate-800/60 rounded-lg space-y-2">
+                                <p className="text-xs font-semibold text-orange-700 dark:text-orange-300">Vendor Fiber Details</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Fiber Mtr Req</label>
+                                    <input
+                                      type="number"
+                                      value={vendorData.telco.fiberMtrReq}
+                                      onChange={(e) => updateVendorField('telco', 'fiberMtrReq', e.target.value)}
+                                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Cost Per Mtr (₹)</label>
+                                    <input
+                                      type="number"
+                                      value={vendorData.telco.costPerMtr}
+                                      onChange={(e) => updateVendorField('telco', 'costPerMtr', e.target.value)}
+                                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="text-xs text-orange-600 dark:text-orange-400">
+                                  Fiber Cost: ₹{((parseFloat(vendorData.telco.fiberMtrReq) || 0) * (parseFloat(vendorData.telco.costPerMtr) || 0)).toLocaleString('en-IN')}
+                                </div>
                               </div>
+                            )}
+                            <div className="pt-2 border-t border-orange-200 dark:border-orange-800 flex justify-between items-center">
+                              <span className="text-sm font-bold text-orange-700 dark:text-orange-300">Total OPEX</span>
+                              <span className="text-lg font-bold text-orange-700 dark:text-orange-300">₹{(vendorData.telco.opex || 0).toLocaleString('en-IN')}</span>
                             </div>
                           </div>
                         </div>

@@ -10,7 +10,6 @@ import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { Upload, X, Paperclip, ExternalLink, ArrowRight } from 'lucide-react';
 import { SERVICE_ORDER_TYPE_CONFIG } from '@/lib/statusConfig';
-import { formatCurrency } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
 
 const typeBadgeColors = Object.fromEntries(
@@ -141,21 +140,6 @@ export default function NocOrderRequests() {
       }
     },
     {
-      key: 'arc', label: 'ARC',
-      render: (row) => {
-        if (row.orderType === 'DISCONNECTION') {
-          return <span className="text-red-500 text-sm">-</span>;
-        }
-        return (
-          <div className="text-sm flex items-center gap-1">
-            <span>{formatCurrency(row.currentArc)}</span>
-            <ArrowRight className="w-3 h-3 text-slate-400" />
-            <span className="font-medium">{formatCurrency(row.newArc)}</span>
-          </div>
-        );
-      }
-    },
-    {
       key: 'attachments', label: 'PO Docs',
       render: (row) => {
         const files = Array.isArray(row.attachments) ? row.attachments : [];
@@ -263,14 +247,6 @@ export default function NocOrderRequests() {
                       {processOrder.currentBandwidth || '?'} Mbps
                       <ArrowRight className="w-3 h-3 text-slate-400" />
                       <span className="font-medium">{processOrder.newBandwidth || '?'} Mbps</span>
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">ARC</span>
-                    <span className="flex items-center gap-1">
-                      {formatCurrency(processOrder.currentArc)}
-                      <ArrowRight className="w-3 h-3 text-slate-400" />
-                      <span className="font-medium">{formatCurrency(processOrder.newArc)}</span>
                     </span>
                   </div>
                 </>

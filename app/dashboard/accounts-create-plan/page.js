@@ -465,6 +465,8 @@ export default function AccountsCreatePlanPage() {
       price: calculatedPrice,
       isActive: lead.actualPlanIsActive ?? true,
       startDate: lead.actualPlanStartDate ? new Date(lead.actualPlanStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      poNumber: lead.poNumber || '',
+      poExpiryDate: lead.poExpiryDate ? new Date(lead.poExpiryDate).toISOString().split('T')[0] : '',
       notes: lead.actualPlanNotes || ''
     });
     setShowModal(true);
@@ -491,6 +493,8 @@ export default function AccountsCreatePlanPage() {
       price: calculatedPrice,
       isActive: lead.actualPlanIsActive ?? true,
       startDate: lead.actualPlanStartDate ? new Date(lead.actualPlanStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      poNumber: lead.poNumber || '',
+      poExpiryDate: lead.poExpiryDate ? new Date(lead.poExpiryDate).toISOString().split('T')[0] : '',
       notes: lead.actualPlanNotes || ''
     });
     setShowModal(true);
@@ -547,6 +551,8 @@ export default function AccountsCreatePlanPage() {
       price: '',
       isActive: true,
       startDate: new Date().toISOString().split('T')[0],
+      poNumber: '',
+      poExpiryDate: '',
       notes: ''
     });
     setUpgradeForm({
@@ -602,6 +608,14 @@ export default function AccountsCreatePlanPage() {
       toast.error('Plan name and bandwidth are required');
       return;
     }
+    if (!planForm.poNumber || !planForm.poNumber.trim()) {
+      toast.error('PO Number is required');
+      return;
+    }
+    if (!planForm.poExpiryDate) {
+      toast.error('PO Expiry Date is required');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -621,11 +635,13 @@ export default function AccountsCreatePlanPage() {
         bandwidth: parseInt(planForm.bandwidth),
         uploadBandwidth: planForm.uploadBandwidth ? parseInt(planForm.uploadBandwidth) : null,
         validityDays: parseInt(planForm.billingCycle),
-        billingCycle: getBillingCycleEnum(planForm.billingCycle), // Send the enum value
+        billingCycle: getBillingCycleEnum(planForm.billingCycle),
         billingType: planForm.billingType,
         price: planForm.price ? parseFloat(planForm.price) : null,
         isActive: planForm.isActive,
         startDate: planForm.startDate || null,
+        poNumber: planForm.poNumber || null,
+        poExpiryDate: planForm.poExpiryDate || null,
         notes: planForm.notes || null
       });
 
@@ -1408,6 +1424,27 @@ export default function AccountsCreatePlanPage() {
                       disabled={modalMode === 'view'}
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="poNumber">PO Number <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="poNumber"
+                      type="text"
+                      value={planForm.poNumber}
+                      onChange={(e) => handleFormChange('poNumber', e.target.value)}
+                      placeholder="Enter PO number"
+                      disabled={modalMode === 'view'}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="poExpiryDate">PO Expiry Date <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="poExpiryDate"
+                      type="date"
+                      value={planForm.poExpiryDate}
+                      onChange={(e) => handleFormChange('poExpiryDate', e.target.value)}
+                      disabled={modalMode === 'view'}
+                    />
+                  </div>
                   <div className="flex items-center gap-3 pt-6">
                     <Label htmlFor="isActive" className="cursor-pointer">Active Status</Label>
                     <button
@@ -1526,7 +1563,7 @@ export default function AccountsCreatePlanPage() {
                 </Button>
                 <Button
                   onClick={handleCreatePlan}
-                  disabled={isSubmitting || !planForm.planName || !planForm.bandwidth}
+                  disabled={isSubmitting || !planForm.planName || !planForm.bandwidth || !planForm.poNumber?.trim() || !planForm.poExpiryDate}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   size="sm"
                 >

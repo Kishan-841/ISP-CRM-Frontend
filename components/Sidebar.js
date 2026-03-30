@@ -287,6 +287,7 @@ export default function Sidebar() {
         { name: 'Invoice Report', path: '/dashboard/accounts-dashboard/invoice-report' },
         { name: 'Outstanding Report', path: '/dashboard/accounts-dashboard/outstanding-report' },
         { name: 'Credit Note Report', path: '/dashboard/accounts-dashboard/credit-note-report' },
+        { name: 'CN Approvals', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
         { name: 'Business Impact', path: '/dashboard/accounts-dashboard/business-impact' },
         { name: 'Ageing Report', path: '/dashboard/accounts-dashboard/ageing-report' },
         { name: 'Tax Report (TDS)', path: '/dashboard/accounts-dashboard/tax-report' },
@@ -365,8 +366,8 @@ export default function Sidebar() {
       name: 'Approvals',
       icon: CheckCircle2,
       menuKey: 'masterApprovals',
-      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) > 0
-        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0)
+      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) > 0
+        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0)
         : null,
       submenu: [
         { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
@@ -374,6 +375,7 @@ export default function Sidebar() {
         { name: 'Goods Receipt', path: '/dashboard/goods-receipt' },
         { name: 'Delivery Approval', path: '/dashboard/delivery-request-approval', badge: counts.deliveryRequestPending > 0 ? counts.deliveryRequestPending : null },
         { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.orderApprovalPending > 0 ? counts.orderApprovalPending : null },
+        { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
         { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
         { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
       ]
@@ -457,6 +459,7 @@ export default function Sidebar() {
     // OPS Team-only items
     ...(isOpsTeam ? [
       { name: 'OPS Approval Queue', path: '/dashboard/ops-approval', icon: FileText, badge: counts.opsPending > 0 ? counts.opsPending : null },
+      { name: 'Installation Assignment', path: '/dashboard/ops-installation', icon: Package, badge: counts.installationPending > 0 ? counts.installationPending : null },
     ] : []),
     // Super Admin 2-only items
     ...(isSuperAdmin2 ? [
@@ -513,10 +516,10 @@ export default function Sidebar() {
       { name: 'Business Impact', path: '/dashboard/sam-head/business-impact', icon: TrendingDown },
     ] : []),
     // Complaint Management
-    ...(isSuperAdmin || isNOC || isSupportTeam || isFeasibilityTeam || isAccountsTeam ? [
+    ...(isSuperAdmin || isNOC || isSupportTeam || isOpsTeam || isAccountsTeam ? [
       { name: 'Complaints', path: '/dashboard/complaints', icon: Headphones, badge: ((counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0)) > 0 ? (counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0) : null },
     ] : []),
-    ...(isSuperAdmin || isNOC || isSupportTeam || isFeasibilityTeam || isAccountsTeam ? [
+    ...(isSuperAdmin || isNOC || isSupportTeam || isOpsTeam || isAccountsTeam ? [
       { name: 'Customer Complaints', path: '/dashboard/customer-complaints', icon: Users },
     ] : []),
     // SAM Head-only items
@@ -573,8 +576,8 @@ export default function Sidebar() {
         name: 'Approvals',
         icon: CheckCircle2,
         menuKey: 'approvals',
-        badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) > 0
-          ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0)
+        badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) > 0
+          ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0)
           : null,
         submenu: [
           { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
@@ -582,6 +585,7 @@ export default function Sidebar() {
           { name: 'Goods Receipt', path: '/dashboard/goods-receipt' },
           { name: 'Delivery Approval', path: '/dashboard/delivery-request-approval', badge: counts.deliveryRequestPending > 0 ? counts.deliveryRequestPending : null },
           { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.orderApprovalPending > 0 ? counts.orderApprovalPending : null },
+          { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
           { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
           { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
         ]

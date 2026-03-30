@@ -25,6 +25,13 @@ import {
   User,
   Briefcase,
   MapPin,
+  BarChart3,
+  TrendingUp,
+  ChevronDown,
+  ChevronRight,
+  Zap,
+  Clock,
+  XCircle,
 } from 'lucide-react';
 import TabBar from '@/components/TabBar';
 import { PageHeader } from '@/components/PageHeader';
@@ -61,6 +68,23 @@ export default function SAMLeadsPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Lead Tracker
+  const [leadStats, setLeadStats] = useState(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [expandedCreator, setExpandedCreator] = useState(null);
+
+  const fetchLeadStats = useCallback(async () => {
+    setIsLoadingStats(true);
+    try {
+      const res = await api.get('/sam/lead-stats');
+      setLeadStats(res.data);
+    } catch {
+      console.error('Failed to fetch lead stats');
+    } finally {
+      setIsLoadingStats(false);
+    }
+  }, []);
+
   // Bulk upload
   const [bulkData, setBulkData] = useState([]);
   const [fileName, setFileName] = useState('');
@@ -75,14 +99,14 @@ export default function SAMLeadsPage() {
     }
   }, [user, isAllowed, router]);
 
-  // Fetch ISR users
+  // Fetch BDM Team Leaders
   const fetchISRUsers = useCallback(async () => {
     setIsLoadingISRs(true);
     try {
-      const res = await api.get('/users/isr-list');
+      const res = await api.get('/users/by-role?role=BDM_TEAM_LEADER');
       setIsrUsers(res.data.users || []);
     } catch {
-      console.error('Failed to fetch ISR users');
+      console.error('Failed to fetch team leaders');
     } finally {
       setIsLoadingISRs(false);
     }
@@ -258,16 +282,20 @@ export default function SAMLeadsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="SAM Leads" description="Create leads and assign them to ISRs for calling" />
+      <PageHeader title="SAM Leads" description="Create leads and assign them to BDM Team Leaders" />
 
       {/* Tabs */}
       <TabBar
         tabs={[
           { key: 'create', label: 'Create Lead', icon: UserPlus },
           { key: 'bulk', label: 'Bulk Upload', icon: Upload },
+          { key: 'tracker', label: 'Lead Tracker', icon: BarChart3 },
         ]}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'tracker' && !leadStats) fetchLeadStats();
+        }}
       />
 
       {/* ─── Create Lead Tab ─── */}
@@ -280,7 +308,7 @@ export default function SAMLeadsPage() {
               <div className="p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-xl">
                 <label className="block text-sm font-semibold text-orange-700 dark:text-orange-300 mb-2">
                   <Users className="h-4 w-4 inline mr-1.5 -mt-0.5" />
-                  Assign to ISR <span className="text-red-500">*</span>
+                  Assign to BDM Team Leader <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={form.assignToISRId}
@@ -288,7 +316,7 @@ export default function SAMLeadsPage() {
                   className={`${inputClass} border-orange-200 dark:border-orange-800`}
                   required
                 >
-                  <option value="">Select ISR...</option>
+                  <option value="">Select Team Leader...</option>
                   {isrUsers.map(isr => (
                     <option key={isr.id} value={isr.id}>{isr.name} ({isr.email})</option>
                   ))}
@@ -449,14 +477,14 @@ export default function SAMLeadsPage() {
               <div className="p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-xl">
                 <label className="block text-sm font-semibold text-orange-700 dark:text-orange-300 mb-2">
                   <Users className="h-4 w-4 inline mr-1.5 -mt-0.5" />
-                  Assign all leads to ISR <span className="text-red-500">*</span>
+                  Assign all leads to BDM Team Leader <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={bulkISRId}
                   onChange={(e) => setBulkISRId(e.target.value)}
                   className={`${inputClass} border-orange-200 dark:border-orange-800`}
                 >
-                  <option value="">Select ISR...</option>
+                  <option value="">Select Team Leader...</option>
                   {isrUsers.map(isr => (
                     <option key={isr.id} value={isr.id}>{isr.name} ({isr.email})</option>
                   ))}
@@ -612,6 +640,148 @@ export default function SAMLeadsPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+      {/* ─── Lead Tracker Tab ─── */}
+      {activeTab === 'tracker' && (
+        <div className="space-y-4">
+          {isLoadingStats ? (
+            <div className="flex items-center justify-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            </div>
+          ) : !leadStats ? (
+            <div className="text-center py-12 text-slate-500">
+              <BarChart3 size={40} className="mx-auto mb-2 text-slate-300" />
+              <p>No data available</p>
+            </div>
+          ) : (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <p className="text-xs text-slate-500 mb-1">Total Leads</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{leadStats.totals.total}</p>
+                </div>
+                <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <p className="text-xs text-slate-500 mb-1">Converted to Lead</p>
+                  <p className="text-2xl font-bold text-emerald-600">{leadStats.totals.converted}</p>
+                </div>
+                <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <p className="text-xs text-slate-500 mb-1">Pending</p>
+                  <p className="text-2xl font-bold text-amber-600">{leadStats.totals.pending}</p>
+                </div>
+                <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <p className="text-xs text-slate-500 mb-1">Live Customers</p>
+                  <p className="text-2xl font-bold text-blue-600">{leadStats.totals.live}</p>
+                </div>
+              </div>
+
+              {/* Per-SAM Breakdown */}
+              <div className="space-y-3">
+                {leadStats.stats.map((item) => (
+                  <div key={item.creator.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    {/* Creator Header */}
+                    <button
+                      onClick={() => setExpandedCreator(expandedCreator === item.creator.id ? null : item.creator.id)}
+                      className="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                          <User size={16} className="text-orange-600" />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{item.creator.name}</p>
+                          <p className="text-[10px] text-slate-400">{item.creator.role}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {/* Status pills */}
+                        <div className="hidden sm:flex items-center gap-2">
+                          <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px]">{item.statusCounts.total} Total</Badge>
+                          {item.statusCounts.INTERESTED > 0 && <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">{item.statusCounts.INTERESTED} Interested</Badge>}
+                          {item.statusCounts.NEW > 0 && <Badge className="bg-blue-100 text-blue-700 text-[10px]">{item.statusCounts.NEW} New</Badge>}
+                          {item.pipelineCounts.LIVE > 0 && <Badge className="bg-green-100 text-green-700 text-[10px]">{item.pipelineCounts.LIVE} Live</Badge>}
+                        </div>
+                        <span className="text-xl font-bold text-slate-900 dark:text-slate-100">{item.statusCounts.total}</span>
+                        {expandedCreator === item.creator.id ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                      </div>
+                    </button>
+
+                    {/* Expanded Detail */}
+                    {expandedCreator === item.creator.id && (
+                      <div className="border-t border-slate-200 dark:border-slate-800">
+                        {/* Status Summary Bar */}
+                        <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 flex flex-wrap gap-3 text-xs">
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> New: {item.statusCounts.NEW || 0}</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Interested: {item.statusCounts.INTERESTED || 0}</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Not Interested: {item.statusCounts.NOT_INTERESTED || 0}</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> Call Later: {item.statusCounts.CALL_LATER || 0}</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500" /> Converted: {item.statusCounts.CONVERTED || 0}</span>
+                          {item.pipelineCounts.FEASIBLE > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan-500" /> Feasible: {item.pipelineCounts.FEASIBLE}</span>}
+                          {item.pipelineCounts.LIVE > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Live: {item.pipelineCounts.LIVE}</span>}
+                        </div>
+
+                        {/* Leads Table */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+                                <th className="text-left px-4 py-2 font-medium">Company</th>
+                                <th className="text-left px-4 py-2 font-medium">Contact</th>
+                                <th className="text-left px-4 py-2 font-medium">Status</th>
+                                <th className="text-left px-4 py-2 font-medium">Pipeline</th>
+                                <th className="text-left px-4 py-2 font-medium">Assigned To</th>
+                                <th className="text-left px-4 py-2 font-medium">Created</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                              {item.leads.map((lead) => (
+                                <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                  <td className="px-4 py-2 font-medium text-slate-900 dark:text-slate-100">{lead.company || '-'}</td>
+                                  <td className="px-4 py-2">
+                                    <p className="text-slate-700 dark:text-slate-300">{lead.contactName || '-'}</p>
+                                    <p className="text-[10px] text-slate-400">{lead.phone}</p>
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <Badge className={
+                                      lead.status === 'INTERESTED' ? 'bg-emerald-100 text-emerald-700 text-[10px]' :
+                                      lead.status === 'NEW' ? 'bg-blue-100 text-blue-700 text-[10px]' :
+                                      lead.status === 'NOT_INTERESTED' ? 'bg-red-100 text-red-700 text-[10px]' :
+                                      lead.status === 'CALL_LATER' ? 'bg-amber-100 text-amber-700 text-[10px]' :
+                                      lead.status === 'CONVERTED' ? 'bg-purple-100 text-purple-700 text-[10px]' :
+                                      'bg-slate-100 text-slate-600 text-[10px]'
+                                    }>{lead.status}</Badge>
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    {lead.isLive ? (
+                                      <Badge className="bg-green-100 text-green-700 text-[10px]"><Zap size={10} className="mr-0.5" /> Live</Badge>
+                                    ) : lead.leadStatus ? (
+                                      <Badge className="bg-slate-100 text-slate-600 text-[10px]">{lead.leadStatus}</Badge>
+                                    ) : (
+                                      <span className="text-slate-400 text-xs">-</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-2 text-slate-600 dark:text-slate-400 text-xs">{lead.assignedTo || '-'}</td>
+                                  <td className="px-4 py-2 text-slate-400 text-xs">{new Date(lead.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {leadStats.stats.length === 0 && (
+                <div className="text-center py-12 text-slate-500">
+                  <Users size={40} className="mx-auto mb-2 text-slate-300" />
+                  <p>No SAM-generated leads yet</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
     </div>
   );

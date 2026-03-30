@@ -31,7 +31,9 @@ const CATEGORY_LABELS = {
   CLOSURE: 'Closure',
   RF: 'RF',
   PATCH_CORD: 'Patch Cord',
-  FIBER: 'Fiber'
+  FIBER: 'Fiber',
+  MEDIA_CONVERTER: 'Media Converter',
+  ROUTER: 'Router'
 };
 
 export default function StoreInventoryPage() {
@@ -233,7 +235,7 @@ export default function StoreInventoryPage() {
                         <Badge className={`flex-shrink-0 text-xs ${
                           item.category === 'FIBER'
                             ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
-                            : ['SWITCH', 'SFP'].includes(item.category)
+                            : ['SWITCH', 'SFP', 'MEDIA_CONVERTER', 'ROUTER'].includes(item.category)
                               ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                         }`}>
@@ -382,7 +384,7 @@ export default function StoreInventoryPage() {
                       <Badge className={`${
                         item.category === 'FIBER'
                           ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
-                          : ['SWITCH', 'SFP'].includes(item.category)
+                          : ['SWITCH', 'SFP', 'MEDIA_CONVERTER', 'ROUTER'].includes(item.category)
                             ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                       }`}>

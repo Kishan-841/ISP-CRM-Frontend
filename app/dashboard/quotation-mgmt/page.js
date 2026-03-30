@@ -53,7 +53,8 @@ import {
   Users,
   Hash,
   Zap,
-  LogIn
+  LogIn,
+  MessageCircle
 } from 'lucide-react';
 import DocumentUploadSlot from '@/components/DocumentUploadSlot';
 import DocumentPreviewModal from '@/components/DocumentPreviewModal';
@@ -247,6 +248,7 @@ export default function QuotationManagementPage() {
   const [uploadMethod, setUploadMethodState] = useState('bdm'); // 'bdm' or 'customer'
   const [uploadLinks, setUploadLinks] = useState([]);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [lastGeneratedUrl, setLastGeneratedUrl] = useState('');
   const [linkExpiryDays, setLinkExpiryDays] = useState(7);
   const [customerNote, setCustomerNote] = useState('');
   const [isLoadingLinks, setIsLoadingLinks] = useState(false);
@@ -504,6 +506,7 @@ export default function QuotationManagementPage() {
       const result = await generateUploadLink(selectedLead.id, linkExpiryDays, customerNote, selectedDocsForLink);
       if (result.success) {
         setUploadLinks(prev => [result.uploadLink, ...prev]);
+        setLastGeneratedUrl(result.uploadLink.url);
         toast.success('Upload link generated successfully!');
         setCustomerNote('');
 
@@ -544,6 +547,19 @@ export default function QuotationManagementPage() {
     } catch {
       toast.error('Failed to copy link');
     }
+  };
+
+  const handleShareWhatsApp = (url) => {
+    const companyName = selectedLead?.companyName || 'Customer';
+    const message = `Hello ${companyName},\n\nPlease upload the required documents using this link:\n${url}\n\nThank you.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleShareEmail = (url) => {
+    const companyName = selectedLead?.companyName || 'Customer';
+    const subject = `Document Upload Request - ${companyName}`;
+    const body = `Hello ${companyName},\n\nPlease upload the required documents using the link below:\n\n${url}\n\nThank you.`;
+    window.open(`mailto:${selectedLead?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
   };
 
   // Handle switching upload method
@@ -1250,14 +1266,9 @@ export default function QuotationManagementPage() {
         return null;
       }
       return (
-        <Button
-          size="icon"
-          onClick={() => handleOpenInstallationModal(lead)}
-          className="bg-green-600 hover:bg-green-700 text-white h-8 w-8"
-          title="Push to Installation"
-        >
-          <Truck size={16} />
-        </Button>
+        <Badge className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 text-[10px]">
+          <Clock size={10} className="mr-1" /> Ops Pending
+        </Badge>
       );
     }
 
@@ -3182,6 +3193,28 @@ export default function QuotationManagementPage() {
                           >
                             {isGeneratingLink ? <Loader2 size={12} className="animate-spin" /> : <><Link2 size={12} className="mr-1" />Generate & Copy</>}
                           </Button>
+                          {lastGeneratedUrl && (
+                            <>
+                              <div className="flex items-center gap-1 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <span className="flex-1 text-[10px] text-slate-600 dark:text-slate-400 truncate px-1">{lastGeneratedUrl}</span>
+                                <Button variant="ghost" size="sm" onClick={() => handleCopyLink(lastGeneratedUrl)} className="h-6 w-6 p-0 shrink-0"><Copy size={12} /></Button>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => handleShareWhatsApp(lastGeneratedUrl)}
+                                  className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs h-8"
+                                >
+                                  <MessageCircle size={12} className="mr-1" />WhatsApp
+                                </Button>
+                                <Button
+                                  onClick={() => handleShareEmail(lastGeneratedUrl)}
+                                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
+                                >
+                                  <Mail size={12} className="mr-1" />Email
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -3211,7 +3244,9 @@ export default function QuotationManagementPage() {
                                     </div>
                                     {!isInactive && (
                                       <div className="flex gap-1">
-                                        <Button variant="ghost" size="sm" onClick={() => handleCopyLink(link.url)} className="h-6 w-6 p-0"><Copy size={12} /></Button>
+                                        <Button variant="ghost" size="sm" onClick={() => handleShareWhatsApp(link.url)} className="h-6 w-6 p-0 text-green-600" title="Share via WhatsApp"><MessageCircle size={12} /></Button>
+                                        <Button variant="ghost" size="sm" onClick={() => handleShareEmail(link.url)} className="h-6 w-6 p-0 text-blue-600" title="Share via Email"><Mail size={12} /></Button>
+                                        <Button variant="ghost" size="sm" onClick={() => handleCopyLink(link.url)} className="h-6 w-6 p-0" title="Copy Link"><Copy size={12} /></Button>
                                         <Button variant="ghost" size="sm" onClick={() => handleRevokeLink(link.id)} className="h-6 w-6 p-0 text-red-500" title="Delete Link"><Trash2 size={12} /></Button>
                                       </div>
                                     )}

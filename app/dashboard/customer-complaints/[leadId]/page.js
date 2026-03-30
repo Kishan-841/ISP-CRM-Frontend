@@ -161,8 +161,8 @@ export default function CustomerComplaintDetailPage() {
   const [isClosing, setIsClosing] = useState(false);
 
   // Permission checks
-  const canCreate = ['NOC', 'SUPER_ADMIN', 'SUPPORT_TEAM'].includes(user?.role);
-  const canUpdateClose = ['NOC', 'SUPER_ADMIN'].includes(user?.role);
+  const canCreate = ['NOC', 'SUPER_ADMIN', 'SUPPORT_TEAM', 'OPS_TEAM'].includes(user?.role);
+  const canUpdateClose = ['NOC', 'SUPER_ADMIN', 'OPS_TEAM'].includes(user?.role);
 
   // Load complaints via direct API call (local state)
   const fetchData = useCallback(async () => {

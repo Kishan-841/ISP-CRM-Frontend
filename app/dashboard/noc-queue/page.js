@@ -64,6 +64,7 @@ export default function NocQueuePage() {
 
   // Step 3: Circuit ID
   const [isGeneratingCircuit, setIsGeneratingCircuit] = useState(false);
+  const [manualCircuitId, setManualCircuitId] = useState('');
 
   // Redirect non-NOC users
   useEffect(() => {
@@ -167,19 +168,25 @@ export default function NocQueuePage() {
     setIsAssigningIPs(false);
   };
 
-  // Step 3: Generate Circuit ID (auto-pushes to delivery)
+  // Step 3: Save Circuit ID (manually entered, pushes to delivery)
   const handleGenerateCircuit = async () => {
     if (!selectedLead) return;
 
+    if (!manualCircuitId.trim()) {
+      toast.error('Please enter a Circuit ID');
+      return;
+    }
+
     setIsGeneratingCircuit(true);
-    const result = await nocGenerateCircuitId(selectedLead.id);
+    const result = await nocGenerateCircuitId(selectedLead.id, manualCircuitId.trim());
 
     if (result.success) {
-      toast.success(result.message || `Circuit ID ${result.circuitId} generated and pushed to delivery!`);
+      toast.success(result.message || `Circuit ID ${result.circuitId} saved and pushed to delivery!`);
+      setManualCircuitId('');
       handleCloseModal();
       fetchNocQueue(activeTab);
     } else {
-      toast.error(result.error || 'Failed to generate circuit ID');
+      toast.error(result.error || 'Failed to save circuit ID');
     }
     setIsGeneratingCircuit(false);
   };
@@ -604,8 +611,8 @@ export default function NocQueuePage() {
                       <Zap className="h-5 w-5 text-emerald-600" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-900 dark:text-white">Generate Circuit ID</h3>
-                      <p className="text-xs text-slate-500">Complete the configuration</p>
+                      <h3 className="font-semibold text-slate-900 dark:text-white">Enter Circuit ID</h3>
+                      <p className="text-xs text-slate-500">Assign circuit ID and push to delivery</p>
                     </div>
                   </div>
 
@@ -628,17 +635,29 @@ export default function NocQueuePage() {
                   </div>
 
                   {!isBDMTeamLeader && (
-                    <Button
-                      onClick={handleGenerateCircuit}
-                      disabled={isGeneratingCircuit}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      {isGeneratingCircuit ? (
-                        <><Loader2 className="h-4 w-4 animate-spin mr-2" />Generating...</>
-                      ) : (
-                        <><Zap className="h-4 w-4 mr-2" />Generate Circuit ID</>
-                      )}
-                    </Button>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Circuit ID *</label>
+                        <input
+                          type="text"
+                          value={manualCircuitId}
+                          onChange={(e) => setManualCircuitId(e.target.value)}
+                          placeholder="Enter circuit ID (e.g., CKT-001)"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleGenerateCircuit}
+                        disabled={isGeneratingCircuit || !manualCircuitId.trim()}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        {isGeneratingCircuit ? (
+                          <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving...</>
+                        ) : (
+                          <><Zap className="h-4 w-4 mr-2" />Save Circuit ID</>
+                        )}
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}

@@ -61,6 +61,7 @@ export default function MOMDetailPage() {
   const [emailPreviewHtml, setEmailPreviewHtml] = useState('');
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailAttachments, setEmailAttachments] = useState([]);
 
   const allowedRoles = ['SAM_EXECUTIVE', 'SAM_HEAD', 'SUPER_ADMIN', 'MASTER'];
 
@@ -194,6 +195,7 @@ export default function MOMDetailPage() {
     setEmailCC('');
     setEmailSubject('');
     setEmailPreviewHtml('');
+    setEmailAttachments([]);
     setShowEmailModal(true);
     fetchEmailPreview(emailDesignation, emailPhone, emailBody);
   };
@@ -211,13 +213,17 @@ export default function MOMDetailPage() {
     setIsSendingEmail(true);
     try {
       const ccList = emailCC.split(',').map(e => e.trim()).filter(e => e.length > 0);
-      await api.post(`/sam/meetings/${meetingId}/send-mom`, {
-        to: emailTo.trim(),
-        cc: ccList,
-        subject: emailSubject.trim() || undefined,
-        designation: emailDesignation.trim() || undefined,
-        phone: emailPhone.trim() || undefined,
-        bodyText: emailBody.trim() || undefined
+      const formData = new FormData();
+      formData.append('to', emailTo.trim());
+      ccList.forEach(cc => formData.append('cc', cc));
+      if (emailSubject.trim()) formData.append('subject', emailSubject.trim());
+      if (emailDesignation.trim()) formData.append('designation', emailDesignation.trim());
+      if (emailPhone.trim()) formData.append('phone', emailPhone.trim());
+      if (emailBody.trim()) formData.append('bodyText', emailBody.trim());
+      emailAttachments.forEach(file => formData.append('attachments', file));
+
+      await api.post(`/sam/meetings/${meetingId}/send-mom`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       toast.success('MOM email sent successfully');
       setShowEmailModal(false);
@@ -227,6 +233,16 @@ export default function MOMDetailPage() {
     } finally {
       setIsSendingEmail(false);
     }
+  };
+
+  const handleAttachmentChange = (e) => {
+    const files = Array.from(e.target.files);
+    setEmailAttachments(prev => [...prev, ...files]);
+    e.target.value = '';
+  };
+
+  const removeAttachment = (index) => {
+    setEmailAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const formatDate = (dateString) => {
@@ -736,6 +752,31 @@ export default function MOMDetailPage() {
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100 resize-y"
                   placeholder="Greeting and introduction text..."
                 />
+              </div>
+
+              {/* Attachments */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                <label className="text-sm text-slate-600 dark:text-slate-300 font-medium mb-2 block">Attachments</label>
+                <div className="flex items-center gap-2">
+                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    Add Files
+                    <input type="file" multiple onChange={handleAttachmentChange} className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.csv" />
+                  </label>
+                  <span className="text-xs text-slate-400">PDF, DOC, Excel, Images (max 10MB each)</span>
+                </div>
+                {emailAttachments.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {emailAttachments.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-white dark:bg-slate-900 px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 text-sm">
+                        <span className="text-slate-700 dark:text-slate-300 truncate">{file.name} <span className="text-xs text-slate-400">({(file.size / 1024).toFixed(0)} KB)</span></span>
+                        <button onClick={() => removeAttachment(idx)} className="text-red-500 hover:text-red-700 ml-2 shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Signature fields */}
