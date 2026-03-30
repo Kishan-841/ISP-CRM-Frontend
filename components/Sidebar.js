@@ -188,6 +188,7 @@ export default function Sidebar() {
   const isStoreManager = user?.role === 'STORE_MANAGER';
   const isAreaHead = user?.role === 'AREA_HEAD';
   const isNOC = user?.role === 'NOC';
+  const isNOCHead = user?.role === 'NOC_HEAD';
   const isSAMHead = user?.role === 'SAM_HEAD';
   const isSAMExecutive = user?.role === 'SAM_EXECUTIVE';
   const isSupportTeam = user?.role === 'SUPPORT_TEAM';
@@ -398,7 +399,7 @@ export default function Sidebar() {
   const navItems = isMaster ? masterNavItems : [
     // Super Admin top item
     ...(isSuperAdmin ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
-    ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
+    ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
     // Raw Data - available for Admin, ISR, BDM, and BDM Team Leader
     ...(isAdmin || isISR || isBDM || isBDMTeamLeader ? [
       {
@@ -505,6 +506,12 @@ export default function Sidebar() {
       { name: 'Delivery Report', path: '/dashboard/delivery-report', icon: ClipboardCheck },
     ] : []),
     // NOC Team-only items
+    ...(isNOCHead ? [
+      { name: 'NOC Queue', path: '/dashboard/noc-queue', icon: Network, badge: counts.nocPending > 0 ? counts.nocPending : null },
+      { name: 'NOC Team', path: '/dashboard/noc-team', icon: Users },
+      { name: 'Order Requests', path: '/dashboard/noc-queue/order-requests', icon: ClipboardList, badge: counts.nocOrdersPending > 0 ? counts.nocOrdersPending : null },
+      { name: 'Users Created', path: '/dashboard/noc-users-created', icon: UserPlus },
+    ] : []),
     ...(isNOC ? [
       { name: 'NOC Queue', path: '/dashboard/noc-queue', icon: Network, badge: counts.nocPending > 0 ? counts.nocPending : null },
       { name: 'Order Requests', path: '/dashboard/noc-queue/order-requests', icon: ClipboardList, badge: counts.nocOrdersPending > 0 ? counts.nocOrdersPending : null },
@@ -516,10 +523,10 @@ export default function Sidebar() {
       { name: 'Business Impact', path: '/dashboard/sam-head/business-impact', icon: TrendingDown },
     ] : []),
     // Complaint Management
-    ...(isSuperAdmin || isNOC || isSupportTeam || isOpsTeam || isAccountsTeam ? [
+    ...(isSuperAdmin || isNOC || isNOCHead || isSupportTeam || isOpsTeam || isAccountsTeam ? [
       { name: 'Complaints', path: '/dashboard/complaints', icon: Headphones, badge: ((counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0)) > 0 ? (counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0) : null },
     ] : []),
-    ...(isSuperAdmin || isNOC || isSupportTeam || isOpsTeam || isAccountsTeam ? [
+    ...(isSuperAdmin || isNOC || isNOCHead || isSupportTeam || isOpsTeam || isAccountsTeam ? [
       { name: 'Customer Complaints', path: '/dashboard/customer-complaints', icon: Users },
     ] : []),
     // SAM Head-only items
@@ -550,7 +557,7 @@ export default function Sidebar() {
       { name: 'Store Requests', path: '/dashboard/store-requests', icon: ClipboardCheck, badge: counts.storeRequests > 0 ? counts.storeRequests : null },
     ] : []),
     // Leads - available for all roles except Docs Team, Accounts Team, Store Manager, and OPS Team
-    ...(!isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
+    ...(!isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
     // ISR-only items
     ...(isISR ? [
       { name: 'Follow-Ups', path: '/dashboard/follow-ups', icon: Clock, badge: counts.followUps > 0 ? counts.followUps : null },

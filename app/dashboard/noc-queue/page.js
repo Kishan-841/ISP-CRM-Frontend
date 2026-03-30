@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeadStore } from '@/lib/store';
+import api from '@/lib/api';
 import { useRoleCheck } from '@/lib/useRoleCheck';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +26,8 @@ import {
   Phone,
   Truck,
   FileText,
-  Zap
+  Zap,
+  Users
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
@@ -36,7 +38,8 @@ import TabBar from '@/components/TabBar';
 export default function NocQueuePage() {
   const router = useRouter();
   const { user, isNOC: _isNOC, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
-  const isNOC = isMaster ? true : _isNOC;
+  const isNOC = isMaster ? true : (_isNOC || user?.role === 'NOC_HEAD');
+  const isNOCHead = user?.role === 'NOC_HEAD' || isMaster;
   const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
   const {
     nocQueue,
@@ -66,12 +69,43 @@ export default function NocQueuePage() {
   const [isGeneratingCircuit, setIsGeneratingCircuit] = useState(false);
   const [manualCircuitId, setManualCircuitId] = useState('');
 
+  // NOC Head: Assignment
+  const [nocUsers, setNocUsers] = useState([]);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignLeadId, setAssignLeadId] = useState(null);
+  const [selectedNocUser, setSelectedNocUser] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+
   // Redirect non-NOC users
   useEffect(() => {
     if (user && !isNOC && !isAdmin && !isBDMTeamLeader) {
       router.push('/dashboard');
     }
   }, [user, isNOC, isAdmin, isBDMTeamLeader, router]);
+
+  // NOC Head: fetch NOC users for assignment
+  useEffect(() => {
+    if (isNOCHead || isAdmin) {
+      api.get('/users/by-role?role=NOC').then(res => setNocUsers(res.data.users || [])).catch(() => {});
+    }
+  }, [isNOCHead, isAdmin]);
+
+  const handleAssignToNoc = async () => {
+    if (!assignLeadId || !selectedNocUser) return;
+    setIsAssigning(true);
+    try {
+      await api.post(`/leads/noc/${assignLeadId}/assign`, { nocUserId: selectedNocUser });
+      toast.success('Lead assigned to NOC user');
+      setShowAssignModal(false);
+      setAssignLeadId(null);
+      setSelectedNocUser('');
+      fetchNocQueue(activeTab);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to assign');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
 
   useSocketRefresh(() => fetchNocQueue(activeTab), { enabled: isNOC || isAdmin || isBDMTeamLeader });
 
@@ -298,6 +332,19 @@ export default function NocQueuePage() {
       },
     ];
 
+    // NOC Head: show assigned-to column
+    if (isNOCHead || isAdmin) {
+      columns.push({
+        key: 'nocAssignedTo',
+        label: 'Assigned To',
+        render: (lead) => lead.nocAssignedTo ? (
+          <Badge className="bg-blue-100 text-blue-700 text-[10px]">{lead.nocAssignedTo.name}</Badge>
+        ) : (
+          <Badge className="bg-amber-100 text-amber-700 text-[10px]">Unassigned</Badge>
+        ),
+      });
+    }
+
     if (activeTab !== 'pending') {
       columns.push({
         key: 'customerUserId',
@@ -386,9 +433,21 @@ export default function NocQueuePage() {
               actions={(lead) => {
                 const actionBtn = getActionButton(lead);
                 const ActionIcon = actionBtn?.icon;
+                const isAssignedToOther = isNOCHead && lead.nocAssignedTo && lead.nocAssignedTo.id !== user?.id;
+                const canWork = !isAssignedToOther;
                 return (
                   <div className="flex items-center justify-center gap-2">
-                    {!isBDMTeamLeader && actionBtn && activeTab !== 'configured' && (
+                    {(isNOCHead || isAdmin) && !lead.nocAssignedTo && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setAssignLeadId(lead.id); setSelectedNocUser(''); setShowAssignModal(true); }}
+                        className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                      >
+                        <Users className="h-3 w-3 mr-1" />Assign
+                      </Button>
+                    )}
+                    {canWork && !isBDMTeamLeader && actionBtn && activeTab !== 'configured' && (
                       <Button
                         size="sm"
                         onClick={() => handleConfigure(lead)}
@@ -398,7 +457,7 @@ export default function NocQueuePage() {
                         {actionBtn.label}
                       </Button>
                     )}
-                    {!isBDMTeamLeader && actionBtn && activeTab === 'configured' && (
+                    {canWork && !isBDMTeamLeader && actionBtn && activeTab === 'configured' && (
                       <div className="relative group">
                         <button
                           onClick={() => handleConfigure(lead)}
@@ -764,6 +823,39 @@ export default function NocQueuePage() {
             <div className="flex items-center justify-end px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl flex-shrink-0">
               <Button onClick={handleCloseModal} variant="outline">
                 Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* NOC Head: Assign Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm shadow-xl">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Assign to NOC User</h3>
+              <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">NOC User *</label>
+                <select
+                  value={selectedNocUser}
+                  onChange={(e) => setSelectedNocUser(e.target.value)}
+                  className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm"
+                >
+                  <option value="">Select NOC user...</option>
+                  {nocUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 p-5 border-t border-slate-200 dark:border-slate-800">
+              <Button variant="outline" className="flex-1" onClick={() => setShowAssignModal(false)}>Cancel</Button>
+              <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleAssignToNoc} disabled={!selectedNocUser || isAssigning}>
+                {isAssigning ? <Loader2 size={16} className="mr-1 animate-spin" /> : <Users size={16} className="mr-1" />}
+                Assign
               </Button>
             </div>
           </div>

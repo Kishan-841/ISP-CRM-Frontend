@@ -30,7 +30,8 @@ import { PageHeader } from '@/components/PageHeader';
 
 export default function NocUsersCreatedPage() {
   const router = useRouter();
-  const { user, isNOC, isSuperAdmin: isAdmin } = useRoleCheck();
+  const { user, isNOC: _isNOC, isSuperAdmin: isAdmin } = useRoleCheck();
+  const isNOC = _isNOC || user?.role === 'NOC_HEAD';
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState({ total: 0, ipAssigned: 0, configured: 0 });
   const [loading, setLoading] = useState(true);
