@@ -198,6 +198,12 @@ export default function BDMQueuePage() {
   const handleStartCall = () => {
     if (!selectedLead) return;
 
+    // Open native phone dialer with the number
+    const phone = selectedLead.phone;
+    if (phone) {
+      window.open(`tel:${phone}`, '_self');
+    }
+
     setActiveCall({
       leadId: selectedLead.id,
       startTime: Date.now()
