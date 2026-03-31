@@ -625,14 +625,7 @@ export default function Sidebar() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-slate-100 dark:border-slate-800/60">
         {!collapsed && (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm shadow-sm shadow-orange-500/20">
-              G
-            </div>
-            <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-              Gazon
-            </span>
-          </div>
+          <img src="/gazon logo file.png" alt="Gazon" className="h-8" />
         )}
         <button
           onClick={collapsed ? toggle : (isMobileOpen ? closeMobile : toggle)}
