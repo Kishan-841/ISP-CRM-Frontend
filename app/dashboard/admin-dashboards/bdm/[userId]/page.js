@@ -49,7 +49,7 @@ export default function IndividualBDMDashboard() {
   const [bdmMeetingStats, setBdmMeetingStats] = useState({ upcoming: 0, today: 0 });
   const [dashboardData, setDashboardData] = useState(null);
 
-  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER' || user?.role === 'BDM_TEAM_LEADER';
+  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'SALES_DIRECTOR' || user?.role === 'MASTER' || user?.role === 'BDM_TEAM_LEADER';
 
   useEffect(() => {
     if (user && !isAllowed) {

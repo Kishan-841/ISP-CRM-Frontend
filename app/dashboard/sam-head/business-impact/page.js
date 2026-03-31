@@ -49,7 +49,7 @@ export default function SAMHeadBusinessImpact() {
   const [samExecutives, setSamExecutives] = useState([]);
 
   useEffect(() => {
-    if (user && user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
+    if (user && user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'SALES_DIRECTOR' && user.role !== 'MASTER') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -70,12 +70,12 @@ export default function SAMHeadBusinessImpact() {
   }, [startDate, endDate, selectedExecutive, customerTab, page, pageSize]);
 
   useEffect(() => {
-    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER') {
+    if (user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' || user?.role === 'SALES_DIRECTOR' || user?.role === 'MASTER') {
       fetchData();
     }
   }, [user, fetchData]);
 
-  useSocketRefresh(() => { fetchData(); }, { enabled: user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER' });
+  useSocketRefresh(() => { fetchData(); }, { enabled: user?.role === 'SAM_HEAD' || user?.role === 'SUPER_ADMIN' || user?.role === 'SALES_DIRECTOR' || user?.role === 'MASTER' });
 
   const toggleRow = (leadId) => {
     setExpandedRows(prev => {
@@ -111,7 +111,7 @@ export default function SAMHeadBusinessImpact() {
     }
   };
 
-  if (!user || (user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER')) return null;
+  if (!user || (user.role !== 'SAM_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'SALES_DIRECTOR' && user.role !== 'MASTER')) return null;
 
   const summary = data?.summary || {};
   const executiveBreakdown = data?.executiveBreakdown || [];

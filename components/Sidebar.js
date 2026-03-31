@@ -192,6 +192,7 @@ export default function Sidebar() {
   const isSAMHead = user?.role === 'SAM_HEAD';
   const isSAMExecutive = user?.role === 'SAM_EXECUTIVE';
   const isSupportTeam = user?.role === 'SUPPORT_TEAM';
+  const isSalesDirector = user?.role === 'SALES_DIRECTOR';
   const isSuperAdmin2 = user?.role === 'SUPER_ADMIN_2';
   const isMaster = user?.role === 'MASTER';
   const canApproveDeliveryRequest = isSuperAdmin || isAreaHead;
@@ -397,11 +398,11 @@ export default function Sidebar() {
   ];
 
   const navItems = isMaster ? masterNavItems : [
-    // Super Admin top item
-    ...(isSuperAdmin ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
-    ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
+    // Super Admin / Sales Director top item
+    ...(isSuperAdmin || isSalesDirector ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
+    ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager && !isSalesDirector ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
     // Raw Data - available for Admin, ISR, BDM, and BDM Team Leader
-    ...(isAdmin || isISR || isBDM || isBDMTeamLeader ? [
+    ...(isAdmin || isSalesDirector || isISR || isBDM || isBDMTeamLeader ? [
       {
         name: 'Raw Data',
         icon: Database,
@@ -518,15 +519,15 @@ export default function Sidebar() {
       { name: 'Users Created', path: '/dashboard/noc-users-created', icon: UserPlus },
     ] : []),
     // Customer 360
-    ...(isSuperAdmin ? [
+    ...(isSuperAdmin || isSalesDirector ? [
       { name: 'Customer 360', path: '/dashboard/customer-360', icon: UserCircle },
       { name: 'Business Impact', path: '/dashboard/sam-head/business-impact', icon: TrendingDown },
     ] : []),
     // Complaint Management
-    ...(isSuperAdmin || isNOC || isNOCHead || isSupportTeam || isOpsTeam || isAccountsTeam ? [
+    ...(isSuperAdmin || isSalesDirector || isNOC || isNOCHead || isSupportTeam || isOpsTeam || isAccountsTeam ? [
       { name: 'Complaints', path: '/dashboard/complaints', icon: Headphones, badge: ((counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0)) > 0 ? (counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0) : null },
     ] : []),
-    ...(isSuperAdmin || isNOC || isNOCHead || isSupportTeam || isOpsTeam || isAccountsTeam ? [
+    ...(isSuperAdmin || isSalesDirector || isNOC || isNOCHead || isSupportTeam || isOpsTeam || isAccountsTeam ? [
       { name: 'Customer Complaints', path: '/dashboard/customer-complaints', icon: Users },
     ] : []),
     // SAM Head-only items
@@ -557,7 +558,7 @@ export default function Sidebar() {
       { name: 'Store Requests', path: '/dashboard/store-requests', icon: ClipboardCheck, badge: counts.storeRequests > 0 ? counts.storeRequests : null },
     ] : []),
     // Leads - available for all roles except Docs Team, Accounts Team, Store Manager, and OPS Team
-    ...(!isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
+    ...(!isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isNOCHead && !isSuperAdmin && !isSalesDirector && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
     // ISR-only items
     ...(isISR ? [
       { name: 'Follow-Ups', path: '/dashboard/follow-ups', icon: Clock, badge: counts.followUps > 0 ? counts.followUps : null },
@@ -576,6 +577,10 @@ export default function Sidebar() {
     // Delivery Request Approval - Area Head only (Super Admin gets it via Approvals submenu)
     ...(canApproveDeliveryRequest && !isSuperAdmin ? [
       { name: 'Delivery Approval', path: '/dashboard/delivery-request-approval', icon: ClipboardCheck, badge: counts.deliveryRequestPending > 0 ? counts.deliveryRequestPending : null },
+    ] : []),
+    // Sales Director items
+    ...(isSalesDirector ? [
+      { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', icon: ClipboardCheck, badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
     ] : []),
     // Super Admin only items
     ...(isSuperAdmin ? [

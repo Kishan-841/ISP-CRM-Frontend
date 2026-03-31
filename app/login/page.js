@@ -25,9 +25,15 @@ export default function LoginPage() {
     initTheme();
   }, [initialize, initTheme]);
 
+  const getRoleLandingPage = (role) => {
+    if (role === 'SALES_DIRECTOR') return '/dashboard/admin-dashboards';
+    return '/dashboard';
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/dashboard');
+      const user = useAuthStore.getState().user;
+      router.push(getRoleLandingPage(user?.role));
     }
   }, [isAuthenticated, router]);
 
@@ -40,7 +46,8 @@ export default function LoginPage() {
 
     if (result.success) {
       toast.success('Login successful! Redirecting...');
-      router.push('/dashboard');
+      const user = useAuthStore.getState().user;
+      router.push(getRoleLandingPage(user?.role));
     } else {
       setError(result.error);
       toast.error(result.error || 'Login failed');
@@ -52,76 +59,62 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:flex-1 bg-orange-600 p-12 flex-col justify-between relative">
-        {/* Theme Toggle */}
-        <button
-          onClick={toggleTheme}
-          className="absolute top-6 right-6 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-        >
-          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-        </button>
-
+      <div className="hidden lg:flex lg:flex-1 bg-white dark:bg-slate-900 p-12 flex-col justify-between relative">
         <div>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <h1 className="text-3xl font-bold text-white">ISP CRM</h1>
-          </div>
-          <p className="text-white/80 text-lg">Manage your campaigns efficiently</p>
+          <img src="/gazon logo file.png" alt="Gazon Logo" className="h-16 mb-6" />
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">Enterprise Management,Refined.</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-lg">End-to-end customer lifecycle management — from lead to billing to support.</p>
         </div>
 
-        {/* Testimonial Card */}
-        <Card className="bg-white/10 border-white/20">
-          <CardContent className="pt-6">
-            <div className="flex gap-1 mb-4">
-              {[...Array(5)].map((_, i) => (
-                <svg key={i} className="w-5 h-5 text-amber-400 fill-current" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-              ))}
+        <div className="space-y-6">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             </div>
-            <p className="text-lg leading-relaxed text-white mb-6">
-              "This CRM has transformed how we handle our campaign data. Our team's efficiency increased by 40%."
-            </p>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-orange-700 flex items-center justify-center text-white font-semibold">
-                JD
-              </div>
-              <div>
-                <p className="font-semibold text-white">John Doe</p>
-                <p className="text-white/70 text-sm">Sales Manager</p>
-              </div>
+            <div>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">Lead to Installation</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Complete sales pipeline with feasibility, docs verification, and NOC provisioning.</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">Automated Billing</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">GST invoicing, payment tracking, and ledger management on autopilot.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">Complaint & Service</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">TAT-tracked complaints, service orders, and post-sale account management.</p>
+            </div>
+          </div>
+        </div>
 
-        <p className="text-white/60 text-sm">© 2025 ISP CRM. All rights reserved.</p>
+        <p className="text-slate-400 dark:text-slate-500 text-sm">© 2025 Gazon India. All rights reserved.</p>
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-slate-50 dark:bg-slate-950">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-orange-600">
         <div className="w-full max-w-md">
-          {/* Mobile Theme Toggle */}
-          <div className="lg:hidden flex justify-end mb-4">
+          {/* Theme Toggle */}
+          <div className="flex justify-end mb-4">
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
           </div>
 
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">ISP CRM</h1>
+          <div className="lg:hidden flex items-center justify-center mb-6">
+            <img src="/gazon logo file.png" alt="Gazon Logo" className="h-12 brightness-0 invert" />
           </div>
 
           <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">

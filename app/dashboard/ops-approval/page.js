@@ -1178,361 +1178,303 @@ export default function OpsApprovalPage() {
               </button>
             </div>
 
-            {/* Content - Grid Layout */}
-            <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">
-              {/* Column 1: Contact & Location */}
-              <div className="space-y-3">
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                  <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">Contact Details</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <User size={14} className="text-slate-400" />
-                      <span className="text-slate-900 dark:text-slate-100">{selectedLead.name}</span>
-                    </div>
-                    {selectedLead.title && (
-                      <p className="text-slate-500 dark:text-slate-400 text-xs ml-5">{selectedLead.title}</p>
-                    )}
-                    <div className="flex items-start gap-2">
-                      <MapPin size={14} className="text-slate-400 mt-0.5" />
-                      <span className="text-slate-700 dark:text-slate-300 text-xs">
-                        {selectedLead.fullAddress || selectedLead.location || selectedLead.city || '-'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+            {/* Content */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4">
 
-                {/* Products & Bandwidth */}
-                <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
-                  <h4 className="text-xs font-semibold text-orange-600 dark:text-orange-400 uppercase mb-2">Products</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedLead.products?.map(p => (
-                      <Badge key={p.id} className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs">
-                        {p.title}
-                      </Badge>
-                    )) || <span className="text-slate-400 text-xs">-</span>}
+              {/* Financial Summary — Hero Row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">ARC</p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">{formatCurrency(selectedLead.arcAmount)}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">OTC</p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">{formatCurrency(selectedLead.otcAmount)}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">CAPEX</p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">{vd.capex ? `₹${Number(vd.capex).toLocaleString()}` : '-'}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">OPEX</p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">{vd.opex ? `₹${Number(vd.opex).toLocaleString()}` : '-'}</p>
+                </div>
+              </div>
+
+              {/* Two Column Detail Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                {/* Left: Contact + Products + Attachments */}
+                <div className="space-y-4">
+                  {/* Contact & Location */}
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
+                      <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Contact & Location</h4>
+                    </div>
+                    <div className="p-3 space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <User size={14} className="text-slate-400 shrink-0" />
+                        <span className="text-slate-900 dark:text-slate-100">{selectedLead.name}</span>
+                        {selectedLead.title && <span className="text-slate-400 text-xs">({selectedLead.title})</span>}
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <MapPin size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                        <span className="text-slate-600 dark:text-slate-300 text-xs">{selectedLead.fullAddress || selectedLead.location || selectedLead.city || '-'}</span>
+                      </div>
+                      {(selectedLead.billingAddress || selectedLead.billingPincode) && (
+                        <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                          <FileText size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                          <div>
+                            <span className="text-[11px] text-slate-400 uppercase font-medium">Billing: </span>
+                            <span className="text-slate-600 dark:text-slate-300 text-xs">{selectedLead.billingAddress || '-'} {selectedLead.billingPincode && `(${selectedLead.billingPincode})`}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {(selectedLead.bandwidthRequirement || selectedLead.numberOfIPs) && (
-                    <div className="mt-2 flex items-center gap-2">
-                      {selectedLead.bandwidthRequirement && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded text-xs">
-                          <Wifi size={10} />
-                          {selectedLead.bandwidthRequirement}
-                        </span>
+
+                  {/* Products & Service */}
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
+                      <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Products & Service</h4>
+                    </div>
+                    <div className="p-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {selectedLead.products?.map(p => (
+                          <Badge key={p.id} className="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 text-xs">
+                            {p.title}
+                          </Badge>
+                        )) || <span className="text-slate-400 text-xs">-</span>}
+                        {selectedLead.bandwidthRequirement && (
+                          <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs">
+                            <Wifi size={10} className="mr-1" />{selectedLead.bandwidthRequirement}
+                          </Badge>
+                        )}
+                        {selectedLead.numberOfIPs && (
+                          <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs">
+                            <Hash size={10} className="mr-1" />{selectedLead.numberOfIPs} IPs
+                          </Badge>
+                        )}
+                      </div>
+                      {selectedLead.expectedDeliveryDate && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                          Expected delivery: {new Date(selectedLead.expectedDeliveryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
                       )}
-                      {selectedLead.numberOfIPs && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 rounded text-xs">
-                          <Hash size={10} />
-                          {selectedLead.numberOfIPs} IPs
-                        </span>
-                      )}
+                    </div>
+                  </div>
+
+                  {/* Attachments */}
+                  {selectedLead.quotationAttachments?.length > 0 && (
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
+                        <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Attachments</h4>
+                      </div>
+                      <div className="p-3 space-y-1.5">
+                        {selectedLead.quotationAttachments.map((file, i) => (
+                          <a key={i} href={file.url} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-orange-50 dark:hover:bg-orange-900/10 hover:border-orange-200 dark:hover:border-orange-800 transition-colors">
+                            <FileText size={14} className="text-orange-500 shrink-0" />
+                            <span className="truncate flex-1">{file.filename}</span>
+                            <Eye size={13} className="text-slate-400 shrink-0" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Documents */}
+                  {getDocumentsCount(selectedLead.documents) > 0 && (
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
+                        <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Documents ({getDocumentsCount(selectedLead.documents)})</h4>
+                      </div>
+                      <div className="p-3 space-y-1.5 max-h-[120px] overflow-y-auto">
+                        {getDocumentsArray(selectedLead.documents).map((doc, index) => (
+                          <div key={doc.documentType || index} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 truncate flex-1">
+                              {getFileIcon(doc.mimetype)}
+                              <span className="truncate text-slate-700 dark:text-slate-300">{doc.originalName}</span>
+                            </div>
+                            <button onClick={() => handleViewDocument(doc)} className="p-1 text-orange-600 hover:text-orange-700 shrink-0">
+                              <Eye size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notes */}
+                  {selectedLead.requirements && (
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
+                        <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Notes</h4>
+                      </div>
+                      <div className="p-3">
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{selectedLead.requirements}</p>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Billing Address */}
-                {(selectedLead.billingAddress || selectedLead.billingPincode) && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
-                    <h4 className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase mb-1">Billing Address</h4>
-                    <p className="text-xs text-slate-900 dark:text-slate-100">
-                      {selectedLead.billingAddress || '-'}
-                      {selectedLead.billingPincode && <span className="ml-1 font-semibold text-amber-600">({selectedLead.billingPincode})</span>}
-                    </p>
-                  </div>
-                )}
-
-                {/* Expected Delivery Date */}
-                {selectedLead.expectedDeliveryDate && (
-                  <div className="p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl border border-cyan-200 dark:border-cyan-800">
-                    <h4 className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 uppercase mb-1">Expected Delivery Date</h4>
-                    <p className="text-xs font-medium text-slate-900 dark:text-slate-100">
-                      {new Date(selectedLead.expectedDeliveryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
-                  </div>
-                )}
-
-                {/* Documents */}
-                {getDocumentsCount(selectedLead.documents) > 0 && (
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                    <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">
-                      Documents ({getDocumentsCount(selectedLead.documents)})
-                    </h4>
-                    <div className="space-y-1.5 max-h-[100px] overflow-y-auto">
-                      {getDocumentsArray(selectedLead.documents).map((doc, index) => (
-                        <div key={doc.documentType || index} className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2 truncate flex-1">
-                            {getFileIcon(doc.mimetype)}
-                            <span className="truncate text-slate-700 dark:text-slate-300">{doc.originalName}</span>
-                          </div>
-                          <button
-                            onClick={() => handleViewDocument(doc)}
-                            className="p-1 text-orange-600 hover:text-orange-700 flex-shrink-0"
-                          >
-                            <Eye size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Column 2: Quotation Details */}
-              <div className="space-y-3">
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-700">
-                  <h4 className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase mb-2 flex items-center gap-1">
-                    <DollarSign size={12} />
-                    Quotation
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 uppercase font-semibold">ARC</p>
-                      <p className="text-base font-bold text-emerald-800 dark:text-emerald-200">{formatCurrency(selectedLead.arcAmount)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 uppercase font-semibold">OTC</p>
-                      <p className="text-base font-bold text-emerald-800 dark:text-emerald-200">{formatCurrency(selectedLead.otcAmount)}</p>
-                    </div>
-                    {selectedLead.advanceAmount && (
-                      <div>
-                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 uppercase font-semibold">Advance</p>
-                        <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">{formatCurrency(selectedLead.advanceAmount)}</p>
-                      </div>
-                    )}
-                    {selectedLead.paymentTerms && (
-                      <div>
-                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 uppercase font-semibold">Payment</p>
-                        <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">{selectedLead.paymentTerms}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* CAPEX / OPEX */}
-                {(vd.capex || vd.opex) && (
-                  <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-700">
-                    <h4 className="text-xs font-semibold text-orange-700 dark:text-orange-400 uppercase mb-2">Cost Estimates</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {vd.capex && (
-                        <div>
-                          <p className="text-[11px] text-orange-600 dark:text-orange-400 uppercase font-semibold">CAPEX</p>
-                          <p className="text-base font-bold text-orange-800 dark:text-orange-200">₹{Number(vd.capex).toLocaleString()}</p>
-                        </div>
-                      )}
-                      {vd.opex && (
-                        <div>
-                          <p className="text-[11px] text-amber-600 dark:text-amber-400 uppercase font-semibold">OPEX</p>
-                          <p className="text-base font-bold text-amber-800 dark:text-amber-200">₹{Number(vd.opex).toLocaleString()}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* OPS Status */}
-                {selectedLead.opsApprovalStatus && selectedLead.opsApprovalStatus !== 'PENDING' && (
-                  <div className={`p-3 rounded-xl border ${
-                    selectedLead.opsApprovalStatus === 'APPROVED'
-                      ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
-                      : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      {selectedLead.opsApprovalStatus === 'APPROVED' ? (
-                        <CheckCircle size={14} className="text-emerald-600 dark:text-emerald-400" />
-                      ) : (
-                        <XCircle size={14} className="text-red-600 dark:text-red-400" />
-                      )}
-                      <span className={`text-xs font-semibold ${
-                        selectedLead.opsApprovalStatus === 'APPROVED'
-                          ? 'text-emerald-700 dark:text-emerald-300'
-                          : 'text-red-700 dark:text-red-300'
-                      }`}>
-                        {selectedLead.opsApprovalStatus === 'APPROVED' ? 'Approved' : 'Rejected'}
-                      </span>
-                    </div>
-                    {selectedLead.opsApprovedAt && (
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {formatDate(selectedLead.opsApprovedAt)}
-                      </p>
-                    )}
-                    {selectedLead.opsRejectedReason && (
-                      <p className="text-xs text-red-600 dark:text-red-400 mt-1 line-clamp-2">{selectedLead.opsRejectedReason}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Notes */}
-                {selectedLead.requirements && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-700">
-                    <h4 className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase mb-1 flex items-center gap-1">
-                      <FileText size={12} />
-                      Notes
-                    </h4>
-                    <p className="text-xs text-amber-800 dark:text-amber-200 line-clamp-3">{selectedLead.requirements}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Column 3: Feasibility Details */}
-              <div className="space-y-3">
-                {feasData && feasData.vendorType ? (
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
-                    <h4 className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase mb-2 flex items-center gap-1">
-                      <Network size={12} />
-                      Feasibility
-                    </h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs">
+                {/* Right: Feasibility */}
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                      <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                        <Network size={12} />
+                        Feasibility
+                      </h4>
+                      {feasData?.vendorType && (
+                        <Badge className="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 text-[11px]">
                           {getVendorTypeLabel(feasData.vendorType)}
                         </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-                        {vd.vendorName && (
-                          <div className="col-span-2">
-                            <span className="text-blue-500">Vendor:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{vd.vendorName}</span>
+                      )}
+                    </div>
+                    {feasData && feasData.vendorType ? (
+                      <div className="p-3">
+                        {/* Vendor & POP Info */}
+                        {(vd.vendorName || vd.provider || vd.nearestPop) && (
+                          <div className="space-y-1.5 text-xs mb-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                            {vd.vendorName && (
+                              <div className="flex justify-between"><span className="text-slate-500">Vendor</span><span className="font-medium text-slate-900 dark:text-slate-100">{vd.vendorName}</span></div>
+                            )}
+                            {vd.provider && (
+                              <div className="flex justify-between"><span className="text-slate-500">Provider</span><span className="font-medium text-slate-900 dark:text-slate-100">{vd.provider}</span></div>
+                            )}
+                            {vd.nearestPop && (
+                              <div className="flex justify-between"><span className="text-slate-500">Nearest POP</span><span className="font-medium text-slate-900 dark:text-slate-100">{vd.nearestPop}</span></div>
+                            )}
+                            {vd.distanceFromPop && (
+                              <div className="flex justify-between"><span className="text-slate-500">Distance</span><span className="font-medium text-slate-900 dark:text-slate-100">{vd.distanceFromPop}m</span></div>
+                            )}
                           </div>
                         )}
-                        {vd.provider && (
-                          <div className="col-span-2">
-                            <span className="text-blue-500">Provider:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{vd.provider}</span>
+
+                        {/* Equipment Table */}
+                        <div className="space-y-1.5 text-xs">
+                          {[
+                            { key: 'fiberRequired', label: 'Fiber' },
+                            { key: 'switch', label: 'Switch' },
+                            { key: 'sfp', label: 'SFP' },
+                            { key: 'closure', label: 'Closure' },
+                            { key: 'patchChord', label: 'Patch Cord' },
+                            { key: 'rf', label: 'RF' },
+                          ].filter(({ key }) => vd[key]).map(({ key, label }) => {
+                            const val = vd[key];
+                            const display = typeof val === 'object' ? `${val.quantity || 0} × ${val.modelNumber || '-'}` : val;
+                            return (
+                              <div key={key} className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800 last:border-0">
+                                <span className="text-slate-500">{label}</span>
+                                <span className="font-medium text-slate-900 dark:text-slate-100 font-mono">{display}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Vendor Financial Details */}
+                        {(vd.percentage || vd.perMtrCost || vd.p2pCapacity || vd.arc || vd.otc || vd.bandwidth || vd.rent) && (
+                          <div className="space-y-1.5 text-xs mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                            {vd.percentage && (
+                              <div className="flex justify-between"><span className="text-slate-500">Commission</span><span className="font-medium text-slate-900 dark:text-slate-100">{vd.percentage}%</span></div>
+                            )}
+                            {vd.perMtrCost && (
+                              <div className="flex justify-between"><span className="text-slate-500">Per Mtr Cost</span><span className="font-medium text-slate-900 dark:text-slate-100">₹{vd.perMtrCost}</span></div>
+                            )}
+                            {vd.p2pCapacity && (
+                              <div className="flex justify-between"><span className="text-slate-500">P2P Capacity</span><span className="font-medium text-slate-900 dark:text-slate-100">{vd.p2pCapacity} MB</span></div>
+                            )}
+                            {vd.bandwidth && (
+                              <div className="flex justify-between"><span className="text-slate-500">Bandwidth</span><span className="font-medium text-slate-900 dark:text-slate-100">{vd.bandwidth}</span></div>
+                            )}
+                            {vd.arc && (
+                              <div className="flex justify-between"><span className="text-slate-500">ARC</span><span className="font-medium text-slate-900 dark:text-slate-100">₹{vd.arc}</span></div>
+                            )}
+                            {vd.otc && (
+                              <div className="flex justify-between"><span className="text-slate-500">OTC</span><span className="font-medium text-slate-900 dark:text-slate-100">₹{vd.otc}</span></div>
+                            )}
+                            {vd.p2pArc && (
+                              <div className="flex justify-between"><span className="text-slate-500">P2P ARC</span><span className="font-medium text-slate-900 dark:text-slate-100">₹{vd.p2pArc}</span></div>
+                            )}
+                            {vd.p2pOtc && (
+                              <div className="flex justify-between"><span className="text-slate-500">P2P OTC</span><span className="font-medium text-slate-900 dark:text-slate-100">₹{vd.p2pOtc}</span></div>
+                            )}
+                            {vd.rent && (
+                              <div className="flex justify-between"><span className="text-slate-500">Rent</span><span className="font-medium text-slate-900 dark:text-slate-100">₹{vd.rent}</span></div>
+                            )}
                           </div>
                         )}
-                        {vd.nearestPop && (
-                          <div className="col-span-2">
-                            <span className="text-blue-500">Nearest POP:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{vd.nearestPop}</span>
-                          </div>
-                        )}
-                        {vd.distanceFromPop && (
-                          <div>
-                            <span className="text-blue-500">Distance:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{vd.distanceFromPop}m</span>
-                          </div>
-                        )}
-                        {vd.fiberRequired && (
-                          <div>
-                            <span className="text-blue-500">Fiber:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{typeof vd.fiberRequired === 'object' ? `${vd.fiberRequired.quantity || 0}m${vd.fiberRequired.modelNumber ? ` (${vd.fiberRequired.modelNumber})` : ''}` : `${vd.fiberRequired}m`}</span>
-                          </div>
-                        )}
-                        {vd.perMtrCost && (
-                          <div>
-                            <span className="text-blue-500">Per Mtr:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">₹{vd.perMtrCost}</span>
-                          </div>
-                        )}
-                        {vd.percentage && (
-                          <div>
-                            <span className="text-blue-500">Commission:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{vd.percentage}%</span>
-                          </div>
-                        )}
-                        {vd.switch && (
-                          <div>
-                            <span className="text-blue-500">Switch:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{typeof vd.switch === 'object' ? `${vd.switch.quantity || 0} × ${vd.switch.modelNumber || ''}` : vd.switch}</span>
-                          </div>
-                        )}
-                        {vd.sfp && (
-                          <div>
-                            <span className="text-blue-500">SFP:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{typeof vd.sfp === 'object' ? `${vd.sfp.quantity || 0} × ${vd.sfp.modelNumber || ''}` : vd.sfp}</span>
-                          </div>
-                        )}
-                        {vd.closure && (
-                          <div>
-                            <span className="text-blue-500">Closure:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{typeof vd.closure === 'object' ? `${vd.closure.quantity || 0} × ${vd.closure.modelNumber || ''}` : vd.closure}</span>
-                          </div>
-                        )}
-                        {vd.patchChord && (
-                          <div>
-                            <span className="text-blue-500">Patch:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{typeof vd.patchChord === 'object' ? `${vd.patchChord.quantity || 0} × ${vd.patchChord.modelNumber || ''}` : vd.patchChord}</span>
-                          </div>
-                        )}
-                        {vd.rf && (
-                          <div>
-                            <span className="text-blue-500">RF:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{typeof vd.rf === 'object' ? `${vd.rf.quantity || 0} × ${vd.rf.modelNumber || ''}` : vd.rf}</span>
-                          </div>
-                        )}
-                        {vd.bandwidth && (
-                          <div>
-                            <span className="text-blue-500">BW:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{vd.bandwidth}</span>
-                          </div>
-                        )}
-                        {vd.p2pCapacity && (
-                          <div>
-                            <span className="text-blue-500">P2P Cap:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">{vd.p2pCapacity}</span>
-                          </div>
-                        )}
-                        {vd.arc && (
-                          <div>
-                            <span className="text-blue-500">ARC:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">₹{vd.arc}</span>
-                          </div>
-                        )}
-                        {vd.otc && (
-                          <div>
-                            <span className="text-blue-500">OTC:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">₹{vd.otc}</span>
-                          </div>
-                        )}
-                        {vd.p2pArc && (
-                          <div>
-                            <span className="text-blue-500">P2P ARC:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">₹{vd.p2pArc}</span>
-                          </div>
-                        )}
-                        {vd.p2pOtc && (
-                          <div>
-                            <span className="text-blue-500">P2P OTC:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">₹{vd.p2pOtc}</span>
-                          </div>
-                        )}
-                        {vd.rent && (
-                          <div>
-                            <span className="text-blue-500">Rent:</span>
-                            <span className="ml-1 text-blue-900 dark:text-blue-100">₹{vd.rent}</span>
+
+                        {/* Feasibility Notes */}
+                        {feasData.additionalNotes && (
+                          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <p className="text-[11px] text-slate-400 uppercase font-medium mb-1">Notes</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{feasData.additionalNotes}</p>
                           </div>
                         )}
                       </div>
-                      {feasData.additionalNotes && (
-                        <div className="pt-2 border-t border-blue-200 dark:border-blue-700">
-                          <p className="text-[11px] text-blue-500 uppercase font-semibold">Notes</p>
-                          <p className="text-xs text-blue-800 dark:text-blue-200 line-clamp-2">{feasData.additionalNotes}</p>
+                    ) : (
+                      <div className="p-6 text-center">
+                        <p className="text-xs text-slate-400">No feasibility data available</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Vendor Info */}
+                  {vd.vendorDetails && (
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
+                        <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Vendor Details</h4>
+                      </div>
+                      <div className="p-3 space-y-1 text-xs">
+                        {vd.vendorDetails.companyName && (
+                          <p className="font-medium text-slate-900 dark:text-slate-100">{vd.vendorDetails.companyName}</p>
+                        )}
+                        {vd.vendorDetails.contactPerson && (
+                          <p className="text-slate-500">{vd.vendorDetails.contactPerson}</p>
+                        )}
+                        {vd.vendorDetails.phone && (
+                          <p className="text-slate-500">{vd.vendorDetails.phone}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* OPS Status */}
+                  {selectedLead.opsApprovalStatus && selectedLead.opsApprovalStatus !== 'PENDING' && (
+                    <div className={`rounded-xl border overflow-hidden ${
+                      selectedLead.opsApprovalStatus === 'APPROVED'
+                        ? 'border-emerald-200 dark:border-emerald-800'
+                        : 'border-red-200 dark:border-red-800'
+                    }`}>
+                      <div className={`px-3 py-2 flex items-center gap-2 ${
+                        selectedLead.opsApprovalStatus === 'APPROVED'
+                          ? 'bg-emerald-50 dark:bg-emerald-900/20'
+                          : 'bg-red-50 dark:bg-red-900/20'
+                      }`}>
+                        {selectedLead.opsApprovalStatus === 'APPROVED' ? (
+                          <CheckCircle size={14} className="text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <XCircle size={14} className="text-red-600 dark:text-red-400" />
+                        )}
+                        <span className={`text-xs font-semibold ${
+                          selectedLead.opsApprovalStatus === 'APPROVED' ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'
+                        }`}>
+                          {selectedLead.opsApprovalStatus === 'APPROVED' ? 'Approved' : 'Rejected'}
+                        </span>
+                        {selectedLead.opsApprovedAt && (
+                          <span className="text-[11px] text-slate-500 ml-auto">{formatDate(selectedLead.opsApprovedAt)}</span>
+                        )}
+                      </div>
+                      {selectedLead.opsRejectedReason && (
+                        <div className="px-3 py-2">
+                          <p className="text-xs text-red-600 dark:text-red-400">{selectedLead.opsRejectedReason}</p>
                         </div>
                       )}
                     </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                    <p className="text-xs text-slate-400 text-center">No feasibility data</p>
-                  </div>
-                )}
-
-                {/* Vendor Info if new vendor */}
-                {vd.vendorDetails && (
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                    <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">New Vendor Info</h4>
-                    <div className="space-y-1 text-xs">
-                      {vd.vendorDetails.companyName && (
-                        <p className="text-slate-700 dark:text-slate-300">{vd.vendorDetails.companyName}</p>
-                      )}
-                      {vd.vendorDetails.contactPerson && (
-                        <p className="text-slate-500">{vd.vendorDetails.contactPerson}</p>
-                      )}
-                      {vd.vendorDetails.phone && (
-                        <p className="text-slate-500">{vd.vendorDetails.phone}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1584,6 +1526,22 @@ export default function OpsApprovalPage() {
             </div>
 
             <div className="p-4 sm:p-5 space-y-5 overflow-y-auto">
+              {/* Quotation Attachments */}
+              {selectedLead.quotationAttachments?.length > 0 && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase mb-2">Attachments</h4>
+                  <div className="space-y-1.5">
+                    {selectedLead.quotationAttachments.map((file, i) => (
+                      <a key={i} href={file.url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                        <FileText size={13} />
+                        <span className="truncate">{file.filename}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Decision Options */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">

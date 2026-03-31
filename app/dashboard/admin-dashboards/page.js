@@ -46,7 +46,7 @@ export default function AdminDashboardsPage() {
   });
 
   const isTL = user?.role === 'BDM_TEAM_LEADER';
-  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER' || isTL;
+  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'SALES_DIRECTOR' || user?.role === 'MASTER' || isTL;
 
   // Check authorization
   useEffect(() => {

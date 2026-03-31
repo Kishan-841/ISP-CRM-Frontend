@@ -23,6 +23,7 @@ import {
   Package,
   User,
   Upload,
+  Paperclip,
   X,
   Trash2,
   ShieldCheck,
@@ -232,6 +233,11 @@ export default function QuotationManagementPage() {
     senderEmail: ''
   });
 
+  // Quotation attachments (optional, sent to OPS and Admin)
+  const [quotationAttachments, setQuotationAttachments] = useState([]);
+  const [isUploadingQuoteAttachment, setIsUploadingQuoteAttachment] = useState(false);
+  const quoteAttachmentInputRef = React.useRef(null);
+
   // Email attachments
   const [emailAttachments, setEmailAttachments] = useState([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
@@ -433,6 +439,7 @@ export default function QuotationManagementPage() {
       arcAmount: lead.arcAmount || lead.tentativePrice || '',
       otcAmount: lead.otcAmount || ''
     });
+    setQuotationAttachments(lead.quotationAttachments || []);
     setShowQuoteModal(true);
   };
 
@@ -713,6 +720,39 @@ export default function QuotationManagementPage() {
   };
 
   // Submit quote to OPS
+  // Upload quotation attachment to Cloudinary
+  const handleQuoteAttachmentUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) { toast.error(`${file.name}: Only PDF, DOC, DOCX, JPG, PNG allowed`); return; }
+      if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name}: File too large (max 10MB)`); return; }
+    }
+    setIsUploadingQuoteAttachment(true);
+    try {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post('/emails/upload-attachment', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        if (res.data) {
+          setQuotationAttachments(prev => [...prev, {
+            filename: res.data.filename || file.name,
+            url: res.data.url,
+            size: file.size,
+          }]);
+        }
+      }
+    } catch (err) {
+      toast.error('Failed to upload attachment');
+    } finally {
+      setIsUploadingQuoteAttachment(false);
+      if (quoteAttachmentInputRef.current) quoteAttachmentInputRef.current.value = '';
+    }
+  };
+
   const handleSubmitToOps = async () => {
     if (!selectedLead) return;
 
@@ -742,6 +782,7 @@ export default function QuotationManagementPage() {
         numberOfIPs: quoteDetails.numberOfIPs ? parseInt(quoteDetails.numberOfIPs) : null,
         arcAmount: parseFloat(quoteDetails.arcAmount) || 0,
         otcAmount: parseFloat(quoteDetails.otcAmount) || 0,
+        quotationAttachments: quotationAttachments.length > 0 ? quotationAttachments : null,
         opsApprovalStatus: 'PENDING'
       });
 
@@ -1799,6 +1840,51 @@ export default function QuotationManagementPage() {
                         className="pl-8 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 h-11"
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Quotation Attachments (optional) */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <Paperclip size={14} className="inline mr-1" />
+                    Attachments <span className="text-xs text-slate-400 font-normal">(optional — visible to OPS & Admin)</span>
+                  </label>
+                  {quotationAttachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {quotationAttachments.map((file, i) => (
+                        <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-xs font-medium text-slate-700 dark:text-slate-300">
+                          <FileText size={12} />
+                          <a href={file.url} target="_blank" rel="noopener noreferrer" className="max-w-[150px] truncate hover:text-blue-600">{file.filename}</a>
+                          <button onClick={() => setQuotationAttachments(prev => prev.filter((_, idx) => idx !== i))} className="ml-0.5 text-slate-400 hover:text-red-500">
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div
+                    onClick={() => !isUploadingQuoteAttachment && quoteAttachmentInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-3 text-center cursor-pointer hover:border-orange-400 dark:hover:border-orange-600 hover:bg-orange-50/50 dark:hover:bg-orange-900/10 transition-colors"
+                  >
+                    <input
+                      ref={quoteAttachmentInputRef}
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={handleQuoteAttachmentUpload}
+                      className="hidden"
+                    />
+                    {isUploadingQuoteAttachment ? (
+                      <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+                        <Loader2 size={16} className="animate-spin" />
+                        Uploading...
+                      </div>
+                    ) : (
+                      <>
+                        <Upload size={18} className="mx-auto mb-1 text-slate-400" />
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Click to upload files (PDF, DOC, JPG, PNG — max 10MB each)</p>
+                      </>
+                    )}
                   </div>
                 </div>
 

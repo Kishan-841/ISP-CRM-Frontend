@@ -228,6 +228,7 @@ export default function EmployeesPage() {
                 <option value="NOC">NOC</option>
                 <option value="NOC_HEAD">NOC Head</option>
                 <option value="STORE_MANAGER">Store Manager</option>
+                <option value="SALES_DIRECTOR">Sales Director</option>
               </select>
             )}
           </div>
@@ -312,7 +313,7 @@ export default function EmployeesPage() {
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                           }
                         >
-                          {u.role === 'SUPER_ADMIN' ? 'Super Admin' : u.role === 'ADMIN' ? 'Admin' : u.role === 'AREA_HEAD' ? 'Area Head' : u.role === 'BDM' ? 'BDM' : u.role === 'BDM_TEAM_LEADER' ? 'BDM Team Leader' : u.role === 'SAM' ? 'SAM' : u.role === 'SAM_HEAD' ? 'SAM Head' : u.role === 'SAM_EXECUTIVE' ? 'SAM Executive' : u.role === 'FEASIBILITY_TEAM' ? 'Feasibility Team' : u.role === 'OPS_TEAM' ? 'OPS Team' : u.role === 'DOCS_TEAM' ? 'Docs Team' : u.role === 'ACCOUNTS_TEAM' ? 'Accounts Team' : u.role === 'DELIVERY_TEAM' ? 'Delivery Team' : u.role === 'STORE_MANAGER' ? 'Store Manager' : u.role === 'NOC' ? 'NOC' : u.role === 'NOC_HEAD' ? 'NOC Head' : 'ISR'}
+                          {u.role === 'SUPER_ADMIN' ? 'Super Admin' : u.role === 'ADMIN' ? 'Admin' : u.role === 'AREA_HEAD' ? 'Area Head' : u.role === 'BDM' ? 'BDM' : u.role === 'BDM_TEAM_LEADER' ? 'BDM Team Leader' : u.role === 'SAM' ? 'SAM' : u.role === 'SAM_HEAD' ? 'SAM Head' : u.role === 'SAM_EXECUTIVE' ? 'SAM Executive' : u.role === 'FEASIBILITY_TEAM' ? 'Feasibility Team' : u.role === 'OPS_TEAM' ? 'OPS Team' : u.role === 'DOCS_TEAM' ? 'Docs Team' : u.role === 'ACCOUNTS_TEAM' ? 'Accounts Team' : u.role === 'DELIVERY_TEAM' ? 'Delivery Team' : u.role === 'STORE_MANAGER' ? 'Store Manager' : u.role === 'NOC' ? 'NOC' : u.role === 'NOC_HEAD' ? 'NOC Head' : u.role === 'SALES_DIRECTOR' ? 'Sales Director' : 'ISR'}
                         </Badge>
                         {u.teamLeader && (
                           <span className="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">TL: {u.teamLeader.name}</span>
@@ -478,6 +479,7 @@ export default function EmployeesPage() {
                         <option value="STORE_MANAGER">Store Manager</option>
                         <option value="NOC">NOC</option>
                         <option value="NOC_HEAD">NOC Head</option>
+                        <option value="SALES_DIRECTOR">Sales Director</option>
                       </select>
                     </div>
 

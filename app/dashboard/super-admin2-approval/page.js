@@ -59,7 +59,8 @@ export default function SuperAdmin2ApprovalPage() {
 
   const isMaster = user?.role === 'MASTER';
   const isSA2 = user?.role === 'SUPER_ADMIN_2' || isMaster;
-  const isAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
+  const isSalesDirector = user?.role === 'SALES_DIRECTOR';
+  const isAdmin = user?.role === 'SUPER_ADMIN' || isSalesDirector || isMaster;
 
   useEffect(() => {
     if (user && !isSA2 && !isAdmin) {
@@ -334,6 +335,27 @@ export default function SuperAdmin2ApprovalPage() {
                 </div>
               </div>
 
+              {/* Quotation Attachments */}
+              {selectedLead.quotationAttachments?.length > 0 && (
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-300 mb-2">Quotation Attachments</h4>
+                  <div className="space-y-1.5">
+                    {selectedLead.quotationAttachments.map((file, i) => (
+                      <a
+                        key={i}
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      >
+                        <FileText size={13} />
+                        <span className="truncate">{file.filename}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Technical Details */}
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
@@ -425,6 +447,22 @@ export default function SuperAdmin2ApprovalPage() {
             </div>
 
             <div className="p-6 space-y-4">
+              {/* Quotation Attachments */}
+              {selectedLead.quotationAttachments?.length > 0 && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase mb-2">Attachments</h4>
+                  <div className="space-y-1.5">
+                    {selectedLead.quotationAttachments.map((file, i) => (
+                      <a key={i} href={file.url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                        <FileText size={13} />
+                        <span className="truncate">{file.filename}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Decision Buttons */}
               <div className="space-y-2">
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Decision</p>
