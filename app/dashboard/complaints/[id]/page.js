@@ -37,6 +37,7 @@ import {
   Trash2,
   Calendar,
   Image,
+  Pencil,
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '@/lib/formatters';
 import { COMPLAINT_STATUS_CONFIG, PRIORITY_CONFIG, getStatusBadgeClass } from '@/lib/statusConfig';
@@ -468,13 +469,13 @@ export default function ComplaintDetailPage() {
             </Card>
           )}
 
-          {/* ─── Status History Timeline ─── */}
+          {/* ─── Activity Timeline ─── */}
           {complaint.statusHistory?.length > 0 && (
             <Card>
               <CardContent className="pt-6">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4 flex items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  Status History
+                  Activity Timeline
                 </h3>
                 <div className="relative">
                   {/* Vertical line */}
@@ -482,29 +483,50 @@ export default function ComplaintDetailPage() {
 
                   <div className="space-y-4">
                     {complaint.statusHistory.map((entry, index) => {
-                      const newConf = STATUS_CONFIG[entry.newValue] || {};
-                      const EntryIcon = newConf.icon || Circle;
+                      const isStatusChange = entry.field === 'status';
+                      const isAssignment = entry.field === 'assignment';
+                      const isDetailsUpdate = entry.field === 'details_updated';
+
+                      // Choose icon and colors based on entry type
+                      let EntryIcon = Circle;
+                      let dotColor = 'border-muted-foreground/30';
+                      let iconColor = 'text-muted-foreground/60';
+                      let badgeColor = 'bg-slate-100 text-slate-600';
+                      let label = entry.newValue;
+
+                      if (isStatusChange) {
+                        const newConf = STATUS_CONFIG[entry.newValue] || {};
+                        EntryIcon = newConf.icon || Circle;
+                        badgeColor = newConf.color || badgeColor;
+                        label = newConf.label || entry.newValue;
+                        if (index === 0) { dotColor = 'border-teal-500'; iconColor = 'text-teal-600'; }
+                      } else if (isAssignment) {
+                        EntryIcon = UserPlus;
+                        dotColor = index === 0 ? 'border-blue-500' : 'border-blue-300';
+                        iconColor = index === 0 ? 'text-blue-600' : 'text-blue-400';
+                        badgeColor = 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+                        label = 'Reassigned';
+                      } else if (isDetailsUpdate) {
+                        EntryIcon = Pencil;
+                        dotColor = index === 0 ? 'border-amber-500' : 'border-amber-300';
+                        iconColor = index === 0 ? 'text-amber-600' : 'text-amber-400';
+                        badgeColor = 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+                        label = 'Details Updated';
+                      }
+
                       return (
                         <div key={entry.id || index} className="flex gap-4 relative">
                           {/* Dot */}
                           <div
-                            className={`relative z-10 flex items-center justify-center w-6 h-6 rounded-full border-2 bg-white dark:bg-zinc-900 shrink-0 ${
-                              index === 0
-                                ? 'border-teal-500'
-                                : 'border-muted-foreground/30'
-                            }`}
+                            className={`relative z-10 flex items-center justify-center w-6 h-6 rounded-full border-2 bg-white dark:bg-zinc-900 shrink-0 ${dotColor}`}
                           >
-                            <EntryIcon
-                              className={`h-3 w-3 ${
-                                index === 0 ? 'text-teal-600' : 'text-muted-foreground/60'
-                              }`}
-                            />
+                            <EntryIcon className={`h-3 w-3 ${iconColor}`} />
                           </div>
 
                           {/* Content */}
                           <div className="flex-1 pb-1">
                             <div className="flex flex-wrap items-center gap-2 text-sm">
-                              {entry.oldValue && (
+                              {isStatusChange && entry.oldValue && (
                                 <>
                                   <Badge className={`${STATUS_CONFIG[entry.oldValue]?.color || 'bg-slate-100 text-slate-600'} border-0 text-xs`}>
                                     {STATUS_CONFIG[entry.oldValue]?.label || entry.oldValue}
@@ -512,9 +534,14 @@ export default function ComplaintDetailPage() {
                                   <span className="text-muted-foreground">→</span>
                                 </>
                               )}
-                              <Badge className={`${newConf.color || 'bg-slate-100 text-slate-600'} border-0 text-xs`}>
-                                {newConf.label || entry.newValue}
+                              <Badge className={`${badgeColor} border-0 text-xs`}>
+                                {label}
                               </Badge>
+                              {isDetailsUpdate && entry.newValue && entry.newValue !== 'Updated' && (
+                                <span className="text-xs text-muted-foreground">
+                                  — {entry.newValue}
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
                               by <span className="font-medium text-foreground">{entry.changedBy?.name || 'System'}</span>
@@ -522,7 +549,7 @@ export default function ComplaintDetailPage() {
                             </p>
                             {entry.reason && (
                               <p className="text-xs text-muted-foreground mt-1 italic">
-                                Reason: {entry.reason}
+                                {entry.reason}
                               </p>
                             )}
                           </div>

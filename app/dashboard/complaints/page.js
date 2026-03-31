@@ -181,8 +181,11 @@ export default function ComplaintsPage() {
   const [isLogging, setIsLogging] = useState(false);
 
   // Permission checks
-  const canCreate = ['NOC', 'NOC_HEAD', 'SUPER_ADMIN', 'SUPPORT_TEAM', 'OPS_TEAM'].includes(user?.role);
-  const canUpdateClose = ['NOC', 'NOC_HEAD', 'SUPER_ADMIN', 'OPS_TEAM'].includes(user?.role);
+  const canCreate = ['NOC', 'NOC_HEAD', 'SUPER_ADMIN', 'SUPPORT_TEAM'].includes(user?.role);
+  const isOpsUser = user?.role === 'OPS_TEAM';
+  const canClose = ['NOC', 'NOC_HEAD', 'SUPER_ADMIN'].includes(user?.role);
+  const canUpdateDetails = ['NOC', 'NOC_HEAD', 'SUPER_ADMIN', 'OPS_TEAM'].includes(user?.role);
+  const canUpdateClose = canClose; // Backward compat for existing references
 
   // Map tab to status filter
   const getStatusFilter = useCallback(() => {
@@ -403,7 +406,7 @@ export default function ComplaintsPage() {
     setUpdateTarget(complaint);
     const cat = categories.find(c => c.id === complaint.category?.id);
     setUpdateSubCategories(cat?.subCategories || []);
-    const nocAssignee = complaint.assignments?.find(a => ['NOC', 'NOC_TEAM'].includes(a.user?.role))?.user;
+    const nocAssignee = complaint.assignments?.find(a => ['NOC', 'NOC_HEAD'].includes(a.user?.role))?.user;
     const opsAssignee = complaint.assignments?.find(a => a.user?.role === 'OPS_TEAM')?.user;
     const accAssignee = complaint.assignments?.find(a => a.user?.role === 'ACCOUNTS_TEAM')?.user;
     setUpdateForm({
@@ -413,6 +416,7 @@ export default function ComplaintsPage() {
       nocAssigneeId: nocAssignee?.id || '',
       opsAssigneeId: opsAssignee?.id || '',
       accountsAssigneeId: accAssignee?.id || '',
+      remark: '',
     });
     setUpdateFiles([]);
     setShowUpdateModal(true);
@@ -443,12 +447,16 @@ export default function ComplaintsPage() {
     if (updateForm.tatHours) payload.tatHours = Number(updateForm.tatHours);
     if (updateForm.categoryId) payload.categoryId = updateForm.categoryId;
     if (updateForm.subCategoryId) payload.subCategoryId = updateForm.subCategoryId;
-    const isAccCatUpdate = isAccountsCategory(updateForm.categoryId);
-    if (isAccCatUpdate) {
-      if (updateForm.accountsAssigneeId) payload.accountsAssigneeId = updateForm.accountsAssigneeId;
-    } else {
-      if (updateForm.nocAssigneeId) payload.nocAssigneeId = updateForm.nocAssigneeId;
-      if (updateForm.opsAssigneeId) payload.opsAssigneeId = updateForm.opsAssigneeId;
+    if (updateForm.remark?.trim()) payload.remark = updateForm.remark.trim();
+    // OPS cannot reassign — only NOC/NOC_HEAD/admin can
+    if (!isOpsUser) {
+      const isAccCatUpdate = isAccountsCategory(updateForm.categoryId);
+      if (isAccCatUpdate) {
+        if (updateForm.accountsAssigneeId) payload.accountsAssigneeId = updateForm.accountsAssigneeId;
+      } else {
+        if (updateForm.nocAssigneeId) payload.nocAssigneeId = updateForm.nocAssigneeId;
+        if (updateForm.opsAssigneeId) payload.opsAssigneeId = updateForm.opsAssigneeId;
+      }
     }
 
     const result = await updateComplaintDetails(updateTarget.id, payload);
@@ -976,23 +984,23 @@ export default function ComplaintsPage() {
               <Eye size={13} />
               View
             </button>
-            {canUpdateClose && row.status !== 'CLOSED' && (
-              <>
-                <button
-                  onClick={() => openUpdateModal(row)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
-                >
-                  <Pencil size={13} />
-                  Edit
-                </button>
-                <button
-                  onClick={() => openCloseModal(row)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
-                >
-                  <XCircle size={13} />
-                  Close
-                </button>
-              </>
+            {canUpdateDetails && row.status !== 'CLOSED' && (
+              <button
+                onClick={() => openUpdateModal(row)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
+              >
+                <Pencil size={13} />
+                Edit
+              </button>
+            )}
+            {canClose && row.status !== 'CLOSED' && (
+              <button
+                onClick={() => openCloseModal(row)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
+              >
+                <XCircle size={13} />
+                Close
+              </button>
             )}
           </div>
         )}
@@ -1096,23 +1104,23 @@ export default function ComplaintsPage() {
                           <Eye size={13} />
                           View
                         </button>
-                        {canUpdateClose && complaint.status !== 'CLOSED' && (
-                          <>
-                            <button
-                              onClick={() => openUpdateModal(complaint)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"
-                            >
-                              <Pencil size={13} />
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => openCloseModal(complaint)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all"
-                            >
-                              <XCircle size={13} />
-                              Close
-                            </button>
-                          </>
+                        {canUpdateDetails && complaint.status !== 'CLOSED' && (
+                          <button
+                            onClick={() => openUpdateModal(complaint)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"
+                          >
+                            <Pencil size={13} />
+                            Edit
+                          </button>
+                        )}
+                        {canClose && complaint.status !== 'CLOSED' && (
+                          <button
+                            onClick={() => openCloseModal(complaint)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all"
+                          >
+                            <XCircle size={13} />
+                            Close
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1755,32 +1763,46 @@ export default function ComplaintsPage() {
                 </div>
               </div>
 
-              {/* Assignees - conditional based on category type */}
-              {isAccountsCategory(updateForm.categoryId) ? (
-                <div>
-                  <label className={labelClass}>Accounts Assignee</label>
-                  <select value={updateForm.accountsAssigneeId} onChange={(e) => setUpdateForm(p => ({ ...p, accountsAssigneeId: e.target.value }))} className={inputClass}>
-                    <option value="">Select Accounts User</option>
-                    {(assignableUsers.accounts || []).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Remark */}
+              <div>
+                <label className={labelClass}>Remark</label>
+                <textarea
+                  value={updateForm.remark}
+                  onChange={(e) => setUpdateForm(p => ({ ...p, remark: e.target.value }))}
+                  placeholder="Add a remark or note about this update..."
+                  rows={3}
+                  className={inputClass}
+                />
+              </div>
+
+              {/* Assignees - conditional based on category type (hidden for OPS users) */}
+              {!isOpsUser && (
+                isAccountsCategory(updateForm.categoryId) ? (
                   <div>
-                    <label className={labelClass}>NOC Assignee</label>
-                    <select value={updateForm.nocAssigneeId} onChange={(e) => setUpdateForm(p => ({ ...p, nocAssigneeId: e.target.value }))} className={inputClass}>
-                      <option value="">Select NOC User</option>
-                      {(assignableUsers.noc || []).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    <label className={labelClass}>Accounts Assignee</label>
+                    <select value={updateForm.accountsAssigneeId} onChange={(e) => setUpdateForm(p => ({ ...p, accountsAssigneeId: e.target.value }))} className={inputClass}>
+                      <option value="">Select Accounts User</option>
+                      {(assignableUsers.accounts || []).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label className={labelClass}>OPS Assignee</label>
-                    <select value={updateForm.opsAssigneeId} onChange={(e) => setUpdateForm(p => ({ ...p, opsAssigneeId: e.target.value }))} className={inputClass}>
-                      <option value="">None</option>
-                      {(assignableUsers.ops || []).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>NOC Assignee</label>
+                      <select value={updateForm.nocAssigneeId} onChange={(e) => setUpdateForm(p => ({ ...p, nocAssigneeId: e.target.value }))} className={inputClass}>
+                        <option value="">Select NOC User</option>
+                        {(assignableUsers.noc || []).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>OPS Assignee</label>
+                      <select value={updateForm.opsAssigneeId} onChange={(e) => setUpdateForm(p => ({ ...p, opsAssigneeId: e.target.value }))} className={inputClass}>
+                        <option value="">None</option>
+                        {(assignableUsers.ops || []).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                      </select>
+                    </div>
                   </div>
-                </div>
+                )
               )}
 
               {/* File Upload */}

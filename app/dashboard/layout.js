@@ -15,7 +15,6 @@ export default function DashboardLayout({ children }) {
   const { isAuthenticated, isLoading, initialize, token } = useAuthStore();
   const { initialize: initTheme } = useThemeStore();
   const { isCollapsed, initialize: initSidebar } = useSidebarStore();
-  const { addNotification, fetchUnreadCount } = useNotificationStore();
 
   useEffect(() => {
     initialize();
@@ -35,25 +34,27 @@ export default function DashboardLayout({ children }) {
       const socket = initSocket(token);
 
       // Listen for new notifications
-      socket.on('notification', (notification) => {
-        addNotification(notification);
+      const handleNotification = (notification) => {
+        useNotificationStore.getState().addNotification(notification);
 
         // Show toast for new notification
         toast.success(notification.title, {
           duration: 4000,
           position: 'top-right'
         });
-      });
+      };
+
+      socket.on('notification', handleNotification);
 
       // Fetch initial unread count
-      fetchUnreadCount();
+      useNotificationStore.getState().fetchUnreadCount();
 
       return () => {
-        socket.off('notification');
+        socket.off('notification', handleNotification);
         disconnectSocket();
       };
     }
-  }, [isAuthenticated, token, addNotification, fetchUnreadCount]);
+  }, [isAuthenticated, token]);
 
   if (isLoading) {
     return (

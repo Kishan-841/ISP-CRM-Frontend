@@ -111,6 +111,54 @@ const calculatePriceForDays = (arcAmount, days) => {
   return Math.round((arc / 360) * days);
 };
 
+// Get billing cycle months
+const getCycleMonths = (billingCycleDays) => {
+  switch (parseInt(billingCycleDays)) {
+    case 30: return 1;
+    case 90: return 3;
+    case 180: return 6;
+    case 360: return 12;
+    default: return 1;
+  }
+};
+
+/**
+ * Calculate the actual number of days for Month End billing from a start date.
+ * For Month End: the partial start month counts as month 1.
+ *   e.g., March 30 QUARTERLY → March 30 to May 31 (remaining days of March + April + May)
+ *   e.g., April 1 QUARTERLY → April 1 to June 30 (full 3 months)
+ * Returns { days, endDate }
+ */
+const calculateMonthEndDays = (startDateStr, billingCycleDays) => {
+  if (!startDateStr) return { days: parseInt(billingCycleDays) || 30, endDate: null };
+  const start = new Date(startDateStr);
+  const cycleMonths = getCycleMonths(billingCycleDays);
+  // End at last day of (startMonth + cycleMonths - 1)
+  const endDate = new Date(start.getFullYear(), start.getMonth() + cycleMonths, 0);
+  // Days inclusive of both start and end
+  const diffTime = endDate.getTime() - start.getTime();
+  const days = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  return { days, endDate };
+};
+
+/**
+ * Calculate the price from ARC considering billing type.
+ * For Month End billing: uses actual days from start date to end of billing period.
+ * For Day to Day billing: uses standard cycle days (30, 90, 180, 360).
+ */
+const calculatePriceFromArcWithType = (arcAmount, billingCycleDays, billingType, startDate) => {
+  if (!arcAmount || isNaN(arcAmount)) return { price: 0, actualDays: parseInt(billingCycleDays) || 30 };
+  const arc = parseFloat(arcAmount);
+
+  if (billingType === 'MONTHLY' && startDate) {
+    const { days } = calculateMonthEndDays(startDate, billingCycleDays);
+    return { price: Math.round((arc / 360) * days), actualDays: days };
+  }
+
+  const days = parseInt(billingCycleDays);
+  return { price: Math.round((arc / 360) * days), actualDays: days };
+};
+
 // Get billing cycle label
 const getBillingCycleDaysLabel = (days) => {
   switch(parseInt(days)) {
@@ -454,7 +502,10 @@ export default function AccountsCreatePlanPage() {
     else if (lead.actualPlanValidityDays === 180) billingCycle = '180';
     else if (lead.actualPlanValidityDays === 360 || lead.actualPlanValidityDays === 365) billingCycle = '360';
 
-    const calculatedPrice = lead.actualPlanPrice || calculatePriceFromArc(lead.arcAmount, billingCycle);
+    const billingType = lead.actualPlanBillingType || 'DAY_TO_DAY';
+    const startDate = lead.actualPlanStartDate ? new Date(lead.actualPlanStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const { price: calcPrice } = calculatePriceFromArcWithType(lead.arcAmount, billingCycle, billingType, startDate);
+    const calculatedPrice = lead.actualPlanPrice || calcPrice;
 
     setPlanForm({
       planName: lead.actualPlanName || generatePlanName(lead.customerUsername, lead.bandwidthRequirement),
@@ -482,7 +533,10 @@ export default function AccountsCreatePlanPage() {
     else if (lead.actualPlanValidityDays === 180) billingCycle = '180';
     else if (lead.actualPlanValidityDays === 360 || lead.actualPlanValidityDays === 365) billingCycle = '360';
 
-    const calculatedPrice = lead.actualPlanPrice || calculatePriceFromArc(lead.arcAmount, billingCycle);
+    const billingType = lead.actualPlanBillingType || 'DAY_TO_DAY';
+    const startDate = lead.actualPlanStartDate ? new Date(lead.actualPlanStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const { price: calcPrice } = calculatePriceFromArcWithType(lead.arcAmount, billingCycle, billingType, startDate);
+    const calculatedPrice = lead.actualPlanPrice || calcPrice;
 
     setPlanForm({
       planName: lead.actualPlanName || generatePlanName(lead.customerUsername, lead.bandwidthRequirement),
@@ -578,9 +632,13 @@ export default function AccountsCreatePlanPage() {
     setPlanForm(prev => {
       const newForm = { ...prev, [field]: value };
 
-      // Auto-calculate price when billing cycle changes
-      if (field === 'billingCycle' && selectedLead?.arcAmount) {
-        newForm.price = calculatePriceFromArc(selectedLead.arcAmount, value);
+      // Auto-calculate price when billing cycle, billing type, or start date changes
+      if ((field === 'billingCycle' || field === 'billingType' || field === 'startDate') && selectedLead?.arcAmount) {
+        const cycle = field === 'billingCycle' ? value : newForm.billingCycle;
+        const type = field === 'billingType' ? value : newForm.billingType;
+        const start = field === 'startDate' ? value : newForm.startDate;
+        const { price } = calculatePriceFromArcWithType(selectedLead.arcAmount, cycle, type, start);
+        newForm.price = price;
       }
 
       return newForm;
@@ -1408,11 +1466,17 @@ export default function AccountsCreatePlanPage() {
                       disabled={modalMode === 'view'}
                       className="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
                     />
-                    {selectedLead?.arcAmount && (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                        Based on ARC: {formatCurrency(selectedLead.arcAmount)} ÷ 360 × {planForm.billingCycle} days
-                      </p>
-                    )}
+                    {selectedLead?.arcAmount && (() => {
+                      const { actualDays } = calculatePriceFromArcWithType(selectedLead.arcAmount, planForm.billingCycle, planForm.billingType, planForm.startDate);
+                      return (
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                          Based on ARC: {formatCurrency(selectedLead.arcAmount)} ÷ 360 × {actualDays} days
+                          {planForm.billingType === 'MONTHLY' && actualDays !== parseInt(planForm.billingCycle) && (
+                            <span className="text-amber-600 dark:text-amber-400"> (pro-rated for month-end)</span>
+                          )}
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div>
                     <Label htmlFor="startDate">Start Date</Label>
@@ -1498,29 +1562,32 @@ export default function AccountsCreatePlanPage() {
 
                     {/* All billing cycle prices reference */}
                     <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
-                      <div className={`p-2 rounded ${planForm.billingCycle === '30' ? 'bg-indigo-100 dark:bg-indigo-900/30 ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-700'}`}>
-                        <span className="text-slate-600 dark:text-slate-400">Monthly (30d):</span>
-                        <span className="ml-1 font-medium">{formatCurrency(calculatePriceFromArc(selectedLead.arcAmount, 30))}</span>
-                      </div>
-                      <div className={`p-2 rounded ${planForm.billingCycle === '90' ? 'bg-indigo-100 dark:bg-indigo-900/30 ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-700'}`}>
-                        <span className="text-slate-600 dark:text-slate-400">Quarterly (90d):</span>
-                        <span className="ml-1 font-medium">{formatCurrency(calculatePriceFromArc(selectedLead.arcAmount, 90))}</span>
-                      </div>
-                      <div className={`p-2 rounded ${planForm.billingCycle === '180' ? 'bg-indigo-100 dark:bg-indigo-900/30 ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-700'}`}>
-                        <span className="text-slate-600 dark:text-slate-400">Half Yearly (180d):</span>
-                        <span className="ml-1 font-medium">{formatCurrency(calculatePriceFromArc(selectedLead.arcAmount, 180))}</span>
-                      </div>
-                      <div className={`p-2 rounded ${planForm.billingCycle === '360' ? 'bg-indigo-100 dark:bg-indigo-900/30 ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-700'}`}>
-                        <span className="text-slate-600 dark:text-slate-400">Yearly (360d):</span>
-                        <span className="ml-1 font-medium">{formatCurrency(calculatePriceFromArc(selectedLead.arcAmount, 360))}</span>
-                      </div>
+                      {[
+                        { cycle: '30', label: 'Monthly' },
+                        { cycle: '90', label: 'Quarterly' },
+                        { cycle: '180', label: 'Half Yearly' },
+                        { cycle: '360', label: 'Yearly' }
+                      ].map(({ cycle, label }) => {
+                        const { price: cyclePrice, actualDays } = calculatePriceFromArcWithType(
+                          selectedLead.arcAmount, cycle, planForm.billingType, planForm.startDate
+                        );
+                        const isSelected = planForm.billingCycle === cycle;
+                        return (
+                          <div key={cycle} className={`p-2 rounded ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/30 ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                            <span className="text-slate-600 dark:text-slate-400">{label} ({actualDays}d):</span>
+                            <span className="ml-1 font-medium">{formatCurrency(cyclePrice)}</span>
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* Selected billing cycle calculation */}
-                    {planForm.price && (
+                    {planForm.price && (() => {
+                      const { actualDays } = calculatePriceFromArcWithType(selectedLead.arcAmount, planForm.billingCycle, planForm.billingType, planForm.startDate);
+                      return (
                       <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-600">
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Base Price ({getBillingCycleDaysLabel(planForm.billingCycle)})</span>
+                          <span className="text-slate-600 dark:text-slate-400">Base Price ({getBillingCycleDaysLabel(planForm.billingCycle)} — {actualDays} days)</span>
                           <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(calculatePricing(planForm.price).base)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
@@ -1534,7 +1601,8 @@ export default function AccountsCreatePlanPage() {
                           </div>
                         </div>
                       </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
               </div>
