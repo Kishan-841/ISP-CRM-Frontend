@@ -311,14 +311,24 @@ export default function EmployeesPage() {
                               ? 'bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
                               : u.role === 'NOC'
                               ? 'bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+                              : u.role === 'BDM_CP'
+                              ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                           }
                         >
                           {u.role === 'SUPER_ADMIN' ? 'Super Admin' : u.role === 'ADMIN' ? 'Admin' : u.role === 'AREA_HEAD' ? 'Area Head' : u.role === 'BDM' ? 'BDM' : u.role === 'BDM_TEAM_LEADER' ? 'BDM Team Leader' : u.role === 'SAM' ? 'SAM' : u.role === 'SAM_HEAD' ? 'SAM Head' : u.role === 'SAM_EXECUTIVE' ? 'SAM Executive' : u.role === 'FEASIBILITY_TEAM' ? 'Feasibility Team' : u.role === 'OPS_TEAM' ? 'OPS Team' : u.role === 'DOCS_TEAM' ? 'Docs Team' : u.role === 'ACCOUNTS_TEAM' ? 'Accounts Team' : u.role === 'DELIVERY_TEAM' ? 'Delivery Team' : u.role === 'STORE_MANAGER' ? 'Store Manager' : u.role === 'NOC' ? 'NOC' : u.role === 'NOC_HEAD' ? 'NOC Head' : u.role === 'SALES_DIRECTOR' ? 'Sales Director' : u.role === 'BDM_CP' ? 'BDM (CP)' : 'ISR'}
                         </Badge>
                         {u.teamLeader && (
-                          <span className="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">TL: {u.teamLeader.name}</span>
+                          <span className="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+                            {u.role === 'NOC' ? 'Head' : u.role === 'SAM_EXECUTIVE' ? 'Head' : 'TL'}: {u.teamLeader.name}
+                          </span>
                         )}
+                        {/* Show team members count for leaders */}
+                        {(() => {
+                          const memberCount = users.filter(m => m.teamLeaderId === u.id).length;
+                          if (memberCount === 0) return null;
+                          return <span className="block text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">{memberCount} team member{memberCount > 1 ? 's' : ''}</span>;
+                        })()}
                       </td>
                       <td className="py-4 px-6 border-r border-slate-200 dark:border-slate-700">
                         <Badge
@@ -485,23 +495,35 @@ export default function EmployeesPage() {
                       </select>
                     </div>
 
-                    {formData.role === 'BDM' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="teamLeaderId" className="text-slate-700 dark:text-slate-300 text-sm font-medium">Team Leader</Label>
-                        <select
-                          id="teamLeaderId"
-                          name="teamLeaderId"
-                          value={formData.teamLeaderId}
-                          onChange={handleChange}
-                          className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-                        >
-                          <option value="">No Team Leader</option>
-                          {users.filter(u => u.role === 'BDM_TEAM_LEADER' && u.isActive).map(tl => (
-                            <option key={tl.id} value={tl.id}>{tl.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    {/* Reports To — show for roles that have a hierarchy leader */}
+                    {(() => {
+                      const leaderConfig = {
+                        'BDM': { label: 'BDM Team Leader', filterRole: 'BDM_TEAM_LEADER' },
+                        'BDM_CP': { label: 'BDM Team Leader', filterRole: 'BDM_TEAM_LEADER' },
+                        'ISR': { label: 'BDM Team Leader', filterRole: 'BDM_TEAM_LEADER' },
+                        'NOC': { label: 'NOC Head', filterRole: 'NOC_HEAD' },
+                        'SAM_EXECUTIVE': { label: 'SAM Head', filterRole: 'SAM_HEAD' },
+                      };
+                      const config = leaderConfig[formData.role];
+                      if (!config) return null;
+                      return (
+                        <div className="space-y-2">
+                          <Label htmlFor="teamLeaderId" className="text-slate-700 dark:text-slate-300 text-sm font-medium">Reports To ({config.label})</Label>
+                          <select
+                            id="teamLeaderId"
+                            name="teamLeaderId"
+                            value={formData.teamLeaderId}
+                            onChange={handleChange}
+                            className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                          >
+                            <option value="">None</option>
+                            {users.filter(u => u.role === config.filterRole && u.isActive).map(tl => (
+                              <option key={tl.id} value={tl.id}>{tl.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
 
