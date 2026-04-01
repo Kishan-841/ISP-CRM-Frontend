@@ -1302,7 +1302,7 @@ export default function BDMQueuePage() {
                   </div>
 
                   {/* Call Buttons - BDM, TL, and Admin/MASTER */}
-                  {(isBDM || isBDMTeamLeader || isAdmin) && <div className="mt-6">
+                  {(isBDM || isBDMCP || isBDMTeamLeader || isAdmin) && <div className="mt-6">
                     {activeCall && activeCall.leadId === selectedLead.id ? (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 px-4 py-4 rounded-xl border border-red-200 dark:border-red-800">
