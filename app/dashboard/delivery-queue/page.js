@@ -2062,11 +2062,12 @@ export default function DeliveryQueuePage() {
                 {/* Right Column - CP Cost Summary, Location, Notes */}
                 <div className="space-y-4">
                   {/* CP Cost Summary — only for Channel Partner leads */}
-                  {requestLead?.vendor?.category === 'CHANNEL_PARTNER' && (() => {
+                  {requestLead?.isChannelPartnerLead && (() => {
                     const feasData = requestLead.feasibilityInfo || {};
                     const vd = feasData.vendorDetails || {};
                     const vendorType = feasData.vendorType || 'ownNetwork';
                     const vendorLabels = { ownNetwork: 'Own Network', fiberVendor: 'Fiber Vendor', commissionVendor: 'Commission Vendor', thirdParty: 'Third Party', telco: 'Telco' };
+                    const cpVendor = requestLead.channelPartnerVendor || {};
 
                     // Calculate CAPEX from current request items
                     const capex = requestItems.reduce((sum, item) => {
@@ -2079,7 +2080,7 @@ export default function DeliveryQueuePage() {
 
                     // CP Commission calculation
                     const arcAmount = requestLead.arcAmount || 0;
-                    const cpPercent = requestLead.vendorCommissionPercentage || 0;
+                    const cpPercent = cpVendor.commissionPercentage || requestLead.vendorCommissionPercentage || 0;
                     const cpCommission = (cpPercent / 100) * arcAmount;
 
                     // Net margin
@@ -2090,7 +2091,7 @@ export default function DeliveryQueuePage() {
                         <div className="flex items-center justify-between">
                           <h4 className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">CP Cost Summary</h4>
                           <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-medium">
-                            {requestLead.vendor?.companyName} ({cpPercent}%)
+                            {cpVendor.companyName || 'Channel Partner'} ({cpPercent}%)
                           </span>
                         </div>
 
