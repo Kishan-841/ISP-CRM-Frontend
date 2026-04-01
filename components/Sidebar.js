@@ -453,6 +453,7 @@ export default function Sidebar() {
       { name: 'NOC Queue', path: '/dashboard/noc-queue', icon: Network },
       { name: 'Leads', path: '/dashboard/leads', icon: Users },
       { name: 'My BDMs', path: '/dashboard/employees', icon: UserCircle },
+      { name: 'CP Leads', path: '/dashboard/cp-leads', icon: Handshake },
     ] : []),
     // BDM CP items (Channel Partner BDM)
     ...(isBDMCP ? [
@@ -535,6 +536,7 @@ export default function Sidebar() {
     ...(isSuperAdmin || isSalesDirector ? [
       { name: 'Customer 360', path: '/dashboard/customer-360', icon: UserCircle },
       { name: 'Business Impact', path: '/dashboard/sam-head/business-impact', icon: TrendingDown },
+      { name: 'CP Leads', path: '/dashboard/cp-leads', icon: Handshake },
     ] : []),
     // Complaint Management
     ...(isSuperAdmin || isSalesDirector || isNOC || isNOCHead || isSupportTeam || isOpsTeam || isAccountsTeam ? [
