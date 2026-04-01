@@ -83,6 +83,7 @@ export default function CallingQueuePage() {
   useModal(showDispositionDialog, () => !isSaving && setShowDispositionDialog(false));
 
   const isAdmin = user?.role === 'SUPER_ADMIN';
+  const isBDMCP = user?.role === 'BDM_CP';
 
   // Redirect admin
   useEffect(() => {
@@ -240,7 +241,7 @@ export default function CallingQueuePage() {
         return;
       }
       // Both flows require Team Leader / BDM assignment
-      if ((followUpAction === 'meeting' || followUpAction === 'share') && !selectedBDM) {
+      if ((followUpAction === 'meeting' || followUpAction === 'share') && !selectedBDM && !isBDMCP) {
         toast.error('Please select a Team Leader');
         return;
       }
@@ -294,7 +295,7 @@ export default function CallingQueuePage() {
       if (callOutcome === 'INTERESTED') {
         const leadType = followUpAction === 'meeting' ? 'PUSHED_TO_PRESALES' : 'QUALIFIED';
         // Use bound BDM if present, otherwise use selected TL from dropdown (for both meeting and share flows)
-        const effectiveBDM = selectedData?.assignedByBdm?.id || selectedBDM || null;
+        const effectiveBDM = isBDMCP ? user.id : (selectedData?.assignedByBdm?.id || selectedBDM || null);
         const leadResult = await convertToLead({
           campaignDataId: selectedData.id,
           requirements: finalNotes,
@@ -1086,8 +1087,8 @@ export default function CallingQueuePage() {
                     </div>
                   )}
 
-                  {/* Team Leader / BDM Assignment (for both Meeting and Share flows) */}
-                  {(followUpAction === 'meeting' || followUpAction === 'share') && (
+                  {/* Team Leader / BDM Assignment (for both Meeting and Share flows) — hidden for BDM_CP (auto-assigned) */}
+                  {(followUpAction === 'meeting' || followUpAction === 'share') && !isBDMCP && (
                     selectedData?.assignedByBdm?.id ? (
                       <div className="flex items-center gap-2.5 px-3 py-2.5 bg-orange-50 dark:bg-orange-900/15 border border-orange-200 dark:border-orange-800/50 rounded-lg">
                         <div className="w-7 h-7 rounded-full bg-orange-100 dark:bg-orange-800/40 flex items-center justify-center flex-shrink-0">
@@ -1115,6 +1116,20 @@ export default function CallingQueuePage() {
                         ))}
                       </select>
                     )
+                  )}
+                  {/* BDM_CP auto-assignment indicator */}
+                  {(followUpAction === 'meeting' || followUpAction === 'share') && isBDMCP && (
+                    <div className="flex items-center gap-2.5 px-3 py-2.5 bg-purple-50 dark:bg-purple-900/15 border border-purple-200 dark:border-purple-800/50 rounded-lg">
+                      <div className="w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-800/40 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-semibold text-purple-800 dark:text-purple-300 block">{user?.name}</span>
+                        <span className="text-[10px] text-purple-500 dark:text-purple-400">Auto-assigned to you (CP BDM)</span>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -1222,7 +1237,7 @@ export default function CallingQueuePage() {
                   isSaving ||
                   (callOutcome === 'INTERESTED' && !followUpAction) ||
                   (callOutcome === 'INTERESTED' && selectedProducts.length === 0) ||
-                  (callOutcome === 'INTERESTED' && (followUpAction === 'meeting' || followUpAction === 'share') && !selectedBDM) ||
+                  (callOutcome === 'INTERESTED' && (followUpAction === 'meeting' || followUpAction === 'share') && !selectedBDM && !isBDMCP) ||
                   (callOutcome === 'INTERESTED' && followUpAction === 'share' && !sharedViaWhatsApp && !sharedViaEmail) ||
                   (callOutcome === 'CALL_LATER' && (!callLaterDate || !callLaterTime || !notes.trim()))
                 }

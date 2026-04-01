@@ -70,7 +70,7 @@ export default function RawDataSelfDataPage() {
     setLoadingCPs(true);
     try {
       const res = await (await import('@/lib/api')).default.get('/vendors/channel-partners');
-      setChannelPartners(res.data.vendors || []);
+      setChannelPartners(Array.isArray(res.data) ? res.data : res.data.vendors || []);
     } catch (err) { console.error('Failed to load channel partners:', err); }
     finally { setLoadingCPs(false); }
   };
