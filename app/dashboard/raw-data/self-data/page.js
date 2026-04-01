@@ -22,8 +22,14 @@ export default function RawDataSelfDataPage() {
 
   const isAdmin = user?.role === 'SUPER_ADMIN';
   const isBDM = user?.role === 'BDM';
+  const isBDMCP = user?.role === 'BDM_CP';
   const isBDMTeamLeader = user?.role === 'BDM_TEAM_LEADER';
   const canAssignToOthers = isBDM || isBDMTeamLeader;
+
+  // Channel Partner state (for BDM_CP)
+  const [channelPartners, setChannelPartners] = useState([]);
+  const [selectedCP, setSelectedCP] = useState('');
+  const [loadingCPs, setLoadingCPs] = useState(false);
 
   // Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -54,13 +60,24 @@ export default function RawDataSelfDataPage() {
 
   const loadData = async () => {
     if (user) {
-      await fetchAllCampaignData(page, pageSize, search, 'self');
+      const tabType = isBDMCP ? 'channel_partner' : 'self';
+      await fetchAllCampaignData(page, pageSize, search, tabType);
       if (initialLoad) setInitialLoad(false);
     }
   };
 
+  const loadChannelPartners = async () => {
+    setLoadingCPs(true);
+    try {
+      const res = await (await import('@/lib/api')).default.get('/vendors/channel-partners');
+      setChannelPartners(res.data.vendors || []);
+    } catch (err) { console.error('Failed to load channel partners:', err); }
+    finally { setLoadingCPs(false); }
+  };
+
   useEffect(() => {
     if (canAssignToOthers) loadISRUsers();
+    if (isBDMCP) loadChannelPartners();
     loadData();
   }, [page, pageSize]);
 
@@ -177,6 +194,7 @@ export default function RawDataSelfDataPage() {
       if (!singleData.title?.trim()) { setError('Title is required.'); return; }
     }
     if (canAssignToOthers && assignmentType === 'isr' && !selectedISR) { setError('Please select an ISR.'); return; }
+    if (isBDMCP && !selectedCP) { setError('Please select a Channel Partner.'); return; }
 
     setIsLoading(true);
     setError('');
@@ -200,7 +218,8 @@ export default function RawDataSelfDataPage() {
           campaignName = `Self Data - ${dateStr}`;
         }
       }
-      const result = await createSelfCampaign(campaignName, formData.dataSource, dataToSubmit, assignToId);
+      const cpVendorId = isBDMCP ? selectedCP : null;
+      const result = await createSelfCampaign(campaignName, formData.dataSource, dataToSubmit, assignToId, cpVendorId);
       if (!result.success) { setError(result.error || 'Failed to create self data.'); setIsLoading(false); return; }
 
       loadData();
@@ -413,6 +432,24 @@ export default function RawDataSelfDataPage() {
                   <Input id="dataSource" value={formData.dataSource} onChange={(e) => setFormData({ ...formData, dataSource: e.target.value })}
                     placeholder="Where did you get this data? (optional)" className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700" />
                 </div>
+
+                {/* Channel Partner Selection (BDM_CP only) */}
+                {isBDMCP && (
+                  <div className="space-y-2">
+                    <Label className="text-slate-700 dark:text-slate-300">Channel Partner <span className="text-red-500">*</span></Label>
+                    <select
+                      value={selectedCP}
+                      onChange={(e) => setSelectedCP(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm"
+                    >
+                      <option value="">Select Channel Partner</option>
+                      {channelPartners.map(cp => (
+                        <option key={cp.id} value={cp.id}>{cp.companyName} ({cp.commissionPercentage || 0}%)</option>
+                      ))}
+                    </select>
+                    {loadingCPs && <p className="text-xs text-slate-500">Loading partners...</p>}
+                  </div>
+                )}
 
                 {/* BDM Assignment Option */}
                 {canAssignToOthers && (

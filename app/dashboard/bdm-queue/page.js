@@ -42,6 +42,7 @@ export default function BDMQueuePage() {
   const { user, isBDM: _isBDM, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
   // MASTER should behave as admin, not as BDM/TL (to avoid user-scoped views)
   const isBDM = isMaster ? false : _isBDM;
+  const isBDMCP = user?.role === 'BDM_CP';
   const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
   const {
     bdmQueue,
@@ -124,7 +125,7 @@ export default function BDMQueuePage() {
   useModal(showMOMDialog, () => setShowMOMDialog(false));
   useModal(showTransferModal, () => !isTransferring && setShowTransferModal(false));
 
-  const canAccess = isBDM || isBDMTeamLeader || isAdmin;
+  const canAccess = isBDM || isBDMCP || isBDMTeamLeader || isAdmin;
 
   // Redirect users who cannot access
   useEffect(() => {
@@ -813,6 +814,11 @@ export default function BDMQueuePage() {
                               <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm truncate">
                                 {lead.company || 'No Company'}
                               </p>
+                              {lead.vendor?.category === 'CHANNEL_PARTNER' && (
+                                <Badge className="border-0 text-[10px] px-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
+                                  CP: {lead.vendor.companyName}
+                                </Badge>
+                              )}
                               <Badge className={`border-0 text-[10px] px-1.5 ${
                                 lead.status === 'NEW'
                                   ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'

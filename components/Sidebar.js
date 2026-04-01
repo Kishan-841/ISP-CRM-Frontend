@@ -193,6 +193,7 @@ export default function Sidebar() {
   const isSAMExecutive = user?.role === 'SAM_EXECUTIVE';
   const isSupportTeam = user?.role === 'SUPPORT_TEAM';
   const isSalesDirector = user?.role === 'SALES_DIRECTOR';
+  const isBDMCP = user?.role === 'BDM_CP';
   const isSuperAdmin2 = user?.role === 'SUPER_ADMIN_2';
   const isMaster = user?.role === 'MASTER';
   const canApproveDeliveryRequest = isSuperAdmin || isAreaHead;
@@ -400,9 +401,9 @@ export default function Sidebar() {
   const navItems = isMaster ? masterNavItems : [
     // Super Admin / Sales Director top item
     ...(isSuperAdmin || isSalesDirector ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
-    ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager && !isSalesDirector ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
+    ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager && !isSalesDirector && !isBDMCP ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
     // Raw Data - available for Admin, ISR, BDM, and BDM Team Leader
-    ...(isAdmin || isSalesDirector || isISR || isBDM || isBDMTeamLeader ? [
+    ...(isAdmin || isSalesDirector || isISR || isBDM || isBDMCP || isBDMTeamLeader ? [
       {
         name: 'Raw Data',
         icon: Database,
@@ -452,6 +453,17 @@ export default function Sidebar() {
       { name: 'NOC Queue', path: '/dashboard/noc-queue', icon: Network },
       { name: 'Leads', path: '/dashboard/leads', icon: Users },
       { name: 'My BDMs', path: '/dashboard/employees', icon: UserCircle },
+    ] : []),
+    // BDM CP items (Channel Partner BDM)
+    ...(isBDMCP ? [
+      { name: 'New Lead Assigned', path: '/dashboard/bdm-queue', icon: PhoneCall, badge: counts.queue > 0 ? counts.queue : null },
+      { name: 'Self Calling Queue', path: '/dashboard/calling-queue', icon: PhoneCall, badge: counts.callingQueue > 0 ? counts.callingQueue : null },
+      { name: 'Retry Queue', path: '/dashboard/retry-calls', icon: PhoneMissed, badge: counts.retryQueue > 0 ? counts.retryQueue : null },
+      { name: 'Scheduled Meetings', path: '/dashboard/bdm-meetings', icon: CalendarCheck, badge: counts.meetings > 0 ? counts.meetings : null },
+      { name: 'BDM Follow-Ups', path: '/dashboard/bdm-follow-ups', icon: Clock, badge: counts.followUps > 0 ? counts.followUps : null },
+      { name: 'Lead Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
+      { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
+      { name: 'Reports', path: '/dashboard/bdm-reports', icon: BarChart3 },
     ] : []),
     // Feasibility Team-only items
     ...(isFeasibilityTeam ? [
@@ -558,7 +570,7 @@ export default function Sidebar() {
       { name: 'Store Requests', path: '/dashboard/store-requests', icon: ClipboardCheck, badge: counts.storeRequests > 0 ? counts.storeRequests : null },
     ] : []),
     // Leads - available for all roles except Docs Team, Accounts Team, Store Manager, and OPS Team
-    ...(!isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isNOCHead && !isSuperAdmin && !isSalesDirector && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
+    ...(!isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isNOCHead && !isSuperAdmin && !isSalesDirector && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isBDMCP ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
     // ISR-only items
     ...(isISR ? [
       { name: 'Follow-Ups', path: '/dashboard/follow-ups', icon: Clock, badge: counts.followUps > 0 ? counts.followUps : null },

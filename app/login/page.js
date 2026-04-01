@@ -68,6 +68,7 @@ export default function LoginPage() {
 
   const getRoleLandingPage = (role) => {
     if (role === 'SALES_DIRECTOR') return '/dashboard/admin-dashboards';
+    if (role === 'BDM_CP') return '/dashboard/bdm-queue';
     return '/dashboard';
   };
 
