@@ -62,7 +62,7 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
     onClose();
   };
 
-  const handleCreate = async (e) => {
+  const handleCreate = async (e, testMode = false) => {
     e.preventDefault();
 
     const isCompany = formData.vendorEntityType === 'COMPANY';
@@ -87,6 +87,18 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
       }
     }
 
+    // Non-test mode: validate documents and bank details (except GST)
+    if (!testMode) {
+      if (!formData.panNumber?.trim()) { toast.error('PAN Number is required'); return; }
+      if (!panDocumentFile) { toast.error('PAN Document is required'); return; }
+      if (!formData.accountNumber?.trim()) { toast.error('Account Number is required'); return; }
+      if (!formData.ifscCode?.trim()) { toast.error('IFSC Code is required'); return; }
+      if (!formData.accountName?.trim()) { toast.error('Account Name is required'); return; }
+      if (!formData.bankName?.trim()) { toast.error('Bank Name is required'); return; }
+      if (!formData.branchName?.trim()) { toast.error('Branch Name is required'); return; }
+      if (!cancelledChequeFile) { toast.error('Cancelled Cheque is required'); return; }
+    }
+
     setIsSaving(true);
     const submitData = { ...formData };
     if (!isCompany) {
@@ -94,9 +106,9 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
     }
     const result = await createVendor({
       ...submitData,
-      panDocumentFile,
-      gstDocumentFile,
-      cancelledChequeFile
+      panDocumentFile: testMode ? null : panDocumentFile,
+      gstDocumentFile: testMode ? null : gstDocumentFile,
+      cancelledChequeFile: testMode ? null : cancelledChequeFile,
     });
 
     if (result.success) {
@@ -276,21 +288,21 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
           {/* Documents */}
           <div>
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-              <FileText size={14} className="text-orange-600" /> Documents <span className="text-xs font-normal text-slate-400">(Optional)</span>
+              <FileText size={14} className="text-orange-600" /> Documents <span className="text-xs font-normal text-slate-400">(GST optional)</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={labelClass}>PAN Number</label>
+                <label className={labelClass}>PAN Number <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={formData.panNumber}
                   onChange={(e) => setFormData({ ...formData, panNumber: e.target.value })}
                   className={inputClass}
-                  placeholder="PAN number (optional)"
+                  placeholder="PAN number"
                 />
               </div>
               <div>
-                <label className={labelClass}>PAN Document</label>
+                <label className={labelClass}>PAN Document <span className="text-red-500">*</span></label>
                 <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-colors ${
                   panDocumentFile
                     ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700'
@@ -315,7 +327,7 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
                   value={formData.gstNumber}
                   onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value })}
                   className={inputClass}
-                  placeholder="GST number (optional)"
+                  placeholder="GST number (optional - not required)"
                 />
               </div>
               <div>
@@ -343,11 +355,11 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
           {/* Bank Details */}
           <div>
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-              <Landmark size={14} className="text-orange-600" /> Bank Details <span className="text-xs font-normal text-slate-400">(Optional)</span>
+              <Landmark size={14} className="text-orange-600" /> Bank Details
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={labelClass}>Account Number</label>
+                <label className={labelClass}>Account Number <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={formData.accountNumber}
@@ -357,7 +369,7 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
                 />
               </div>
               <div>
-                <label className={labelClass}>IFSC Code</label>
+                <label className={labelClass}>IFSC Code <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={formData.ifscCode}
@@ -367,7 +379,7 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
                 />
               </div>
               <div>
-                <label className={labelClass}>Account Name</label>
+                <label className={labelClass}>Account Name <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={formData.accountName}
@@ -377,7 +389,7 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
                 />
               </div>
               <div>
-                <label className={labelClass}>Bank Name</label>
+                <label className={labelClass}>Bank Name <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={formData.bankName}
@@ -387,7 +399,7 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
                 />
               </div>
               <div>
-                <label className={labelClass}>Branch Name</label>
+                <label className={labelClass}>Branch Name <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={formData.branchName}
@@ -397,7 +409,7 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
                 />
               </div>
               <div>
-                <label className={labelClass}>Cancelled Cheque</label>
+                <label className={labelClass}>Cancelled Cheque <span className="text-red-500">*</span></label>
                 <label className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-colors ${
                   cancelledChequeFile
                     ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700'
@@ -405,7 +417,7 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
                 }`}>
                   <Upload size={14} className={cancelledChequeFile ? 'text-orange-600' : 'text-slate-400'} />
                   <span className={`text-sm truncate ${cancelledChequeFile ? 'text-orange-700 dark:text-orange-300 font-medium' : 'text-slate-500 dark:text-slate-400'}`}>
-                    {cancelledChequeFile ? cancelledChequeFile.name : 'Upload cancelled cheque (optional)'}
+                    {cancelledChequeFile ? cancelledChequeFile.name : 'Upload cancelled cheque'}
                   </span>
                   <input
                     type="file"
@@ -431,13 +443,7 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
           </Button>
           <Button
             type="button"
-            onClick={(e) => {
-              // Test mode: skip file uploads, submit without docs
-              setPanDocumentFile(null);
-              setGstDocumentFile(null);
-              setCancelledChequeFile(null);
-              handleCreate(e);
-            }}
+            onClick={(e) => handleCreate(e, true)}
             disabled={isSaving}
             size="sm"
             variant="outline"
