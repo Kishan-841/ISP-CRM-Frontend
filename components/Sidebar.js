@@ -492,6 +492,7 @@ export default function Sidebar() {
       { name: 'Accounts Dashboard', path: '/dashboard/accounts-dashboard', icon: LayoutDashboard },
       { name: 'Accounts Verification', path: '/dashboard/accounts-verification', icon: DollarSign, badge: counts.accountsPending > 0 ? counts.accountsPending : null },
       { name: 'Add Customer', path: '/dashboard/accounts-add-customer', icon: UserPlus },
+      { name: 'Channel Partners', path: '/dashboard/channel-partners', icon: Handshake },
       { name: 'Vendor Docs', path: '/dashboard/vendors', icon: Building2, badge: counts.vendorDocsToVerify > 0 ? counts.vendorDocsToVerify : null },
       { name: 'Demo Plan Assignment', path: '/dashboard/accounts-demo-plan', icon: FileText, badge: counts.demoPlanPending > 0 ? counts.demoPlanPending : null },
       { name: 'Create Plan', path: '/dashboard/accounts-create-plan', icon: FileText, badge: (counts.createPlanPending || 0) + (counts.orderRequestsPending || 0) > 0 ? (counts.createPlanPending || 0) + (counts.orderRequestsPending || 0) : null },

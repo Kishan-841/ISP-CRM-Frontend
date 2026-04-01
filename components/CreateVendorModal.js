@@ -30,6 +30,7 @@ const INITIAL_FORM = {
   city: '',
   state: '',
   category: '',
+  commissionPercentage: '',
   panNumber: '',
   gstNumber: '',
   accountNumber: '',
@@ -39,18 +40,18 @@ const INITIAL_FORM = {
   branchName: '',
 };
 
-export default function CreateVendorModal({ open, onClose, onSuccess }) {
+export default function CreateVendorModal({ open, onClose, onSuccess, defaultCategory = null }) {
   useModal(open, onClose);
   const { createVendor } = useVendorStore();
 
-  const [formData, setFormData] = useState({ ...INITIAL_FORM });
+  const [formData, setFormData] = useState({ ...INITIAL_FORM, category: defaultCategory || '' });
   const [panDocumentFile, setPanDocumentFile] = useState(null);
   const [gstDocumentFile, setGstDocumentFile] = useState(null);
   const [cancelledChequeFile, setCancelledChequeFile] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const resetForm = () => {
-    setFormData({ ...INITIAL_FORM });
+    setFormData({ ...INITIAL_FORM, category: defaultCategory || '' });
     setPanDocumentFile(null);
     setGstDocumentFile(null);
     setCancelledChequeFile(null);
@@ -235,6 +236,7 @@ export default function CreateVendorModal({ open, onClose, onSuccess }) {
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   className={inputClass}
+                  disabled={!!defaultCategory}
                 >
                   <option value="">Select Category</option>
                   <option value="FIBER">Fiber</option>
@@ -243,6 +245,23 @@ export default function CreateVendorModal({ open, onClose, onSuccess }) {
                   <option value="THIRD_PARTY">Third Party</option>
                 </select>
               </div>
+              {formData.category === 'CHANNEL_PARTNER' && (
+                <div>
+                  <label className={labelClass}>
+                    Commission Percentage (%) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={formData.commissionPercentage}
+                    onChange={(e) => setFormData({ ...formData, commissionPercentage: e.target.value })}
+                    className={inputClass}
+                    placeholder="e.g. 10"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
