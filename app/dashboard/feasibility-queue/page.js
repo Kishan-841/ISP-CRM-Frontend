@@ -83,6 +83,44 @@ export default function FeasibilityQueuePage() {
   const [vendorType, setVendorType] = useState('');
   const defaultEquipment = () => ({ modelId: '', modelNumber: '', unitPrice: 0, quantity: '', total: 0 });
 
+  // Track which materials have been added per vendor type (dynamic add)
+  const ALL_MATERIALS = [
+    { field: 'fiberRequired', label: 'Fiber', category: 'FIBER', unit: 'mtr' },
+    { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
+    { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
+    { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
+    { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' },
+    { field: 'rf', label: 'RF', category: 'RF', unit: 'nos' },
+    { field: 'mediaConverter', label: 'Media Converter', category: 'MEDIA_CONVERTER', unit: 'nos' },
+    { field: 'router', label: 'Router', category: 'ROUTER', unit: 'nos' },
+  ];
+  // For fiberVendor/commissionVendor, ownFiber replaces fiberRequired
+  const ALL_MATERIALS_VENDOR = ALL_MATERIALS.map(m => m.field === 'fiberRequired' ? { ...m, field: 'ownFiber', label: 'Own Fiber' } : m);
+
+  const [addedMaterials, setAddedMaterials] = useState({
+    ownNetwork: [],
+    fiberVendor: [],
+    commissionVendor: [],
+    telco: [],
+  });
+
+  const handleAddMaterial = (vType, field) => {
+    if (!field) return;
+    setAddedMaterials(prev => ({
+      ...prev,
+      [vType]: [...(prev[vType] || []), field]
+    }));
+  };
+
+  const handleRemoveMaterial = (vType, field) => {
+    setAddedMaterials(prev => ({
+      ...prev,
+      [vType]: (prev[vType] || []).filter(f => f !== field)
+    }));
+    // Clear the equipment data
+    updateEquipmentField(vType, field, { modelId: '', modelNumber: '', unitPrice: 0, quantity: '', total: 0 });
+  };
+
   const [vendorData, setVendorData] = useState({
     // Own Network fields
     ownNetwork: {
@@ -1465,22 +1503,48 @@ export default function FeasibilityQueuePage() {
                             <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">CAPEX - Equipment</span>
                             <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{(vendorData.ownNetwork.capex || 0).toLocaleString('en-IN')}</span>
                           </div>
-                          {[
-                            { field: 'fiberRequired', label: 'Fiber', category: 'FIBER', unit: 'mtr' },
-                            { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
-                            { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
-                            { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
-                            { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' },
-                            { field: 'rf', label: 'RF', category: 'RF', unit: 'nos' },
-                            { field: 'mediaConverter', label: 'Media Converter', category: 'MEDIA_CONVERTER', unit: 'nos' },
-                            { field: 'router', label: 'Router', category: 'ROUTER', unit: 'nos' }
-                          ].map(({ field, label, category, unit }) => {
+
+                          {/* Add Material Dropdown */}
+                          {(() => {
+                            const available = ALL_MATERIALS.filter(m => !(addedMaterials.ownNetwork || []).includes(m.field));
+                            return available.length > 0 && (
+                              <div className="flex gap-2">
+                                <select
+                                  id="addMaterial_ownNetwork"
+                                  className="flex-1 px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm"
+                                  defaultValue=""
+                                >
+                                  <option value="" disabled>Select material to add...</option>
+                                  {available.map(m => <option key={m.field} value={m.field}>{m.label}</option>)}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const sel = document.getElementById('addMaterial_ownNetwork');
+                                    if (sel?.value) { handleAddMaterial('ownNetwork', sel.value); sel.value = ''; }
+                                  }}
+                                  className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium"
+                                >
+                                  + Add
+                                </button>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Added Materials */}
+                          {(addedMaterials.ownNetwork || []).map(fieldKey => {
+                            const mat = ALL_MATERIALS.find(m => m.field === fieldKey);
+                            if (!mat) return null;
+                            const { field, label, category, unit } = mat;
                             const products = getProductsByCategory(category);
                             const eq = vendorData.ownNetwork[field] || {};
                             return (
                               <div key={field} className="grid grid-cols-12 gap-2 items-end">
-                                <div className="col-span-5">
-                                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label} - Model</label>
+                                <div className="col-span-4">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <label className="text-xs font-medium text-slate-600 dark:text-slate-400">{label} - Model</label>
+                                    <button type="button" onClick={() => handleRemoveMaterial('ownNetwork', field)} className="text-red-400 hover:text-red-600 text-xs">Remove</button>
+                                  </div>
                                   <select
                                     value={eq.modelId || ''}
                                     onChange={(e) => {
@@ -1510,7 +1574,7 @@ export default function FeasibilityQueuePage() {
                                     placeholder="0"
                                   />
                                 </div>
-                                <div className="col-span-4">
+                                <div className="col-span-5">
                                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
                                   <div className="w-full px-2 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
                                     ₹{(eq.total || 0).toLocaleString('en-IN')}
@@ -1601,21 +1665,47 @@ export default function FeasibilityQueuePage() {
                               <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">CAPEX - Equipment</span>
                               <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{(vendorData.fiberVendor.capex || 0).toLocaleString('en-IN')}</span>
                             </div>
-                            {[
-                              { field: 'ownFiber', label: 'Own Fiber', category: 'FIBER', unit: 'mtr' },
-                              { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
-                              { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
-                              { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
-                              { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' },
-                              { field: 'mediaConverter', label: 'Media Converter', category: 'MEDIA_CONVERTER', unit: 'nos' },
-                              { field: 'router', label: 'Router', category: 'ROUTER', unit: 'nos' }
-                            ].map(({ field, label, category, unit }) => {
+                            {/* Add Material Dropdown */}
+                            {(() => {
+                              const available = ALL_MATERIALS_VENDOR.filter(m => !(addedMaterials.fiberVendor || []).includes(m.field));
+                              return available.length > 0 && (
+                                <div className="flex gap-2">
+                                  <select
+                                    id="addMaterial_fiberVendor"
+                                    className="flex-1 px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm"
+                                    defaultValue=""
+                                  >
+                                    <option value="" disabled>Select material to add...</option>
+                                    {available.map(m => <option key={m.field} value={m.field}>{m.label}</option>)}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const sel = document.getElementById('addMaterial_fiberVendor');
+                                      if (sel?.value) { handleAddMaterial('fiberVendor', sel.value); sel.value = ''; }
+                                    }}
+                                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium"
+                                  >
+                                    + Add
+                                  </button>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Added Materials */}
+                            {(addedMaterials.fiberVendor || []).map(fieldKey => {
+                              const mat = ALL_MATERIALS_VENDOR.find(m => m.field === fieldKey);
+                              if (!mat) return null;
+                              const { field, label, category, unit } = mat;
                               const products = getProductsByCategory(category);
                               const eq = vendorData.fiberVendor[field] || {};
                               return (
                                 <div key={field} className="grid grid-cols-12 gap-2 items-end">
-                                  <div className="col-span-5">
-                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label} - Model</label>
+                                  <div className="col-span-4">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <label className="text-xs font-medium text-slate-600 dark:text-slate-400">{label} - Model</label>
+                                      <button type="button" onClick={() => handleRemoveMaterial('fiberVendor', field)} className="text-red-400 hover:text-red-600 text-xs">Remove</button>
+                                    </div>
                                     <select
                                       value={eq.modelId || ''}
                                       onChange={(e) => {
@@ -1645,9 +1735,9 @@ export default function FeasibilityQueuePage() {
                                       placeholder="0"
                                     />
                                   </div>
-                                  <div className="col-span-4">
+                                  <div className="col-span-5">
                                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
-                                    <div className="w-full px-2 py-2 bg-white/60 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
+                                    <div className="w-full px-2 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
                                       ₹{(eq.total || 0).toLocaleString('en-IN')}
                                     </div>
                                   </div>
@@ -1722,21 +1812,47 @@ export default function FeasibilityQueuePage() {
                               <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">CAPEX - Equipment</span>
                               <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{(vendorData.commissionVendor.capex || 0).toLocaleString('en-IN')}</span>
                             </div>
-                            {[
-                              { field: 'ownFiber', label: 'Own Fiber', category: 'FIBER', unit: 'mtr' },
-                              { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
-                              { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
-                              { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
-                              { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' },
-                              { field: 'mediaConverter', label: 'Media Converter', category: 'MEDIA_CONVERTER', unit: 'nos' },
-                              { field: 'router', label: 'Router', category: 'ROUTER', unit: 'nos' }
-                            ].map(({ field, label, category, unit }) => {
+                            {/* Add Material Dropdown */}
+                            {(() => {
+                              const available = ALL_MATERIALS_VENDOR.filter(m => !(addedMaterials.commissionVendor || []).includes(m.field));
+                              return available.length > 0 && (
+                                <div className="flex gap-2">
+                                  <select
+                                    id="addMaterial_commissionVendor"
+                                    className="flex-1 px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm"
+                                    defaultValue=""
+                                  >
+                                    <option value="" disabled>Select material to add...</option>
+                                    {available.map(m => <option key={m.field} value={m.field}>{m.label}</option>)}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const sel = document.getElementById('addMaterial_commissionVendor');
+                                      if (sel?.value) { handleAddMaterial('commissionVendor', sel.value); sel.value = ''; }
+                                    }}
+                                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium"
+                                  >
+                                    + Add
+                                  </button>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Added Materials */}
+                            {(addedMaterials.commissionVendor || []).map(fieldKey => {
+                              const mat = ALL_MATERIALS_VENDOR.find(m => m.field === fieldKey);
+                              if (!mat) return null;
+                              const { field, label, category, unit } = mat;
                               const products = getProductsByCategory(category);
                               const eq = vendorData.commissionVendor[field] || {};
                               return (
                                 <div key={field} className="grid grid-cols-12 gap-2 items-end">
-                                  <div className="col-span-5">
-                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label} - Model</label>
+                                  <div className="col-span-4">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <label className="text-xs font-medium text-slate-600 dark:text-slate-400">{label} - Model</label>
+                                      <button type="button" onClick={() => handleRemoveMaterial('commissionVendor', field)} className="text-red-400 hover:text-red-600 text-xs">Remove</button>
+                                    </div>
                                     <select
                                       value={eq.modelId || ''}
                                       onChange={(e) => {
@@ -1766,9 +1882,9 @@ export default function FeasibilityQueuePage() {
                                       placeholder="0"
                                     />
                                   </div>
-                                  <div className="col-span-4">
+                                  <div className="col-span-5">
                                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
-                                    <div className="w-full px-2 py-2 bg-white/60 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
+                                    <div className="w-full px-2 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
                                       ₹{(eq.total || 0).toLocaleString('en-IN')}
                                     </div>
                                   </div>
@@ -1971,22 +2087,47 @@ export default function FeasibilityQueuePage() {
                               <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">CAPEX - Equipment</span>
                               <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{(vendorData.telco.capex || 0).toLocaleString('en-IN')}</span>
                             </div>
-                            {[
-                              { field: 'fiberRequired', label: 'Fiber', category: 'FIBER', unit: 'mtr' },
-                              { field: 'switch', label: 'Switch', category: 'SWITCH', unit: 'nos' },
-                              { field: 'sfp', label: 'SFP', category: 'SFP', unit: 'nos' },
-                              { field: 'closure', label: 'Closure', category: 'CLOSURE', unit: 'nos' },
-                              { field: 'patchChord', label: 'Patch Chord', category: 'PATCH_CORD', unit: 'nos' },
-                              { field: 'rf', label: 'RF', category: 'RF', unit: 'nos' },
-                              { field: 'mediaConverter', label: 'Media Converter', category: 'MEDIA_CONVERTER', unit: 'nos' },
-                              { field: 'router', label: 'Router', category: 'ROUTER', unit: 'nos' }
-                            ].map(({ field, label, category, unit }) => {
+                            {/* Add Material Dropdown */}
+                            {(() => {
+                              const available = ALL_MATERIALS.filter(m => !(addedMaterials.telco || []).includes(m.field));
+                              return available.length > 0 && (
+                                <div className="flex gap-2">
+                                  <select
+                                    id="addMaterial_telco"
+                                    className="flex-1 px-2 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm"
+                                    defaultValue=""
+                                  >
+                                    <option value="" disabled>Select material to add...</option>
+                                    {available.map(m => <option key={m.field} value={m.field}>{m.label}</option>)}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const sel = document.getElementById('addMaterial_telco');
+                                      if (sel?.value) { handleAddMaterial('telco', sel.value); sel.value = ''; }
+                                    }}
+                                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium"
+                                  >
+                                    + Add
+                                  </button>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Added Materials */}
+                            {(addedMaterials.telco || []).map(fieldKey => {
+                              const mat = ALL_MATERIALS.find(m => m.field === fieldKey);
+                              if (!mat) return null;
+                              const { field, label, category, unit } = mat;
                               const products = getProductsByCategory(category);
                               const eq = vendorData.telco[field] || {};
                               return (
                                 <div key={field} className="grid grid-cols-12 gap-2 items-end">
-                                  <div className="col-span-5">
-                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label} - Model</label>
+                                  <div className="col-span-4">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <label className="text-xs font-medium text-slate-600 dark:text-slate-400">{label} - Model</label>
+                                      <button type="button" onClick={() => handleRemoveMaterial('telco', field)} className="text-red-400 hover:text-red-600 text-xs">Remove</button>
+                                    </div>
                                     <select
                                       value={eq.modelId || ''}
                                       onChange={(e) => {
@@ -2016,9 +2157,9 @@ export default function FeasibilityQueuePage() {
                                       placeholder="0"
                                     />
                                   </div>
-                                  <div className="col-span-4">
+                                  <div className="col-span-5">
                                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
-                                    <div className="w-full px-2 py-2 bg-white/60 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
+                                    <div className="w-full px-2 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm font-medium">
                                       ₹{(eq.total || 0).toLocaleString('en-IN')}
                                     </div>
                                   </div>
