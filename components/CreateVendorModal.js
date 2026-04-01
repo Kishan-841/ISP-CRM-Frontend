@@ -80,6 +80,13 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
       }
     }
 
+    if (formData.category === 'CHANNEL_PARTNER') {
+      if (!formData.commissionPercentage || parseFloat(formData.commissionPercentage) <= 0) {
+        toast.error('Commission percentage is required for Channel Partners');
+        return;
+      }
+    }
+
     setIsSaving(true);
     const submitData = { ...formData };
     if (!isCompany) {
@@ -114,8 +121,8 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
               <Plus size={18} className="text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">Create New Vendor</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Fill in the details below to submit a vendor for approval</p>
+              <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">{defaultCategory === 'CHANNEL_PARTNER' ? 'Add Channel Partner' : 'Create New Vendor'}</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Fill in the details below to submit for approval</p>
             </div>
           </div>
           <button
@@ -228,23 +235,24 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
                   placeholder="City"
                 />
               </div>
-              <div>
-                <label className={labelClass}>
-                  Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className={inputClass}
-                  disabled={!!defaultCategory}
-                >
-                  <option value="">Select Category</option>
-                  <option value="FIBER">Fiber</option>
-                  <option value="COMMISSION">Commission</option>
-                  <option value="CHANNEL_PARTNER">Channel Partner</option>
-                  <option value="THIRD_PARTY">Third Party</option>
-                </select>
-              </div>
+              {!defaultCategory && (
+                <div>
+                  <label className={labelClass}>
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className={inputClass}
+                  >
+                    <option value="">Select Category</option>
+                    <option value="FIBER">Fiber</option>
+                    <option value="COMMISSION">Commission</option>
+                    <option value="CHANNEL_PARTNER">Channel Partner</option>
+                    <option value="THIRD_PARTY">Third Party</option>
+                  </select>
+                </div>
+              )}
               {formData.category === 'CHANNEL_PARTNER' && (
                 <div>
                   <label className={labelClass}>
@@ -420,6 +428,22 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
             className="flex-1"
           >
             Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={(e) => {
+              // Test mode: skip file uploads, submit without docs
+              setPanDocumentFile(null);
+              setGstDocumentFile(null);
+              setCancelledChequeFile(null);
+              handleCreate(e);
+            }}
+            disabled={isSaving}
+            size="sm"
+            variant="outline"
+            className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
+          >
+            Test: Skip Docs
           </Button>
           <Button
             onClick={handleCreate}
