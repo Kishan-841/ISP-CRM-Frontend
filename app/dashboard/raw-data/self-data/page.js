@@ -25,6 +25,7 @@ export default function RawDataSelfDataPage() {
   const isBDMCP = user?.role === 'BDM_CP';
   const isBDMTeamLeader = user?.role === 'BDM_TEAM_LEADER';
   const canAssignToOthers = isBDM || isBDMTeamLeader;
+  const showCPDropdown = isBDMCP || isBDMTeamLeader;
 
   // Channel Partner state (for BDM_CP)
   const [channelPartners, setChannelPartners] = useState([]);
@@ -60,8 +61,7 @@ export default function RawDataSelfDataPage() {
 
   const loadData = async () => {
     if (user) {
-      const tabType = isBDMCP ? 'channel_partner' : 'self';
-      await fetchAllCampaignData(page, pageSize, search, tabType);
+      await fetchAllCampaignData(page, pageSize, search, isBDMCP ? 'channel_partner' : 'self');
       if (initialLoad) setInitialLoad(false);
     }
   };
@@ -77,7 +77,7 @@ export default function RawDataSelfDataPage() {
 
   useEffect(() => {
     if (canAssignToOthers) loadISRUsers();
-    if (isBDMCP) loadChannelPartners();
+    if (showCPDropdown) loadChannelPartners();
     loadData();
   }, [page, pageSize]);
 
@@ -433,16 +433,19 @@ export default function RawDataSelfDataPage() {
                     placeholder="Where did you get this data? (optional)" className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700" />
                 </div>
 
-                {/* Channel Partner Selection (BDM_CP only) */}
-                {isBDMCP && (
+                {/* Channel Partner Selection (BDM_CP = mandatory, TL = optional) */}
+                {showCPDropdown && (
                   <div className="space-y-2">
-                    <Label className="text-slate-700 dark:text-slate-300">Channel Partner <span className="text-red-500">*</span></Label>
+                    <Label className="text-slate-700 dark:text-slate-300">
+                      Channel Partner {isBDMCP && <span className="text-red-500">*</span>}
+                      {isBDMTeamLeader && <span className="text-xs text-slate-400 font-normal ml-1">(select if this is CP data)</span>}
+                    </Label>
                     <select
                       value={selectedCP}
                       onChange={(e) => setSelectedCP(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm"
                     >
-                      <option value="">Select Channel Partner</option>
+                      <option value="">{isBDMCP ? 'Select Channel Partner' : 'None (not CP data)'}</option>
                       {channelPartners.map(cp => (
                         <option key={cp.id} value={cp.id}>{cp.companyName} ({cp.commissionPercentage || 0}%)</option>
                       ))}
