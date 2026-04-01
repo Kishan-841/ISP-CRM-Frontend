@@ -2059,8 +2059,83 @@ export default function DeliveryQueuePage() {
                   )}
                 </div>
 
-                {/* Right Column - Location, Notes */}
+                {/* Right Column - CP Cost Summary, Location, Notes */}
                 <div className="space-y-4">
+                  {/* CP Cost Summary — only for Channel Partner leads */}
+                  {requestLead?.vendor?.category === 'CHANNEL_PARTNER' && (() => {
+                    const feasData = requestLead.feasibilityInfo || {};
+                    const vd = feasData.vendorDetails || {};
+                    const vendorType = feasData.vendorType || 'ownNetwork';
+                    const vendorLabels = { ownNetwork: 'Own Network', fiberVendor: 'Fiber Vendor', commissionVendor: 'Commission Vendor', thirdParty: 'Third Party', telco: 'Telco' };
+
+                    // Calculate CAPEX from current request items
+                    const capex = requestItems.reduce((sum, item) => {
+                      const product = storeProducts.find(p => p.id === item.productId);
+                      return sum + (product?.price || 0) * (item.quantity || 0);
+                    }, 0);
+
+                    // OPEX from feasibility data
+                    const opex = parseFloat(vd.opex) || 0;
+
+                    // CP Commission calculation
+                    const arcAmount = requestLead.arcAmount || 0;
+                    const cpPercent = requestLead.vendorCommissionPercentage || 0;
+                    const cpCommission = (cpPercent / 100) * arcAmount;
+
+                    // Net margin
+                    const netMargin = arcAmount - opex - cpCommission;
+
+                    return (
+                      <div className="p-3 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/10 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">CP Cost Summary</h4>
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-medium">
+                            {requestLead.vendor?.companyName} ({cpPercent}%)
+                          </span>
+                        </div>
+
+                        {/* Vendor Type */}
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-purple-600 dark:text-purple-400">Vendor Type:</span>
+                          <span className="font-medium text-purple-900 dark:text-purple-200">{vendorLabels[vendorType] || vendorType}</span>
+                        </div>
+
+                        {/* Cost Grid */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <p className="text-[10px] text-slate-500 uppercase font-medium">ARC</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">₹{arcAmount.toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <p className="text-[10px] text-emerald-600 uppercase font-medium">CAPEX</p>
+                            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">₹{capex.toLocaleString('en-IN')}</p>
+                            <p className="text-[10px] text-slate-400">{requestItems.length} item(s)</p>
+                          </div>
+                          <div className="p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <p className="text-[10px] text-orange-600 uppercase font-medium">OPEX</p>
+                            <p className="text-sm font-bold text-orange-700 dark:text-orange-300">₹{opex.toLocaleString('en-IN')}</p>
+                            <p className="text-[10px] text-slate-400">
+                              {vendorType === 'fiberVendor' ? 'Fiber cost' : vendorType === 'commissionVendor' ? `${vd.percentage || 0}% commission` : vendorType === 'telco' ? 'P2P + Fiber' : 'Recurring'}
+                            </p>
+                          </div>
+                          <div className="p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <p className="text-[10px] text-purple-600 uppercase font-medium">CP Commission</p>
+                            <p className="text-sm font-bold text-purple-700 dark:text-purple-300">₹{cpCommission.toLocaleString('en-IN')}</p>
+                            <p className="text-[10px] text-slate-400">{cpPercent}% of ARC</p>
+                          </div>
+                        </div>
+
+                        {/* Net Margin */}
+                        <div className="pt-2 border-t border-purple-200 dark:border-purple-800 flex justify-between items-center">
+                          <span className="text-xs font-bold text-purple-700 dark:text-purple-300">Net Margin (ARC - OPEX - CP)</span>
+                          <span className={`text-sm font-bold ${netMargin >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'}`}>
+                            ₹{netMargin.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* GPS Location */}
                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200">
                     <div className="flex items-center justify-between">
