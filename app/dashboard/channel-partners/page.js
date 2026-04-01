@@ -105,7 +105,7 @@ export default function ChannelPartnersPage() {
       render: (row) => (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
           <Percent size={11} />
-          {row.commissionPercentage || 0}%
+          {row.commissionPercentage || 0}
         </span>
       )
     },
