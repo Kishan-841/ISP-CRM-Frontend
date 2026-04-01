@@ -30,10 +30,10 @@ import { PageHeader } from '@/components/PageHeader';
 
 export default function BDMFollowUpsPage() {
   const router = useRouter();
-  const { user, isBDM: _isBDM, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
+  const { user, isBDM: _isBDM, isBDMCP, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
   const isBDM = isMaster ? false : _isBDM;
   const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
-  const canAccessBDM = isBDM || isBDMTeamLeader || isAdmin;
+  const canAccessBDM = isBDM || isBDMCP || isBDMTeamLeader || isAdmin;
   const {
     fetchBDMFollowUps,
     updateLeadLocation,

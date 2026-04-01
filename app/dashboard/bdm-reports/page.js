@@ -22,10 +22,10 @@ const COLORS = ['#f97316', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#6366f1'
 
 export default function BDMReportsPage() {
   const router = useRouter();
-  const { user, isBDM: _isBDM, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
+  const { user, isBDM: _isBDM, isBDMCP, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
   const isBDM = isMaster ? false : _isBDM;
   const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
-  const canAccessBDM = isBDM || isBDMTeamLeader || isAdmin;
+  const canAccessBDM = isBDM || isBDMCP || isBDMTeamLeader || isAdmin;
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState('30');
   const [data, setData] = useState(null);

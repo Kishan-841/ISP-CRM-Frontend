@@ -29,10 +29,10 @@ import toast from 'react-hot-toast';
 
 export default function BDMMeetingsPage() {
   const router = useRouter();
-  const { user, isBDM: _isBDM, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
+  const { user, isBDM: _isBDM, isBDMCP, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
   const isBDM = isMaster ? false : _isBDM;
   const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
-  const canAccessBDM = isBDM || isBDMTeamLeader || isAdmin;
+  const canAccessBDM = isBDM || isBDMCP || isBDMTeamLeader || isAdmin;
   const {
     bdmMeetings,
     bdmMeetingStats,
