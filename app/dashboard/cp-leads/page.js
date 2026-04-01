@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import DataTable from '@/components/DataTable';
 import { PageHeader } from '@/components/PageHeader';
 import { formatDate, formatCurrency } from '@/lib/formatters';
+import StatCard from '@/components/StatCard';
 import {
   Search,
   Handshake,
@@ -168,50 +169,10 @@ export default function CPLeadsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <Users size={18} className="text-purple-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium">Total CP Leads</p>
-              <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{stats.total}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-              <DollarSign size={18} className="text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium">Total ARC</p>
-              <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(stats.totalARC)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <Percent size={18} className="text-purple-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium">Total CP Commission</p>
-              <p className="text-xl font-bold text-purple-700 dark:text-purple-400">{formatCurrency(stats.totalCommission)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-              <TrendingUp size={18} className="text-orange-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium">Net After CP</p>
-              <p className="text-xl font-bold text-orange-700 dark:text-orange-400">{formatCurrency(stats.totalARC - stats.totalCommission)}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard color="blue" icon={Users} label="Total CP Leads" value={stats.total} />
+        <StatCard color="emerald" icon={DollarSign} label="Total ARC" value={formatCurrency(stats.totalARC)} />
+        <StatCard color="brand" icon={Percent} label="Total CP Commission" value={formatCurrency(stats.totalCommission)} />
+        <StatCard color="teal" icon={TrendingUp} label="Net After CP" value={formatCurrency(stats.totalARC - stats.totalCommission)} />
       </div>
 
       {/* Filters */}
