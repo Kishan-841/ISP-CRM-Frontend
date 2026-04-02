@@ -41,7 +41,8 @@ import {
   ThumbsDown,
   PhoneForwarded,
   PhoneMissed,
-  Ban
+  Ban,
+  HelpCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/StatCard';
@@ -113,6 +114,7 @@ export default function SelfLeadsPage() {
   // Disposition state
   const [callOutcome, setCallOutcome] = useState('');
   const [notes, setNotes] = useState('');
+  const [otherReason, setOtherReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Interested flow state
@@ -470,6 +472,7 @@ export default function SelfLeadsPage() {
   const resetDisposition = () => {
     setCallOutcome('');
     setNotes('');
+    setOtherReason('');
     setShowInterestedOptions(false);
     setSelectedProducts([]);
     setFollowUpAction('');
@@ -547,6 +550,11 @@ export default function SelfLeadsPage() {
       }
     }
 
+    if (callOutcome === 'OTHERS' && !otherReason.trim()) {
+      toast.error('Please specify a reason for Others');
+      return;
+    }
+
     setIsSaving(true);
 
     let finalNotes = notes;
@@ -568,7 +576,7 @@ export default function SelfLeadsPage() {
       ? new Date(`${callLaterDate}T${callLaterTime}`).toISOString()
       : null;
 
-    const result = await endCall(activeCall.callLogId, callOutcome, finalNotes, callLaterAt);
+    const result = await endCall(activeCall.callLogId, callOutcome, finalNotes, callLaterAt, callOutcome === 'OTHERS' ? otherReason.trim() : null);
 
     if (result.success) {
       if (callOutcome === 'INTERESTED') {
@@ -656,6 +664,7 @@ export default function SelfLeadsPage() {
       setShowInterestedOptions(true);
       setCallLaterDate('');
       setCallLaterTime('');
+      setOtherReason('');
     } else if (outcome === 'CALL_LATER') {
       setShowInterestedOptions(false);
       setSelectedProducts([]);
@@ -664,6 +673,7 @@ export default function SelfLeadsPage() {
       setSelectedBDM('');
       setSharedViaWhatsApp(false);
       setSharedViaEmail(false);
+      setOtherReason('');
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       setCallLaterDate(tomorrow.toISOString().split('T')[0]);
@@ -678,6 +688,7 @@ export default function SelfLeadsPage() {
       setSharedViaEmail(false);
       setCallLaterDate('');
       setCallLaterTime('');
+      if (outcome !== 'OTHERS') setOtherReason('');
     }
   };
 
@@ -1553,6 +1564,7 @@ export default function SelfLeadsPage() {
                     { value: 'NOT_REACHABLE', label: 'No Answer', icon: PhoneMissed, color: 'amber', bgActive: 'bg-amber-500', borderActive: 'border-amber-500', bgHover: 'hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30' },
                     { value: 'WRONG_NUMBER', label: 'Wrong No.', icon: Ban, color: 'rose', bgActive: 'bg-rose-500', borderActive: 'border-rose-500', bgHover: 'hover:border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30' },
                     { value: 'RINGING_NOT_PICKED', label: 'Ringing', icon: AlertTriangle, color: 'orange', bgActive: 'bg-orange-500', borderActive: 'border-orange-500', bgHover: 'hover:border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/30' },
+                    { value: 'OTHERS', label: 'Others', icon: HelpCircle, color: 'violet', bgActive: 'bg-violet-500', borderActive: 'border-violet-500', bgHover: 'hover:border-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30' },
                   ].map((option) => {
                     const Icon = option.icon;
                     const isSelected = callOutcome === option.value;
@@ -1573,6 +1585,22 @@ export default function SelfLeadsPage() {
                   })}
                 </div>
               </div>
+
+              {/* Others Reason */}
+              {callOutcome === 'OTHERS' && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-violet-500 dark:text-violet-400 uppercase tracking-wider mb-2">
+                    Reason <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={otherReason}
+                    onChange={(e) => setOtherReason(e.target.value)}
+                    placeholder="Please specify the reason..."
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                    rows={2}
+                  />
+                </div>
+              )}
 
               {/* Interested Options */}
               {showInterestedOptions && (

@@ -29,7 +29,8 @@ import {
   Timer,
   ArrowUpRight,
   ArrowDownRight,
-  ChevronRight
+  ChevronRight,
+  HelpCircle
 } from 'lucide-react';
 import {
   BarChart,
@@ -52,7 +53,8 @@ const STATUS_COLORS = {
   NOT_REACHABLE: '#f59e0b',
   WRONG_NUMBER: '#ef4444',
   CALL_LATER: '#f97316',
-  RINGING_NOT_PICKED: '#6b7280'
+  RINGING_NOT_PICKED: '#6b7280',
+  OTHERS: '#8b5cf6'
 };
 
 const getStatusColor = (status) => STATUS_COLORS[status] || '#64748b';
@@ -91,7 +93,7 @@ export default function ISROverallDashboard() {
 
   const [todayCallStats, setTodayCallStats] = useState({
     callsMade: 0, convertedToLead: 0,
-    outcomes: { interested: 0, notInterested: 0, notReachable: 0, callLater: 0, wrongNumber: 0 }
+    outcomes: { interested: 0, notInterested: 0, notReachable: 0, callLater: 0, wrongNumber: 0, others: 0 }
   });
 
   const [callStats, setCallStats] = useState({ totalCalls: 0, todayCalls: 0, avgCallDuration: 0 });
@@ -131,7 +133,7 @@ export default function ISROverallDashboard() {
       let aggregatedStats = { totalAssigned: 0, workingData: 0, pendingData: 0, convertedToLead: 0 };
       let aggregatedTodayStats = {
         callsMade: 0, convertedToLead: 0,
-        outcomes: { interested: 0, notInterested: 0, notReachable: 0, callLater: 0, wrongNumber: 0 }
+        outcomes: { interested: 0, notInterested: 0, notReachable: 0, callLater: 0, wrongNumber: 0, others: 0 }
       };
       let aggregatedCallStats = { totalCalls: 0, todayCalls: 0, totalDuration: 0 };
       let statusCounts = {};
@@ -160,6 +162,7 @@ export default function ISROverallDashboard() {
               aggregatedTodayStats.outcomes.notReachable += isrTodayStats.outcomes.notReachable || 0;
               aggregatedTodayStats.outcomes.callLater += isrTodayStats.outcomes.callLater || 0;
               aggregatedTodayStats.outcomes.wrongNumber += isrTodayStats.outcomes.wrongNumber || 0;
+              aggregatedTodayStats.outcomes.others += isrTodayStats.outcomes.others || 0;
             }
 
             aggregatedCallStats.totalCalls += isrCallStats.totalCalls || 0;
@@ -258,6 +261,7 @@ export default function ISROverallDashboard() {
     { label: 'Not Reachable', value: todayCallStats.outcomes.notReachable, icon: PhoneMissed, color: 'text-amber-500', bg: 'bg-amber-500/10' },
     { label: 'Call Later', value: todayCallStats.outcomes.callLater, icon: Timer, color: 'text-orange-500', bg: 'bg-orange-500/10' },
     { label: 'Wrong Number', value: todayCallStats.outcomes.wrongNumber, icon: PhoneOff, color: 'text-red-400', bg: 'bg-red-400/10' },
+    { label: 'Others', value: todayCallStats.outcomes.others, icon: HelpCircle, color: 'text-violet-500', bg: 'bg-violet-500/10' },
   ];
 
   return (

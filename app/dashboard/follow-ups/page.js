@@ -28,7 +28,8 @@ import {
   ThumbsDown,
   Ban,
   X,
-  FileText
+  FileText,
+  HelpCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -63,6 +64,7 @@ export default function FollowUpsPage() {
   // Disposition state
   const [callOutcome, setCallOutcome] = useState('');
   const [notes, setNotes] = useState('');
+  const [otherReason, setOtherReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Interested flow state
@@ -172,6 +174,7 @@ export default function FollowUpsPage() {
   const resetDisposition = () => {
     setCallOutcome('');
     setNotes('');
+    setOtherReason('');
     setShowInterestedOptions(false);
     setSelectedParentProduct('');
     setSelectedProducts([]);
@@ -255,6 +258,11 @@ export default function FollowUpsPage() {
       }
     }
 
+    if (callOutcome === 'OTHERS' && !otherReason.trim()) {
+      toast.error('Please specify a reason for Others');
+      return;
+    }
+
     setIsSaving(true);
 
     let finalNotes = notes;
@@ -277,7 +285,7 @@ export default function FollowUpsPage() {
       ? new Date(`${callLaterDate}T${callLaterTime}`).toISOString()
       : null;
 
-    const result = await endCall(activeCall.callLogId, callOutcome, finalNotes, callLaterAt);
+    const result = await endCall(activeCall.callLogId, callOutcome, finalNotes, callLaterAt, callOutcome === 'OTHERS' ? otherReason.trim() : null);
 
     if (result.success) {
       if (callOutcome === 'INTERESTED') {
@@ -356,6 +364,7 @@ export default function FollowUpsPage() {
       setShowInterestedOptions(true);
       setCallLaterDate('');
       setCallLaterTime('');
+      setOtherReason('');
     } else if (outcome === 'CALL_LATER') {
       setShowInterestedOptions(false);
       setSelectedParentProduct('');
@@ -364,6 +373,7 @@ export default function FollowUpsPage() {
       setSelectedBDM('');
       setSharedViaWhatsApp(false);
       setSharedViaEmail(false);
+      setOtherReason('');
       // Set default date to tomorrow
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -379,6 +389,7 @@ export default function FollowUpsPage() {
       setSharedViaEmail(false);
       setCallLaterDate('');
       setCallLaterTime('');
+      if (outcome !== 'OTHERS') setOtherReason('');
     }
   };
 
@@ -407,6 +418,7 @@ export default function FollowUpsPage() {
     { value: 'NOT_REACHABLE', label: 'No Answer', icon: PhoneMissed, activeColor: 'bg-amber-500 border-amber-500 text-white shadow-sm' },
     { value: 'WRONG_NUMBER', label: 'Wrong No.', icon: Ban, activeColor: 'bg-rose-500 border-rose-500 text-white shadow-sm' },
     { value: 'RINGING_NOT_PICKED', label: 'Ringing', icon: AlertTriangle, activeColor: 'bg-orange-500 border-orange-500 text-white shadow-sm' },
+    { value: 'OTHERS', label: 'Others', icon: HelpCircle, activeColor: 'bg-violet-500 border-violet-500 text-white shadow-sm' },
   ];
 
   if (isAdmin) {
@@ -728,6 +740,22 @@ export default function FollowUpsPage() {
                   })}
                 </div>
               </div>
+
+              {/* Others Reason */}
+              {callOutcome === 'OTHERS' && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-violet-500 dark:text-violet-400 uppercase tracking-wider mb-2">
+                    Reason <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={otherReason}
+                    onChange={(e) => setOtherReason(e.target.value)}
+                    placeholder="Please specify the reason..."
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                    rows={2}
+                  />
+                </div>
+              )}
 
               {/* Interested Options */}
               {showInterestedOptions && (

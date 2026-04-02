@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { Phone, PhoneOff, Building2, User, Briefcase, Mail, MessageSquare, MapPin, Clock, Send, Calendar, UserPlus, Share2, CheckCircle, Check, X, FileText, ThumbsUp, ThumbsDown, PhoneMissed, AlertTriangle, PhoneForwarded, Ban, Users, BarChart3, Pencil } from 'lucide-react';
+import { Phone, PhoneOff, Building2, User, Briefcase, Mail, MessageSquare, MapPin, Clock, Send, Calendar, UserPlus, Share2, CheckCircle, Check, X, FileText, ThumbsUp, ThumbsDown, PhoneMissed, AlertTriangle, PhoneForwarded, Ban, Users, BarChart3, Pencil, HelpCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/StatCard';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
@@ -55,6 +55,7 @@ export default function CallingQueuePage() {
   // Disposition state
   const [callOutcome, setCallOutcome] = useState('');
   const [notes, setNotes] = useState('');
+  const [otherReason, setOtherReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Interested flow state
@@ -180,6 +181,7 @@ export default function CallingQueuePage() {
   const resetDisposition = () => {
     setCallOutcome('');
     setNotes('');
+    setOtherReason('');
     setShowInterestedOptions(false);
     setSelectedParentProduct('');
     setSelectedProducts([]);
@@ -252,6 +254,14 @@ export default function CallingQueuePage() {
       }
     }
 
+    // Validate for OTHERS outcome
+    if (callOutcome === 'OTHERS') {
+      if (!otherReason.trim()) {
+        toast.error('Please specify a reason for Others');
+        return;
+      }
+    }
+
     // Validate for CALL_LATER outcome
     if (callOutcome === 'CALL_LATER') {
       if (!callLaterDate || !callLaterTime) {
@@ -288,7 +298,7 @@ export default function CallingQueuePage() {
       ? new Date(`${callLaterDate}T${callLaterTime}`).toISOString()
       : null;
 
-    const result = await endCall(activeCall.callLogId, callOutcome, finalNotes, callLaterAt);
+    const result = await endCall(activeCall.callLogId, callOutcome, finalNotes, callLaterAt, callOutcome === 'OTHERS' ? otherReason.trim() : null);
 
     if (result.success) {
       // Create lead if interested
@@ -393,6 +403,7 @@ export default function CallingQueuePage() {
       setShowInterestedOptions(true);
       setCallLaterDate('');
       setCallLaterTime('');
+      setOtherReason('');
     } else if (outcome === 'CALL_LATER') {
       setShowInterestedOptions(false);
       setSelectedParentProduct('');
@@ -401,6 +412,7 @@ export default function CallingQueuePage() {
       setSelectedBDM('');
       setSharedViaWhatsApp(false);
       setSharedViaEmail(false);
+      setOtherReason('');
       // Set default date to tomorrow
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -416,6 +428,7 @@ export default function CallingQueuePage() {
       setSharedViaEmail(false);
       setCallLaterDate('');
       setCallLaterTime('');
+      if (outcome !== 'OTHERS') setOtherReason('');
     }
   };
 
@@ -885,6 +898,7 @@ export default function CallingQueuePage() {
                     { value: 'NOT_REACHABLE', label: 'No Answer', icon: PhoneMissed, activeColor: 'bg-amber-500 border-amber-500 text-white shadow-sm' },
                     { value: 'WRONG_NUMBER', label: 'Wrong No.', icon: Ban, activeColor: 'bg-rose-500 border-rose-500 text-white shadow-sm' },
                     { value: 'RINGING_NOT_PICKED', label: 'Ringing', icon: AlertTriangle, activeColor: 'bg-orange-500 border-orange-500 text-white shadow-sm' },
+                    { value: 'OTHERS', label: 'Others', icon: HelpCircle, activeColor: 'bg-violet-500 border-violet-500 text-white shadow-sm' },
                   ].map((option) => {
                     const Icon = option.icon;
                     const isSelected = callOutcome === option.value;
@@ -905,6 +919,22 @@ export default function CallingQueuePage() {
                   })}
                 </div>
               </div>
+
+              {/* Others Reason */}
+              {callOutcome === 'OTHERS' && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-violet-500 dark:text-violet-400 uppercase tracking-wider mb-2">
+                    Reason <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={otherReason}
+                    onChange={(e) => setOtherReason(e.target.value)}
+                    placeholder="Please specify the reason..."
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                    rows={2}
+                  />
+                </div>
+              )}
 
               {/* Interested Options */}
               {showInterestedOptions && (

@@ -199,7 +199,8 @@ export default function CallHistoryPage() {
     'NOT_REACHABLE': { label: 'Not Reachable', color: 'bg-amber-600', lightBg: 'bg-amber-100 dark:bg-amber-900/30', textColor: 'text-amber-700 dark:text-amber-400' },
     'WRONG_NUMBER': { label: 'Wrong Number', color: 'bg-red-600', lightBg: 'bg-red-100 dark:bg-red-900/30', textColor: 'text-red-700 dark:text-red-400' },
     'CALL_LATER': { label: 'Callback', color: 'bg-teal-600', lightBg: 'bg-teal-100 dark:bg-teal-900/30', textColor: 'text-teal-700 dark:text-teal-400' },
-    'RINGING_NOT_PICKED': { label: 'Ringing Not Picked', color: 'bg-orange-500', lightBg: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-700 dark:text-orange-400' }
+    'RINGING_NOT_PICKED': { label: 'Ringing Not Picked', color: 'bg-orange-500', lightBg: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-700 dark:text-orange-400' },
+    'OTHERS': { label: 'Others', color: 'bg-violet-600', lightBg: 'bg-violet-100 dark:bg-violet-900/30', textColor: 'text-violet-700 dark:text-violet-400' }
   };
 
   const getOutcomeBadge = (outcome) => {
@@ -211,6 +212,7 @@ export default function CallHistoryPage() {
       'CALL_LATER': { label: 'callback', className: 'bg-teal-600 text-white' },
       'CALLED': { label: 'called', className: 'bg-blue-600 text-white' },
       'RINGING_NOT_PICKED': { label: 'ringing not picked', className: 'bg-orange-500 text-white' },
+      'OTHERS': { label: 'others', className: 'bg-violet-600 text-white' },
       'DND': { label: 'dnd', className: 'bg-rose-600 text-white' },
       'DISCONNECTED': { label: 'disconnected', className: 'bg-slate-600 text-white' },
       'NEW': { label: 'new', className: 'bg-orange-600 text-white' }
@@ -300,9 +302,14 @@ export default function CallHistoryPage() {
       key: 'notes',
       label: 'Notes',
       render: (row) => (
-        <span className="line-clamp-2" title={row.notes}>
-          {row.notes || '-'}
-        </span>
+        <div className="space-y-0.5">
+          {row.outcome === 'OTHERS' && row.otherReason && (
+            <span className="block text-xs font-medium text-violet-600 dark:text-violet-400">Reason: {row.otherReason}</span>
+          )}
+          <span className="line-clamp-2" title={row.notes}>
+            {row.notes || (row.outcome !== 'OTHERS' ? '-' : '')}
+          </span>
+        </div>
       ),
     },
   ];
