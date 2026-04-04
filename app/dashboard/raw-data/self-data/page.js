@@ -220,7 +220,7 @@ export default function RawDataSelfDataPage() {
       }
       const cpVendorId = isBDMCP ? selectedCP : null;
       const result = await createSelfCampaign(campaignName, formData.dataSource, dataToSubmit, assignToId, cpVendorId);
-      if (!result.success) { setError(result.error || 'Failed to create self data.'); setIsLoading(false); return; }
+      if (!result.success) { const errMsg = result.error || 'Failed to create self data.'; setError(errMsg); toast.error(errMsg); setIsLoading(false); return; }
 
       loadData();
       const hasInvalid = (result.invalidRecords?.length || 0) > 0;
