@@ -364,8 +364,10 @@ export default function BDMQueuePage() {
     { value: 'DROPPED', label: 'Drop', icon: XCircle, color: 'red' },
   ];
 
+  const BDM_WORKING_STATUSES = ['FOLLOW_UP', 'MEETING_SCHEDULED'];
+
   const filteredLeads = (isBDMTeamLeader && tlTab === 'myLeads'
-    ? bdmQueue.filter(l => l.assignedToId === user?.id && l.status !== 'NEW')
+    ? bdmQueue.filter(l => l.assignedToId === user?.id && BDM_WORKING_STATUSES.includes(l.status))
     : bdmQueue
   ).filter(lead => {
     if (!searchTerm) return true;
@@ -478,8 +480,8 @@ export default function BDMQueuePage() {
   }
 
   // Split leads for Team Leader view
-  // "My Leads" = assigned to TL and being worked on (status changed from NEW via self-assign or disposition)
-  const myLeads = bdmQueue.filter(l => l.assignedToId === user?.id && l.status !== 'NEW');
+  // "My Leads" = assigned to TL and actively being worked on (only actionable BDM statuses)
+  const myLeads = bdmQueue.filter(l => l.assignedToId === user?.id && BDM_WORKING_STATUSES.includes(l.status));
   // "Unassigned" = assigned to TL but still NEW (came from ISR, needs assignment or self-work)
   const unassignedLeads = bdmQueue.filter(l => l.assignedToId === user?.id && l.status === 'NEW');
   // "Team Leads" = assigned to other BDMs
