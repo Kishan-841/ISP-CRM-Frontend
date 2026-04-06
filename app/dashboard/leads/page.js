@@ -32,8 +32,10 @@ import {
   CalendarCheck,
   ThumbsUp,
   ThumbsDown,
-  XCircle
+  XCircle,
+  Download
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import StatCard from '@/components/StatCard';
 import { PageHeader } from '@/components/PageHeader';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
@@ -453,6 +455,56 @@ export default function LeadsPage() {
   // Server-side filtered — leads are already filtered by the API
   const filteredLeads = leads;
 
+  const getPipelineStageLabel = (lead) => {
+    if (lead.actualPlanIsActive) return 'Live';
+    if (lead.customerAcceptanceAt || lead.installationCompletedAt) return 'Installed';
+    if (lead.customerUsername) return 'At NOC';
+    if (lead.pushedToInstallationAt || (lead.accountsVerifiedAt && lead.accountsStatus === 'ACCOUNTS_APPROVED')) return 'Push to Delivery';
+    if (lead.docsVerifiedAt && !lead.docsRejectedReason) return 'Accounts Review';
+    if (lead.sharedVia?.includes('docs_verification')) return 'Docs Review';
+    if (lead.opsApprovalStatus === 'APPROVED') return 'Docs Upload';
+    if (lead.opsApprovalStatus === 'PENDING') return 'Quote Sent';
+    if (lead.status === 'FEASIBLE' || lead.feasibilityReviewedAt) return 'Feasible';
+    if (lead.status === 'DROPPED' || lead.status === 'NOT_FEASIBLE' || lead.opsApprovalStatus === 'REJECTED' || lead.accountsStatus === 'ACCOUNTS_REJECTED') return 'Dropped';
+    return 'At BDM';
+  };
+
+  const handleExportExcel = () => {
+    if (!filteredLeads || filteredLeads.length === 0) {
+      toast.error('No leads to export.');
+      return;
+    }
+    const formattedData = filteredLeads.map((lead) => ({
+      'Lead #': lead.leadNumber || '-',
+      'Company': lead.company || '-',
+      'Contact Name': lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || '-',
+      'Phone': lead.phone || '-',
+      'Email': lead.email || '-',
+      'City': lead.city || '-',
+      'Campaign': lead.campaign?.name || '-',
+      'Products': lead.products?.map(p => p.title).join(', ') || '-',
+      'Bandwidth': lead.bandwidthRequirement || '-',
+      'No. of IPs': lead.numberOfIPs || '-',
+      'Status': lead.status?.replace(/_/g, ' ') || '-',
+      'Pipeline Stage': getPipelineStageLabel(lead),
+      'Assigned To': lead.assignedTo?.name || 'Unassigned',
+      'Created By': lead.createdBy?.name || '-',
+      'Created At': lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-IN') : '-',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+    worksheet['!cols'] = [
+      { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 25 },
+      { wch: 14 }, { wch: 22 }, { wch: 25 }, { wch: 12 }, { wch: 10 },
+      { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 14 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `Leads_${dateStr}.xlsx`);
+    toast.success(`Exported ${formattedData.length} leads to Excel.`);
+  };
+
   // Stats from server
   const bdmStats = {
     total: leadsStats?.total || 0,
@@ -794,15 +846,26 @@ export default function LeadsPage() {
 
       {/* Page Header */}
       <PageHeader title="Leads" description={isAdmin ? 'All leads in the system' : isBDM ? 'Leads assigned to you' : 'Leads you have created'}>
-        {isBDM && (
+        <div className="flex items-center gap-2">
           <Button
-            onClick={() => setShowAddLeadModal(true)}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
+            onClick={handleExportExcel}
+            variant="outline"
+            className="border-slate-200 dark:border-slate-700"
+            disabled={!filteredLeads || filteredLeads.length === 0}
           >
-            <Plus size={18} className="mr-2" />
-            Add Lead
+            <Download size={16} className="mr-2" />
+            Export
           </Button>
-        )}
+          {isBDM && (
+            <Button
+              onClick={() => setShowAddLeadModal(true)}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              <Plus size={18} className="mr-2" />
+              Add Lead
+            </Button>
+          )}
+        </div>
       </PageHeader>
 
       {/* Stats Cards - BDM View with Tabs */}
