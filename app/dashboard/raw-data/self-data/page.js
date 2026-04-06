@@ -9,7 +9,7 @@ import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import DataTable from '@/components/DataTable';
-import { X, Plus, Database, Phone } from 'lucide-react';
+import { X, Plus, Database, Phone, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/PageHeader';
 import { formatDate } from '@/lib/formatters';
@@ -331,15 +331,27 @@ export default function RawDataSelfDataPage() {
         }}
         defaultPageSize={pageSize}
         actions={(campaign) => (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => router.push(`/dashboard/calling-queue?campaignId=${campaign.id}`)}
-            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-900/20 border-orange-200 dark:border-orange-800"
-            title="Start calling"
-          >
-            <Phone size={14} />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => router.push(`/dashboard/calling-queue?campaignId=${campaign.id}`)}
+              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-900/20 border-orange-200 dark:border-orange-800"
+              title="Start calling"
+            >
+              <Phone size={14} />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleDelete(campaign.id, campaign.name)}
+              disabled={deletingId === campaign.id}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 border-red-200 dark:border-red-800"
+              title="Delete data set"
+            >
+              <Trash2 size={14} />
+            </Button>
+          </div>
         )}
       />
 

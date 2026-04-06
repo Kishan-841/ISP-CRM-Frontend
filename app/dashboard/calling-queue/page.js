@@ -107,14 +107,14 @@ export default function CallingQueuePage() {
 
   // Set campaign from URL param or first campaign as default
   useEffect(() => {
-    if (assignedCampaigns.length > 0 && !selectedCampaignId) {
+    if (assignedCampaigns.length > 0) {
       if (campaignIdFromUrl && assignedCampaigns.some(c => c.id === campaignIdFromUrl)) {
         setSelectedCampaignId(campaignIdFromUrl);
-      } else {
+      } else if (!selectedCampaignId || !assignedCampaigns.some(c => c.id === selectedCampaignId)) {
         setSelectedCampaignId(assignedCampaigns[0].id);
       }
     }
-  }, [assignedCampaigns, selectedCampaignId, campaignIdFromUrl]);
+  }, [assignedCampaigns, campaignIdFromUrl]);
 
   // Fetch campaign data when campaign changes
   useEffect(() => {
@@ -125,6 +125,7 @@ export default function CallingQueuePage() {
 
   const loadCampaignData = async () => {
     setIsLoading(true);
+    setSelectedData(null);
     await fetchCampaignData(selectedCampaignId, 1, 50, 'NEW');
     setIsLoading(false);
   };
@@ -135,12 +136,14 @@ export default function CallingQueuePage() {
       // Data is already filtered to NEW by the server
       setQueueData(campaignData);
 
-      // Select first item if none selected
-      if (!selectedData && campaignData.length > 0) {
+      // Select first item if none selected, or revalidate current selection
+      const currentStillExists = selectedData && campaignData.some(d => d.id === selectedData.id);
+      if (!currentStillExists) {
         setSelectedData(campaignData[0]);
       }
     } else {
       setQueueData([]);
+      setSelectedData(null);
     }
 
     // Update stats from server response
