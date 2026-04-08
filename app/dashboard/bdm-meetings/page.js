@@ -928,10 +928,21 @@ export default function BDMMeetingsPage() {
 
                   {/* Billing Address */}
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-700">
-                    <h4 className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1 mb-2">
-                      <FileText size={12} />
-                      Billing Address
-                    </h4>
+                    <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                      <h4 className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                        <FileText size={12} />
+                        Billing Address
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setBillingAddress(fullAddress)}
+                        disabled={!fullAddress.trim()}
+                        className="text-[11px] font-medium px-2 py-1 rounded-md bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 disabled:cursor-not-allowed dark:disabled:bg-amber-900/40 text-white transition-colors"
+                        title={fullAddress.trim() ? 'Copy installation address into billing' : 'Enter installation address first'}
+                      >
+                        Same as installation address
+                      </button>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                       <div className="col-span-3">
                         <input
