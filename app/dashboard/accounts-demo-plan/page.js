@@ -96,6 +96,7 @@ export default function AccountsDemoPlanPage() {
     planName: '',
     bandwidth: '',
     uploadBandwidth: '',
+    expiryDate: '',
     isActive: true,
     notes: ''
   });
@@ -173,6 +174,7 @@ export default function AccountsDemoPlanPage() {
       planName: generatedPlanName,
       bandwidth: lead.demoPlanBandwidth || '',
       uploadBandwidth: lead.demoPlanUploadBandwidth || '',
+      expiryDate: lead.demoPlanEndDate ? new Date(lead.demoPlanEndDate).toISOString().slice(0, 10) : '',
       isActive: lead.demoPlanIsActive ?? true,
       notes: lead.demoPlanNotes || ''
     });
@@ -187,6 +189,7 @@ export default function AccountsDemoPlanPage() {
       planName: '',
       bandwidth: '',
       uploadBandwidth: '',
+      expiryDate: '',
       isActive: true,
       notes: ''
     });
@@ -210,6 +213,7 @@ export default function AccountsDemoPlanPage() {
         planName: planForm.planName,
         bandwidth: parseInt(planForm.bandwidth),
         uploadBandwidth: planForm.uploadBandwidth ? parseInt(planForm.uploadBandwidth) : null,
+        expiryDate: planForm.expiryDate || null,
         isActive: planForm.isActive,
         notes: planForm.notes || null
       });
@@ -628,6 +632,22 @@ export default function AccountsDemoPlanPage() {
                     />
                     <p className="text-xs text-slate-400 mt-1">
                       {planForm.uploadBandwidth ? `${planForm.uploadBandwidth} Mbps` : 'Leave empty for same as download'}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="expiryDate">Expiry Date</Label>
+                    <Input
+                      id="expiryDate"
+                      type="date"
+                      value={planForm.expiryDate}
+                      onChange={(e) => handleFormChange('expiryDate', e.target.value)}
+                      min={new Date().toISOString().slice(0, 10)}
+                      disabled={activeTab === 'assigned'}
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                      {planForm.expiryDate
+                        ? `Plan will auto-stop on ${new Date(planForm.expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                        : 'Leave empty for no automatic expiry'}
                     </p>
                   </div>
                   <div className="sm:col-span-2 flex items-center gap-4 pt-2">
