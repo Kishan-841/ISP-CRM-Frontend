@@ -455,19 +455,56 @@ export default function LeadsPage() {
   // Server-side filtered — leads are already filtered by the API
   const filteredLeads = leads;
 
-  const getPipelineStageLabel = (lead) => {
-    if (lead.actualPlanIsActive) return 'Live';
-    if (lead.customerAcceptanceAt || lead.installationCompletedAt) return 'Installed';
-    if (lead.customerUsername) return 'At NOC';
-    if (lead.pushedToInstallationAt || (lead.accountsVerifiedAt && lead.accountsStatus === 'ACCOUNTS_APPROVED')) return 'Push to Delivery';
-    if (lead.docsVerifiedAt && !lead.docsRejectedReason) return 'Accounts Review';
-    if (lead.sharedVia?.includes('docs_verification')) return 'Docs Review';
-    if (lead.opsApprovalStatus === 'APPROVED') return 'Docs Upload';
-    if (lead.opsApprovalStatus === 'PENDING') return 'Quote Sent';
-    if (lead.status === 'FEASIBLE' || lead.feasibilityReviewedAt) return 'Feasible';
-    if (lead.status === 'DROPPED' || lead.status === 'NOT_FEASIBLE' || lead.opsApprovalStatus === 'REJECTED' || lead.accountsStatus === 'ACCOUNTS_REJECTED') return 'Dropped';
-    return 'At BDM';
+  // Single source of truth for pipeline stage + the role currently
+  // responsible for the lead. Ordered from the end of the pipeline back
+  // to the start: the first matching condition wins.
+  const getPipelineStage = (lead) => {
+    if (lead.actualPlanIsActive) {
+      return { label: 'Live', role: 'Active Customer', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' };
+    }
+    if (lead.customerAcceptanceAt || lead.installationCompletedAt) {
+      return { label: 'Installed', role: 'Delivery Team', color: 'bg-lime-50 text-lime-700 border-lime-200 dark:bg-lime-900/20 dark:text-lime-400 dark:border-lime-800' };
+    }
+    // Terminal rejection states (check before active-stage flags)
+    if (
+      lead.status === 'DROPPED' ||
+      lead.status === 'NOT_FEASIBLE' ||
+      lead.opsApprovalStatus === 'REJECTED' ||
+      lead.accountsStatus === 'ACCOUNTS_REJECTED'
+    ) {
+      return { label: 'Dropped', role: '—', color: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' };
+    }
+    if (lead.customerUsername) {
+      return { label: 'At NOC', role: 'NOC Team', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' };
+    }
+    if (lead.pushedToInstallationAt) {
+      return { label: 'Pushed to Delivery', role: 'Delivery Team', color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' };
+    }
+    if (lead.accountsVerifiedAt && lead.accountsStatus === 'ACCOUNTS_APPROVED') {
+      return { label: 'Accounts Approved', role: 'BDM', color: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-400 dark:border-teal-800' };
+    }
+    if (lead.docsVerifiedAt && !lead.docsRejectedReason) {
+      return { label: 'Accounts Review', role: 'Accounts Team', color: 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-400 dark:border-pink-800' };
+    }
+    if (lead.sharedVia?.includes('docs_verification')) {
+      return { label: 'Docs Verification', role: 'Docs Team', color: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900/20 dark:text-fuchsia-400 dark:border-fuchsia-800' };
+    }
+    if (lead.opsApprovalStatus === 'APPROVED') {
+      return { label: 'Docs Upload', role: 'BDM', color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' };
+    }
+    if (lead.opsApprovalStatus === 'PENDING') {
+      return { label: 'Quote Sent', role: 'OPS / Admin', color: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800' };
+    }
+    if (lead.status === 'FEASIBLE' || lead.feasibilityReviewedAt) {
+      return { label: 'Feasible', role: 'BDM', color: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800' };
+    }
+    if (lead.feasibilityAssignedToId && !lead.feasibilityReviewedAt) {
+      return { label: 'Feasibility Check', role: 'Feasibility Team', color: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-800' };
+    }
+    return { label: 'At BDM', role: 'BDM', color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' };
   };
+
+  const getPipelineStageLabel = (lead) => getPipelineStage(lead).label;
 
   const handleExportExcel = () => {
     if (!filteredLeads || filteredLeads.length === 0) {
@@ -486,7 +523,8 @@ export default function LeadsPage() {
       'Bandwidth': lead.bandwidthRequirement || '-',
       'No. of IPs': lead.numberOfIPs || '-',
       'Status': lead.status?.replace(/_/g, ' ') || '-',
-      'Pipeline Stage': getPipelineStageLabel(lead),
+      'Pipeline Stage': getPipelineStage(lead).label,
+      'Currently At': getPipelineStage(lead).role,
       'Assigned To': lead.assignedTo?.name || 'Unassigned',
       'Created By': lead.createdBy?.name || '-',
       'Created At': lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-IN') : '-',
@@ -496,7 +534,7 @@ export default function LeadsPage() {
     worksheet['!cols'] = [
       { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 25 },
       { wch: 14 }, { wch: 22 }, { wch: 25 }, { wch: 12 }, { wch: 10 },
-      { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 14 },
+      { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 14 },
     ];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
@@ -696,20 +734,6 @@ export default function LeadsPage() {
       key: 'pipelineStage',
       label: 'Pipeline Stage',
       render: (lead) => {
-        const getPipelineStage = (lead) => {
-          if (lead.actualPlanIsActive) return { label: 'Live', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' };
-          if (lead.customerAcceptanceAt || lead.installationCompletedAt) return { label: 'Installed', color: 'bg-lime-50 text-lime-700 border-lime-200 dark:bg-lime-900/20 dark:text-lime-400 dark:border-lime-800' };
-          if (lead.customerUsername) return { label: 'At NOC', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' };
-          if (lead.pushedToInstallationAt) return { label: 'Push to Delivery', color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' };
-          if (lead.accountsVerifiedAt && lead.accountsStatus === 'ACCOUNTS_APPROVED') return { label: 'Push to Delivery', color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' };
-          if (lead.docsVerifiedAt && !lead.docsRejectedReason) return { label: 'Accounts Review', color: 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-400 dark:border-pink-800' };
-          if (lead.sharedVia?.includes('docs_verification')) return { label: 'Docs Review', color: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900/20 dark:text-fuchsia-400 dark:border-fuchsia-800' };
-          if (lead.opsApprovalStatus === 'APPROVED') return { label: 'Docs Upload', color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' };
-          if (lead.opsApprovalStatus === 'PENDING') return { label: 'Quote Sent', color: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800' };
-          if (lead.status === 'FEASIBLE' || lead.feasibilityReviewedAt) return { label: 'Feasible', color: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800' };
-          if (lead.status === 'DROPPED' || lead.status === 'NOT_FEASIBLE' || lead.opsApprovalStatus === 'REJECTED' || lead.accountsStatus === 'ACCOUNTS_REJECTED') return { label: 'Dropped', color: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' };
-          return { label: 'At BDM', color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' };
-        };
         const stage = getPipelineStage(lead);
         return (
           <Badge variant="outline" className={`font-medium ${stage.color}`}>
@@ -717,6 +741,16 @@ export default function LeadsPage() {
           </Badge>
         );
       },
+      cellClassName: 'whitespace-nowrap',
+    },
+    {
+      key: 'currentlyAt',
+      label: 'Currently At',
+      render: (lead) => (
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          {getPipelineStage(lead).role}
+        </span>
+      ),
       cellClassName: 'whitespace-nowrap',
     },
     {
@@ -784,6 +818,7 @@ export default function LeadsPage() {
           className="h-9 px-3 pr-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 text-sm appearance-none cursor-pointer"
         >
           <option value="all">All Stages</option>
+          <option value="feasibilityCheck">Feasibility Check</option>
           <option value="feasible">Feasible</option>
           <option value="quoteSent">Quote Sent</option>
           <option value="docsUpload">Docs Upload</option>
