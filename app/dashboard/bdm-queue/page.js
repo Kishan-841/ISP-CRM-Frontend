@@ -36,6 +36,7 @@ import StatCard from '@/components/StatCard';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { PageHeader } from '@/components/PageHeader';
+import SearchableCampaignSelect from '@/components/SearchableCampaignSelect';
 
 export default function BDMQueuePage() {
   const router = useRouter();
@@ -1046,36 +1047,19 @@ export default function BDMQueuePage() {
           <label className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
             Campaign:
           </label>
-          <select
-            value={selectedCampaignId}
-            onChange={(e) => {
+          <SearchableCampaignSelect
+            campaigns={bdmCampaigns}
+            value={selectedCampaignId || 'all'}
+            user={user}
+            onBeforeChange={() => {
               if (activeCall) {
                 toast.error('Please end the current call first');
-                return;
+                return false;
               }
-              setSelectedCampaignId(e.target.value);
+              return true;
             }}
-            className="h-10 px-4 pr-10 w-full sm:min-w-[200px] sm:w-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent cursor-pointer"
-          >
-            <option value="">All Campaigns</option>
-            {bdmCampaigns.map(campaign => {
-              const isSelfCampaign = campaign.name?.includes('[Self]') ||
-                                     campaign.name?.includes('[SAM Self]') ||
-                                     campaign.name?.includes('[BDM Self]');
-              let displayName = campaign.name;
-              if (isSelfCampaign && campaign.createdBy?.name) {
-                displayName = campaign.name
-                  .replace('[Self]', `[${campaign.createdBy.name}]`)
-                  .replace('[SAM Self]', `[SAM: ${campaign.createdBy.name}]`)
-                  .replace('[BDM Self]', `[BDM: ${campaign.createdBy.name}]`);
-              }
-              return (
-                <option key={campaign.id} value={campaign.id}>
-                  {displayName}
-                </option>
-              );
-            })}
-          </select>
+            onChange={(id) => setSelectedCampaignId(id === 'all' ? '' : id)}
+          />
         </div>
       </div>
 

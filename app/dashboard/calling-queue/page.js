@@ -1,18 +1,19 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore, useCampaignStore, useProductStore, useLeadStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { Phone, PhoneOff, Building2, User, Briefcase, Mail, MessageSquare, MapPin, Clock, Send, Calendar, UserPlus, Share2, CheckCircle, Check, X, FileText, ThumbsUp, ThumbsDown, PhoneMissed, AlertTriangle, PhoneForwarded, Ban, Users, BarChart3, Pencil, HelpCircle } from 'lucide-react';
+import { Phone, PhoneOff, Building2, User, Briefcase, Mail, MessageSquare, MapPin, Clock, Send, Calendar, UserPlus, Share2, CheckCircle, Check, X, FileText, ThumbsUp, ThumbsDown, PhoneMissed, AlertTriangle, PhoneForwarded, Ban, Users, BarChart3, Pencil, HelpCircle, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/StatCard';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { PageHeader } from '@/components/PageHeader';
+import SearchableCampaignSelect from '@/components/SearchableCampaignSelect';
 
 export default function CallingQueuePage() {
   const router = useRouter();
@@ -34,7 +35,8 @@ export default function CallingQueuePage() {
   const { products, fetchProducts } = useProductStore();
   const { fetchBDMUsers, bdmUsers, fetchTeamLeaders, teamLeaders, convertToLead } = useLeadStore();
 
-  const [selectedCampaignId, setSelectedCampaignId] = useState('');
+  const [selectedCampaignId, setSelectedCampaignId] = useState('all');
+  const [queueSearch, setQueueSearch] = useState('');
   const [selectedData, setSelectedData] = useState(null);
   const [queueData, setQueueData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -105,28 +107,42 @@ export default function CallingQueuePage() {
     }
   }, [isAdmin, fetchAssignedCampaigns, fetchProducts, fetchBDMUsers, fetchTeamLeaders]);
 
-  // Set campaign from URL param or first campaign as default
+  // If a campaign is passed via URL, honor it; otherwise leave the default 'all'.
   useEffect(() => {
-    if (assignedCampaigns.length > 0) {
-      if (campaignIdFromUrl && assignedCampaigns.some(c => c.id === campaignIdFromUrl)) {
-        setSelectedCampaignId(campaignIdFromUrl);
-      } else if (!selectedCampaignId || !assignedCampaigns.some(c => c.id === selectedCampaignId)) {
-        setSelectedCampaignId(assignedCampaigns[0].id);
-      }
+    if (
+      campaignIdFromUrl &&
+      assignedCampaigns.some((c) => c.id === campaignIdFromUrl) &&
+      selectedCampaignId !== campaignIdFromUrl
+    ) {
+      setSelectedCampaignId(campaignIdFromUrl);
     }
   }, [assignedCampaigns, campaignIdFromUrl]);
 
-  // Fetch campaign data when campaign changes
+  // Fetch whenever the selected campaign changes
   useEffect(() => {
-    if (selectedCampaignId) {
-      loadCampaignData();
-    }
+    loadCampaignData(queueSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCampaignId]);
 
-  const loadCampaignData = async () => {
+  // Debounced refetch whenever the company search changes (skip initial mount
+  // because the selectedCampaignId effect already fires the first fetch).
+  const didMountSearchRef = useRef(false);
+  useEffect(() => {
+    if (!didMountSearchRef.current) {
+      didMountSearchRef.current = true;
+      return;
+    }
+    const handle = setTimeout(() => {
+      loadCampaignData(queueSearch);
+    }, 300);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queueSearch]);
+
+  const loadCampaignData = async (search = '') => {
     setIsLoading(true);
     setSelectedData(null);
-    await fetchCampaignData(selectedCampaignId, 1, 50, 'NEW');
+    await fetchCampaignData(selectedCampaignId || 'all', 1, 50, 'NEW', null, search);
     setIsLoading(false);
   };
 
@@ -384,7 +400,7 @@ export default function CallingQueuePage() {
 
   const moveToNext = () => {
     // Refresh data
-    loadCampaignData();
+    loadCampaignData(queueSearch);
 
     // Reset state
     resetDisposition();
@@ -489,7 +505,10 @@ export default function CallingQueuePage() {
     setIsSavingEdit(false);
   };
 
-  const selectedCampaign = assignedCampaigns.find(c => c.id === selectedCampaignId);
+  const selectedCampaign =
+    selectedCampaignId && selectedCampaignId !== 'all'
+      ? assignedCampaigns.find((c) => c.id === selectedCampaignId)
+      : null;
   const conversionRate = stats.called > 0
     ? ((stats.leadsGenerated / stats.called) * 100).toFixed(1)
     : 0;
@@ -516,34 +535,22 @@ export default function CallingQueuePage() {
           <label className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
             Campaign:
           </label>
-          <select
+          <SearchableCampaignSelect
+            campaigns={assignedCampaigns}
             value={selectedCampaignId}
-            onChange={(e) => {
+            user={user}
+            onBeforeChange={() => {
               if (activeCall) {
                 toast.error('Please end the current call first');
-                return;
+                return false;
               }
-              setSelectedCampaignId(e.target.value);
+              return true;
+            }}
+            onChange={(id) => {
+              setSelectedCampaignId(id);
               setSelectedData(null);
             }}
-            className="h-10 px-4 pr-10 w-full sm:min-w-[200px] sm:w-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-600 focus:border-transparent cursor-pointer"
-          >
-            {assignedCampaigns.length === 0 ? (
-              <option value="">No campaigns assigned</option>
-            ) : (
-              assignedCampaigns.map(campaign => {
-                let displayName = campaign.name;
-                if (campaign.createdBy?.name && campaign.createdBy.id !== user?.id) {
-                  displayName = displayName.replace(/^\[(Self|BDM Self|TL Self|SAM Self)\]\s*/, `[${campaign.createdBy.name}] `);
-                }
-                return (
-                  <option key={campaign.id} value={campaign.id}>
-                    {displayName}
-                  </option>
-                );
-              })
-            )}
-          </select>
+          />
         </div>
       </PageHeader>
 
@@ -561,19 +568,31 @@ export default function CallingQueuePage() {
         {/* Queue List - Left */}
         <div className="lg:col-span-4">
           <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-slate-900 dark:text-slate-100">Queue</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {selectedCampaign ? (selectedCampaign.createdBy?.name && selectedCampaign.createdBy.id !== user?.id
-                      ? selectedCampaign.name.replace(/^\[(Self|BDM Self|TL Self|SAM Self)\]\s*/, `[${selectedCampaign.createdBy.name}] `)
-                      : selectedCampaign.name) : 'Select a campaign'}
+                    {selectedCampaign
+                      ? (selectedCampaign.createdBy?.name && selectedCampaign.createdBy.id !== user?.id
+                          ? selectedCampaign.name.replace(/^\[(Self|BDM Self|TL Self|SAM Self)\]\s*/, `[${selectedCampaign.createdBy.name}] `)
+                          : selectedCampaign.name)
+                      : 'All Campaigns'}
                   </p>
                 </div>
                 <Badge variant="secondary" className="text-xs">
                   {queueData.length} pending
                 </Badge>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search company, name, phone..."
+                  value={queueSearch}
+                  onChange={(e) => setQueueSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:ring-2 focus:ring-orange-600 focus:border-transparent outline-none text-slate-900 dark:text-slate-100"
+                />
               </div>
             </div>
             <CardContent className="p-0">
