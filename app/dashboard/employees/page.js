@@ -27,6 +27,7 @@ export default function EmployeesPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    mobile: '',
     password: '',
     role: 'ISR',
     isActive: true,
@@ -54,6 +55,7 @@ export default function EmployeesPage() {
     setFormData({
       name: '',
       email: '',
+      mobile: '',
       password: '',
       role: isTL ? 'BDM' : 'ISR',
       isActive: true,
@@ -69,6 +71,7 @@ export default function EmployeesPage() {
     setFormData({
       name: userToEdit.name,
       email: userToEdit.email,
+      mobile: userToEdit.mobile || '',
       password: '',
       role: userToEdit.role,
       isActive: userToEdit.isActive,
@@ -437,6 +440,21 @@ export default function EmployeesPage() {
                     placeholder="Enter email address"
                     className="h-11 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-orange-600"
                     required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="mobile" className="text-slate-700 dark:text-slate-300 text-sm font-medium">
+                    Mobile Number <span className="text-slate-500 font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    id="mobile"
+                    name="mobile"
+                    type="tel"
+                    value={formData.mobile}
+                    onChange={handleChange}
+                    placeholder="Enter mobile number"
+                    className="h-11 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-orange-600"
                   />
                 </div>
 
