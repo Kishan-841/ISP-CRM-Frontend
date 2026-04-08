@@ -433,7 +433,7 @@ export default function RawDataSelfDataPage() {
 
                 {/* Campaign Name */}
                 <div className="space-y-2">
-                  <Label htmlFor="campaignName" className="text-slate-700 dark:text-slate-300">Name</Label>
+                  <Label htmlFor="campaignName" className="text-slate-700 dark:text-slate-300">Campaign Name</Label>
                   <Input id="campaignName" value={formData.campaignName} onChange={(e) => setFormData({ ...formData, campaignName: e.target.value })}
                     placeholder="e.g. Mumbai IT Companies (auto-generated if empty)" className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700" />
                 </div>
