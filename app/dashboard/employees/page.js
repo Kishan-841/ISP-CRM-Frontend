@@ -43,7 +43,7 @@ export default function EmployeesPage() {
   const isTL = user?.role === 'BDM_TEAM_LEADER';
 
   useEffect(() => {
-    if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'BDM_TEAM_LEADER' && user?.role !== 'MASTER') {
+    if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'SALES_DIRECTOR' && user?.role !== 'BDM_TEAM_LEADER' && user?.role !== 'MASTER') {
       router.push('/dashboard');
       return;
     }
@@ -163,7 +163,7 @@ export default function EmployeesPage() {
     return true;
   });
 
-  if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'BDM_TEAM_LEADER' && user?.role !== 'MASTER') {
+  if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'SALES_DIRECTOR' && user?.role !== 'BDM_TEAM_LEADER' && user?.role !== 'MASTER') {
     return null;
   }
 

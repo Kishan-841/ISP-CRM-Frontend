@@ -596,6 +596,7 @@ export default function Sidebar() {
     // Sales Director items
     ...(isSalesDirector ? [
       { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', icon: ClipboardCheck, badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
+      { name: 'Employees', path: '/dashboard/employees', icon: UserCircle },
     ] : []),
     // Super Admin only items
     ...(isSuperAdmin ? [
