@@ -56,6 +56,18 @@ const getDocumentsCount = (documents) => {
 
 // Parse feasibility notes from JSON
 const parseFeasibilityData = (lead) => {
+  // New simplified flow: direct columns on Lead
+  if (lead?.feasibilityVendorType || lead?.tentativeCapex != null || lead?.tentativeOpex != null) {
+    return {
+      vendorType: lead.feasibilityVendorType,
+      vendorDetails: {
+        capex: lead.tentativeCapex,
+        opex: lead.tentativeOpex,
+      },
+      additionalNotes: lead.feasibilityDescription || lead.feasibilityNotes || null,
+    };
+  }
+  // Legacy: JSON-encoded vendor details in feasibilityNotes
   if (!lead?.feasibilityNotes) return null;
   try {
     const data = JSON.parse(lead.feasibilityNotes);

@@ -494,41 +494,20 @@ export default function FeasibilityQueuePage() {
       return;
     }
 
-    // Validate CAPEX and OPEX based on vendor type
-    if (decision === 'FEASIBLE' && vendorType) {
-      const currentVendorData = vendorData[vendorType];
-
-      // CAPEX required for all except thirdParty (auto-calculated, must be > 0)
-      if (vendorType !== 'thirdParty' && (!currentVendorData.capex || currentVendorData.capex <= 0)) {
-        toast.error('CAPEX is required - please add at least one equipment item');
-        return;
-      }
-      // OPEX required for fiberVendor (auto-calculated from fiber cost), commissionVendor and telco (manual)
-      if (vendorType !== 'ownNetwork' && vendorType !== 'thirdParty') {
-        const opexVal = parseFloat(currentVendorData.opex);
-        if (!opexVal || opexVal <= 0) {
-          toast.error(vendorType === 'fiberVendor' ? 'OPEX is required - please enter fiber quantity and per mtr cost' : 'OPEX is required');
-          return;
-        }
-      }
-    }
-
     setIsSaving(true);
 
-    // Prepare vendor data for submission
-    const vendorInfo = decision === 'FEASIBLE' ? {
-      vendorType,
-      vendorDetails: vendorData[vendorType]
-    } : null;
-
-    // Extract vendorId from selected vendor (if any)
-    const selectedVendorId = decision === 'FEASIBLE' ? vendorData[vendorType]?.vendorDetails?.id : undefined;
-
+    // Build the simplified payload — vendor type + tentative pricing + POP + description
+    const currentVD = decision === 'FEASIBLE' ? vendorData[vendorType] : null;
     const result = await feasibilityDisposition(selectedLead.id, {
       decision,
       notes: notes.trim() || null,
-      vendorInfo,
-      vendorId: selectedVendorId
+      vendorType: decision === 'FEASIBLE' ? vendorType : undefined,
+      tentativeCapex: currentVD?.capex || null,
+      tentativeOpex: currentVD?.opex || null,
+      feasibilityDescription: currentVD?.description || null,
+      popLocation: currentVD?.popLocation || null,
+      popLatitude: currentVD?.popLatitude || null,
+      popLongitude: currentVD?.popLongitude || null,
     });
 
     if (result.success) {
@@ -1370,9 +1349,10 @@ export default function FeasibilityQueuePage() {
                 </div>
               </div>
 
-              {/* Vendor Type Selection (only when FEASIBLE) */}
+              {/* Simplified Feasibility Fields (vendor setup moved to delivery) */}
               {decision === 'FEASIBLE' && (
                 <div className="space-y-4">
+                  {/* Vendor Type Selection — just the type, no vendor creation at this stage */}
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Select Vendor Type <span className="text-red-500">*</span>
                   </label>
@@ -1392,15 +1372,11 @@ export default function FeasibilityQueuePage() {
                     ))}
                   </div>
 
-                  {/* Vendor Type Specific Fields */}
+                  {/* POP Location — moved out of vendor-specific sections */}
                   {vendorType && (
-                    <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-                      <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4 pb-2 border-b border-slate-200 dark:border-slate-700">
-                        {VENDOR_TYPES.find(t => t.id === vendorType)?.label} Details
-                      </h4>
-
+                    <div className="mt-4 space-y-4">
                       {/* POP Location - Searchable dropdown with Add New */}
-                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                         <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2">POP Location</p>
                         <div className="space-y-3">
                           <div className="relative">
@@ -1496,8 +1472,52 @@ export default function FeasibilityQueuePage() {
                         </div>
                       </div>
 
-                      {/* Own Network Fields */}
-                      {vendorType === 'ownNetwork' && (
+                      {/* Tentative CAPEX & OPEX (OPEX hidden for Own Network — no external vendor cost) */}
+                      <div className={`grid gap-3 ${vendorType === 'ownNetwork' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            Tentative CAPEX (₹)
+                          </label>
+                          <input
+                            type="number"
+                            value={vendorData[vendorType]?.capex || ''}
+                            onChange={(e) => updateVendorField(vendorType, 'capex', e.target.value)}
+                            placeholder="e.g. 50000"
+                            className="w-full h-9 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                        {vendorType !== 'ownNetwork' && (
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                              Tentative OPEX (₹)
+                            </label>
+                            <input
+                              type="number"
+                              value={vendorData[vendorType]?.opex || ''}
+                              onChange={(e) => updateVendorField(vendorType, 'opex', e.target.value)}
+                              placeholder="e.g. 25000"
+                              className="w-full h-9 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Description */}
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          Description
+                        </label>
+                        <textarea
+                          value={vendorData[vendorType]?.description || ''}
+                          onChange={(e) => updateVendorField(vendorType, 'description', e.target.value)}
+                          rows={3}
+                          placeholder="Any notes about the feasibility — fiber route, equipment needed, cost breakdown reasoning..."
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 resize-none"
+                        />
+                      </div>
+
+                      {/* Old vendor-specific forms removed — vendor setup moved to delivery stage */}
+                      {false && (
                         <div className="space-y-3">
                           <div className="flex justify-between items-center pb-2 border-b border-emerald-200 dark:border-emerald-800">
                             <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">CAPEX - Equipment</span>
@@ -1587,7 +1607,7 @@ export default function FeasibilityQueuePage() {
                       )}
 
                       {/* Fiber Vendor Fields */}
-                      {vendorType === 'fiberVendor' && (
+                      {false && vendorType === 'fiberVendor' && (
                         <div className="space-y-3">
                           <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Vendor</label>
@@ -1749,7 +1769,7 @@ export default function FeasibilityQueuePage() {
                       )}
 
                       {/* Commission Vendor Fields */}
-                      {vendorType === 'commissionVendor' && (
+                      {false && vendorType === 'commissionVendor' && (
                         <div className="space-y-3">
                           <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Vendor</label>
@@ -1896,7 +1916,7 @@ export default function FeasibilityQueuePage() {
                       )}
 
                       {/* Third Party Fields */}
-                      {vendorType === 'thirdParty' && (
+                      {false && vendorType === 'thirdParty' && (
                         <div className="space-y-3">
                           <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Vendor</label>
@@ -1967,7 +1987,7 @@ export default function FeasibilityQueuePage() {
                       )}
 
                       {/* Telco Fields */}
-                      {vendorType === 'telco' && (
+                      {false && vendorType === 'telco' && (
                         <div className="space-y-3">
                           <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Provider</label>

@@ -39,6 +39,7 @@ import {
   Camera
 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import DeliveryVendorSetup from '@/components/DeliveryVendorSetup';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
@@ -63,6 +64,7 @@ const vendorTypeLabels = {
 
 // Pipeline stages configuration
 const PIPELINE_STAGES = [
+  { id: 'vendor_setup', label: 'Vendor Setup', status: 'VENDOR_SETUP', color: 'violet', icon: Building2 },
   { id: 'pending', label: 'Pending', status: 'PENDING', color: 'amber', icon: Clock },
   { id: 'material_requested', label: 'Requested', status: 'MATERIAL_REQUESTED', color: 'orange', icon: Send },
   { id: 'pushed_to_noc', label: 'At NOC', status: 'PUSHED_TO_NOC', color: 'indigo', icon: Send },
@@ -95,7 +97,7 @@ export default function DeliveryQueuePage() {
 
   const [selectedLead, setSelectedLead] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState('vendor_setup');
   const [isSaving, setIsSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isPushingToNoc, setIsPushingToNoc] = useState(false);
@@ -261,8 +263,16 @@ export default function DeliveryQueuePage() {
   // Initialize editable data when viewing details
   useEffect(() => {
     if (selectedLead) {
-      // Get products from deliveryProducts first, then fallback to feasibilityInfo
-      const products = selectedLead.deliveryProducts || selectedLead.feasibilityInfo?.vendorDetails || {};
+      // Get products from deliveryProducts first, then fallback to feasibilityInfo.
+      // Check if deliveryProducts has meaningful data (materials array or non-empty equipment fields);
+      // empty shells from old edit-mode saves should be ignored.
+      const dp = selectedLead.deliveryProducts;
+      const dpHasData = dp && (
+        (dp.materials && dp.materials.length > 0) ||
+        (dp.items && dp.items.length > 0) ||
+        dp.setupAt // set by vendor setup flow
+      );
+      const products = (dpHasData ? dp : null) || selectedLead.feasibilityInfo?.vendorDetails || selectedLead.combinedProducts || {};
 
       // Helper: extract quantity from equipment field (handles both old string format and new object format)
       const getQty = (val) => typeof val === 'object' && val !== null ? (val.quantity || '') : (val || '');
@@ -280,8 +290,8 @@ export default function DeliveryQueuePage() {
         patchChordCategory: products.patchChordCategory || '',
         rf: getQty(products.rf),
         fiberRequired: getQty(products.fiberRequired),
-        capex: products.capex || selectedLead.feasibilityInfo?.vendorDetails?.capex || '',
-        opex: products.opex || selectedLead.feasibilityInfo?.vendorDetails?.opex || '',
+        capex: products.capex || selectedLead.feasibilityInfo?.vendorDetails?.capex || selectedLead.tentativeCapex || '',
+        opex: products.opex || selectedLead.feasibilityInfo?.vendorDetails?.opex || selectedLead.tentativeOpex || '',
         arc: selectedLead.arcAmount || '',
         otc: selectedLead.otcAmount || '',
         bandwidthRequirement: selectedLead.bandwidthRequirement || '',
@@ -299,8 +309,16 @@ export default function DeliveryQueuePage() {
       if (getQtyInt(products.mediaConverter) > 0) items.push({ productType: 'MEDIA_CONVERTER', productId: getModelId(products.mediaConverter), quantity: getQtyInt(products.mediaConverter), productName: 'Media Converter' });
       if (getQtyInt(products.router) > 0) items.push({ productType: 'ROUTER', productId: getModelId(products.router), quantity: getQtyInt(products.router), productName: 'Router' });
 
-      // If items from productItems array exist, use those instead
-      if (products.items && Array.isArray(products.items)) {
+      // If new-format materials array exists (from delivery vendor setup), use those
+      if (products.materials && Array.isArray(products.materials) && products.materials.length > 0) {
+        setProductItems(products.materials.map(m => ({
+          productType: m.category || '',
+          productId: m.productId || '',
+          productName: m.name || m.category || '-',
+          quantity: parseInt(m.quantity) || 1,
+          unitPrice: parseFloat(m.unitPrice) || 0,
+        })));
+      } else if (products.items && Array.isArray(products.items)) {
         setProductItems(products.items);
       } else if (items.length > 0) {
         setProductItems(items);
@@ -523,36 +541,53 @@ export default function DeliveryQueuePage() {
     };
 
     // Pre-populate items from lead's delivery products with auto-selected productIds
-    const products = lead.deliveryProducts || lead.feasibilityInfo?.vendorDetails || {};
+    const dp = lead.deliveryProducts;
+    const dpHasData = dp && ((dp.materials && dp.materials.length > 0) || dp.setupAt);
+    const products = (dpHasData ? dp : null) || lead.feasibilityInfo?.vendorDetails || {};
     const initialItems = [];
 
-    // Helper: extract quantity and modelId from equipment field (handles both old string and new object format)
-    const extractQty = (val) => parseInt(typeof val === 'object' && val !== null ? val.quantity : val) || 0;
-    const extractModelId = (val) => typeof val === 'object' && val !== null ? (val.modelId || '') : '';
+    // NEW FORMAT: materials array from delivery vendor setup
+    if (products.materials && Array.isArray(products.materials) && products.materials.length > 0) {
+      for (const m of products.materials) {
+        const matchingProduct = m.productId
+          ? fetchedProducts.find(p => p.id === m.productId)
+          : findProductByType(m.category);
+        initialItems.push({
+          productType: m.category || '',
+          category: '',
+          quantity: parseInt(m.quantity) || 1,
+          productId: matchingProduct?.id || m.productId || '',
+        });
+      }
+    } else {
+      // OLD FORMAT: individual equipment keys (switch, sfp, etc.)
+      const extractQty = (val) => parseInt(typeof val === 'object' && val !== null ? val.quantity : val) || 0;
+      const extractModelId = (val) => typeof val === 'object' && val !== null ? (val.modelId || '') : '';
 
-    if (extractQty(products.switch) > 0) {
-      const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.switch)) || findProductByType('SWITCH');
-      initialItems.push({ productType: 'SWITCH', category: products.switchCategory || '', quantity: extractQty(products.switch), productId: matchingProduct?.id || '' });
-    }
-    if (extractQty(products.sfp) > 0) {
-      const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.sfp)) || findProductByType('SFP');
-      initialItems.push({ productType: 'SFP', category: products.sfpCategory || '', quantity: extractQty(products.sfp), productId: matchingProduct?.id || '' });
-    }
-    if (extractQty(products.closure) > 0) {
-      const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.closure)) || findProductByType('CLOSURE');
-      initialItems.push({ productType: 'CLOSURE', category: products.closureCategory || '', quantity: extractQty(products.closure), productId: matchingProduct?.id || '' });
-    }
-    if (extractQty(products.patchChord) > 0) {
-      const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.patchChord)) || findProductByType('PATCH_CORD');
-      initialItems.push({ productType: 'PATCH_CORD', category: products.patchChordCategory || '', quantity: extractQty(products.patchChord), productId: matchingProduct?.id || '' });
-    }
-    if (extractQty(products.rf) > 0) {
-      const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.rf)) || findProductByType('RF');
-      initialItems.push({ productType: 'RF', category: '', quantity: extractQty(products.rf), productId: matchingProduct?.id || '' });
-    }
-    if (extractQty(products.fiberRequired) > 0) {
-      const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.fiberRequired)) || findProductByType('FIBER');
-      initialItems.push({ productType: 'FIBER', category: '', quantity: extractQty(products.fiberRequired), productId: matchingProduct?.id || '' });
+      if (extractQty(products.switch) > 0) {
+        const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.switch)) || findProductByType('SWITCH');
+        initialItems.push({ productType: 'SWITCH', category: products.switchCategory || '', quantity: extractQty(products.switch), productId: matchingProduct?.id || '' });
+      }
+      if (extractQty(products.sfp) > 0) {
+        const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.sfp)) || findProductByType('SFP');
+        initialItems.push({ productType: 'SFP', category: products.sfpCategory || '', quantity: extractQty(products.sfp), productId: matchingProduct?.id || '' });
+      }
+      if (extractQty(products.closure) > 0) {
+        const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.closure)) || findProductByType('CLOSURE');
+        initialItems.push({ productType: 'CLOSURE', category: products.closureCategory || '', quantity: extractQty(products.closure), productId: matchingProduct?.id || '' });
+      }
+      if (extractQty(products.patchChord) > 0) {
+        const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.patchChord)) || findProductByType('PATCH_CORD');
+        initialItems.push({ productType: 'PATCH_CORD', category: products.patchChordCategory || '', quantity: extractQty(products.patchChord), productId: matchingProduct?.id || '' });
+      }
+      if (extractQty(products.rf) > 0) {
+        const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.rf)) || findProductByType('RF');
+        initialItems.push({ productType: 'RF', category: '', quantity: extractQty(products.rf), productId: matchingProduct?.id || '' });
+      }
+      if (extractQty(products.fiberRequired) > 0) {
+        const matchingProduct = fetchedProducts.find(p => p.id === extractModelId(products.fiberRequired)) || findProductByType('FIBER');
+        initialItems.push({ productType: 'FIBER', category: '', quantity: extractQty(products.fiberRequired), productId: matchingProduct?.id || '' });
+      }
     }
 
     setRequestItems(initialItems);
@@ -823,7 +858,6 @@ export default function DeliveryQueuePage() {
     const activeRequest = lead.activeDeliveryRequest;
 
     // Check explicit statuses first
-    // material_received → pushed_to_noc, noc_completed → installing (auto-transitions)
     if (status === 'COMPLETED') return 'completed';
     if (status === 'REJECTED') return 'rejected';
     if (status === 'CUSTOMER_ACCEPTANCE') return 'customer_acceptance';
@@ -849,6 +883,11 @@ export default function DeliveryQueuePage() {
       }
     }
 
+    // Vendor setup must be done before material request
+    if (!lead.deliveryVendorSetupDone) {
+      return 'vendor_setup';
+    }
+
     return 'pending';
   };
 
@@ -858,6 +897,19 @@ export default function DeliveryQueuePage() {
     const activeRequest = lead.activeDeliveryRequest;
 
     switch (stage) {
+      case 'vendor_setup':
+        // Vendor setup required before material request
+        return (
+          <Button
+            size="sm"
+            onClick={() => handleViewDetails(lead)}
+            className="bg-violet-600 hover:bg-violet-700 text-white text-xs"
+          >
+            <Building2 size={12} className="mr-1" />
+            Setup Vendor
+          </Button>
+        );
+
       case 'pending':
         // Request Material button
         return (
@@ -1023,6 +1075,7 @@ export default function DeliveryQueuePage() {
   const getStageCount = (stageId) => {
     if (!deliveryStats) return 0;
     switch (stageId) {
+      case 'vendor_setup': return deliveryStats.vendorSetup || 0;
       case 'pending': return deliveryStats.pending || 0;
       case 'material_requested': return deliveryStats.materialRequested || 0;
       case 'pushed_to_noc': return (deliveryStats.pushedToNoc || 0) + (deliveryStats.materialReceived || 0);
@@ -1065,6 +1118,7 @@ export default function DeliveryQueuePage() {
             const isActive = activeTab === stage.id;
             const count = getStageCount(stage.id);
             const colorMap = {
+              violet: { active: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 ring-1 ring-violet-300 dark:ring-violet-700', badge: 'bg-violet-200/60 dark:bg-violet-800/60' },
               amber: { active: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-1 ring-amber-300 dark:ring-amber-700', badge: 'bg-amber-200/60 dark:bg-amber-800/60' },
               orange: { active: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 ring-1 ring-orange-300 dark:ring-orange-700', badge: 'bg-orange-200/60 dark:bg-orange-800/60' },
               indigo: { active: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-300 dark:ring-indigo-700', badge: 'bg-indigo-200/60 dark:bg-indigo-800/60' },
@@ -1668,6 +1722,18 @@ export default function DeliveryQueuePage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {/* Left Column - Lead Info & Products */}
                 <div className="space-y-4">
+                  {/* Vendor Setup (mandatory before material request) */}
+                  <DeliveryVendorSetup
+                    lead={selectedLead}
+                    onSaved={(updatedLead) => {
+                      setSelectedLead(prev => ({ ...prev, ...updatedLead, deliveryVendorSetupDone: true }));
+                      // Switch to pending tab so the user sees the lead in its new home
+                      setActiveTab('pending');
+                      fetchDeliveryQueue('pending');
+                      setShowDetailsModal(false);
+                    }}
+                  />
+
                   {/* Installation Address */}
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
                     <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1 flex items-center gap-1">
@@ -2075,8 +2141,8 @@ export default function DeliveryQueuePage() {
                       return sum + (product?.price || 0) * (item.quantity || 0);
                     }, 0);
 
-                    // OPEX from feasibility data
-                    const opex = parseFloat(vd.opex) || 0;
+                    // OPEX from feasibility data (new columns → old JSON fallback)
+                    const opex = parseFloat(vd.opex) || parseFloat(requestLead.tentativeOpex) || 0;
 
                     // CP Commission calculation
                     const arcAmount = requestLead.arcAmount || 0;

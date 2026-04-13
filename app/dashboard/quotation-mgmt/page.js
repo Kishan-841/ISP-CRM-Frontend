@@ -303,14 +303,26 @@ export default function QuotationManagementPage() {
 
   // === HELPER FUNCTIONS ===
 
-  // Parse feasibility notes from JSON
+  // Parse feasibility notes from JSON — supports both the new simplified fields
+  // (stored as direct columns) and the legacy JSON format in feasibilityNotes.
   const parseFeasibilityData = (lead) => {
+    // New simplified flow: direct columns on Lead
+    if (lead.feasibilityVendorType || lead.tentativeCapex != null || lead.tentativeOpex != null) {
+      return {
+        vendorType: lead.feasibilityVendorType,
+        vendorDetails: {
+          capex: lead.tentativeCapex,
+          opex: lead.tentativeOpex,
+        },
+        additionalNotes: lead.feasibilityDescription || lead.feasibilityNotes || null,
+      };
+    }
+    // Legacy: JSON-encoded vendor details in feasibilityNotes
     if (!lead.feasibilityNotes) return null;
     try {
       const data = JSON.parse(lead.feasibilityNotes);
       return data;
     } catch {
-      // If not JSON, return as plain notes
       return { additionalNotes: lead.feasibilityNotes };
     }
   };
