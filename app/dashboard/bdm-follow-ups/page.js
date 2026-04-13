@@ -27,6 +27,7 @@ import toast from 'react-hot-toast';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import TabBar from '@/components/TabBar';
 import { PageHeader } from '@/components/PageHeader';
+import FollowUpTabs from '@/components/FollowUpTabs';
 
 export default function BDMFollowUpsPage() {
   const router = useRouter();
@@ -335,7 +336,10 @@ export default function BDMFollowUpsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <PageHeader title="BDM Follow-Ups" description="Manage scheduled follow-ups for your leads" />
+      <PageHeader title="BDM Follow-Ups" description="Unanswered calls & scheduled follow-ups — organised in two tabs" />
+
+      {/* Tab Switcher */}
+      <FollowUpTabs />
 
       {/* Alert Banner */}
       {categorizedFollowUps.overdue.length > 0 && (

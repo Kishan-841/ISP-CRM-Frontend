@@ -39,6 +39,7 @@ import {
 import toast from 'react-hot-toast';
 import { useModal } from '@/lib/useModal';
 import { PageHeader } from '@/components/PageHeader';
+import FollowUpTabs from '@/components/FollowUpTabs';
 
 export default function RetryCallsPage() {
   const router = useRouter();
@@ -423,7 +424,7 @@ export default function RetryCallsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <PageHeader title="Retry Queue" description="Unanswered & unreachable calls waiting for retry">
+      <PageHeader title="BDM Follow-Ups" description="Unanswered calls & scheduled follow-ups — organised in two tabs">
         <Button
           onClick={loadData}
           variant="outline"
@@ -433,6 +434,9 @@ export default function RetryCallsPage() {
           Refresh
         </Button>
       </PageHeader>
+
+      {/* Tab Switcher */}
+      <FollowUpTabs />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

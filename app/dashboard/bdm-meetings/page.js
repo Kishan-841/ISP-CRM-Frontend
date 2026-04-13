@@ -50,6 +50,10 @@ export default function BDMMeetingsPage() {
 
   // Outcome state
   const [outcome, setOutcome] = useState('');
+  // When outcome is QUALIFIED, the BDM picks one of two sub-modes:
+  //   'ready'  → Ready for Feasibility. All fields required, pushes to FT.
+  //   'cold'   → Cold Lead. No required fields, parked in Lead Pipeline.
+  const [qualifiedMode, setQualifiedMode] = useState('ready');
   const [meetingOutcome, setMeetingOutcome] = useState('');
   const [dropReason, setDropReason] = useState('');
   const [selectedFTUser, setSelectedFTUser] = useState('');
@@ -159,6 +163,7 @@ export default function BDMMeetingsPage() {
   const handleOpenOutcome = (meeting) => {
     setSelectedMeeting(meeting);
     setOutcome('');
+    setQualifiedMode('ready');
     setMeetingOutcome('');
     setDropReason('');
     setSelectedFTUser('');
@@ -198,7 +203,7 @@ export default function BDMMeetingsPage() {
       return;
     }
 
-    if (outcome === 'QUALIFIED') {
+    if (outcome === 'QUALIFIED' && qualifiedMode === 'ready') {
       if (!interestLevel) {
         toast.error('Please select customer interest level');
         return;
@@ -220,6 +225,7 @@ export default function BDMMeetingsPage() {
         return;
       }
     }
+    // Cold lead mode has zero required fields — whatever the BDM typed gets saved as-is.
 
     if (outcome === 'DROPPED' && !dropReason.trim()) {
       toast.error('Please provide a reason for dropping');
@@ -247,26 +253,27 @@ export default function BDMMeetingsPage() {
     };
 
     if (outcome === 'QUALIFIED') {
-      dispositionData.feasibilityAssignedToId = selectedFTUser;
-      // Customer Location (To)
-      dispositionData.latitude = parseFloat(latitude);
-      dispositionData.longitude = parseFloat(longitude);
-      dispositionData.fullAddress = fullAddress.trim();
-      // Source/POP Location (From)
+      const isCold = qualifiedMode === 'cold';
+      dispositionData.isColdLead = isCold;
+      // FT assignment only in Ready-for-Feasibility mode
+      if (!isCold) {
+        dispositionData.feasibilityAssignedToId = selectedFTUser;
+      }
+      // All partial-data fields: send whatever the BDM filled; backend tolerates blanks when cold.
+      dispositionData.latitude = latitude.trim() ? parseFloat(latitude) : null;
+      dispositionData.longitude = longitude.trim() ? parseFloat(longitude) : null;
+      dispositionData.fullAddress = fullAddress.trim() || null;
       dispositionData.fromAddress = fromAddress.trim() || null;
       dispositionData.fromLatitude = fromLatitude.trim() ? parseFloat(fromLatitude) : null;
       dispositionData.fromLongitude = fromLongitude.trim() ? parseFloat(fromLongitude) : null;
-      // Other fields
       const bwNum = String(bandwidthRequirement).replace(/\D/g, '');
       dispositionData.bandwidthRequirement = bwNum ? `${bwNum} Mbps` : null;
       dispositionData.numberOfIPs = numberOfIPs.trim() ? parseInt(numberOfIPs) : null;
-      dispositionData.interestLevel = interestLevel;
+      dispositionData.interestLevel = interestLevel || null;
       dispositionData.tentativePrice = tentativePrice.trim() ? parseFloat(tentativePrice) : null;
       dispositionData.otcAmount = otcAmount.trim() ? parseFloat(otcAmount) : null;
-      // Billing Address
       dispositionData.billingAddress = billingAddress.trim() || null;
       dispositionData.billingPincode = billingPincode.trim() || null;
-      // Expected Delivery Date
       dispositionData.expectedDeliveryDate = expectedDeliveryDate || null;
     }
 
@@ -822,11 +829,42 @@ export default function BDMMeetingsPage() {
               {/* Location & FT Assignment (for QUALIFIED) */}
               {outcome === 'QUALIFIED' && (
                 <div className="space-y-3">
+                  {/* Mode switcher: Ready for Feasibility vs Cold Lead */}
+                  <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setQualifiedMode('ready')}
+                      className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition-colors ${
+                        qualifiedMode === 'ready'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      Ready for Feasibility
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQualifiedMode('cold')}
+                      className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition-colors ${
+                        qualifiedMode === 'cold'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      Cold Lead
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-1">
+                    {qualifiedMode === 'ready'
+                      ? 'Customer provided full details — all fields required, lead pushes to Feasibility.'
+                      : 'Customer was lukewarm — save whatever partial details you got. Lead lands in Lead Pipeline; complete it later when the customer provides more.'}
+                  </p>
+
                   {/* Location Details - From & To */}
                   <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
                     <h4 className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mb-2">
                       <MapPin size={12} />
-                      Customer Location <span className="text-red-500">*</span>
+                      Customer Location {qualifiedMode === 'ready' && <span className="text-red-500">*</span>}
                     </h4>
                     <input
                       type="text"
@@ -1027,7 +1065,7 @@ export default function BDMMeetingsPage() {
                 disabled={
                   !outcome ||
                   isSaving ||
-                  (outcome === 'QUALIFIED' && (!interestLevel || !selectedFTUser || !latitude.trim() || !longitude.trim() || !fullAddress.trim())) ||
+                  (outcome === 'QUALIFIED' && qualifiedMode === 'ready' && (!interestLevel || !selectedFTUser || !latitude.trim() || !longitude.trim() || !fullAddress.trim())) ||
                   (outcome === 'DROPPED' && !dropReason.trim()) ||
                   (outcome === 'MEETING_LATER' && (!newMeetingDate || !newMeetingTime || !newMeetingPlace.trim()))
                 }
@@ -1040,6 +1078,8 @@ export default function BDMMeetingsPage() {
                   </>
                 ) : outcome === 'MEETING_LATER' ? (
                   'Schedule Meeting'
+                ) : outcome === 'QUALIFIED' && qualifiedMode === 'cold' ? (
+                  'Save as Cold Lead'
                 ) : (
                   'Save Outcome'
                 )}

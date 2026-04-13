@@ -192,6 +192,10 @@ export default function RawDataSelfDataPage() {
       if (!singleData.company?.trim()) { setError('Company is required.'); return; }
       if (!singleData.phone?.trim()) { setError('Phone is required.'); return; }
       if (!singleData.title?.trim()) { setError('Title is required.'); return; }
+      if (!singleData.email?.trim()) { setError('Email is required.'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(singleData.email.trim())) {
+        setError('Please enter a valid email address.'); return;
+      }
     }
     if (canAssignToOthers && assignmentType === 'isr' && !selectedISR) { setError('Please select an ISR.'); return; }
     if (isBDMCP && !selectedCP) { setError('Please select a Channel Partner.'); return; }
@@ -575,7 +579,7 @@ export default function RawDataSelfDataPage() {
                         <Input value={singleData.title} onChange={(e) => setSingleData({ ...singleData, title: e.target.value })} placeholder="e.g. Manager, Director" className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 h-9" />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-slate-700 dark:text-slate-300 text-sm">Email</Label>
+                        <Label className="text-slate-700 dark:text-slate-300 text-sm">Email <span className="text-red-500">*</span></Label>
                         <Input type="email" value={singleData.email} onChange={(e) => setSingleData({ ...singleData, email: e.target.value })} placeholder="email@example.com" className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 h-9" />
                       </div>
                       <div className="space-y-1">

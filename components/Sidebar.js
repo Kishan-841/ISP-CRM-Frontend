@@ -46,6 +46,7 @@ import {
   ClipboardList,
   TrendingDown,
   Inbox,
+  Plus,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -232,7 +233,9 @@ export default function Sidebar() {
         { name: 'New Lead Assigned', path: '/dashboard/bdm-queue', badge: counts.queue > 0 ? counts.queue : null },
         { name: 'Scheduled Meetings', path: '/dashboard/bdm-meetings', badge: counts.meetings > 0 ? counts.meetings : null },
         { name: 'BDM Follow-Ups', path: '/dashboard/bdm-follow-ups', badge: counts.followUps > 0 ? counts.followUps : null },
-        { name: 'Lead Pipeline', path: '/dashboard/quotation-mgmt', badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
+        { name: 'Lead Pipeline', path: '/dashboard/lead-pipeline', badge: counts.coldLeadsPending > 0 ? counts.coldLeadsPending : null },
+        { name: 'Create Opportunity', path: '/dashboard/create-opportunity' },
+        { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
         { name: 'Delivery Completed', path: '/dashboard/delivery-completed', badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
       ]
     },
@@ -430,28 +433,46 @@ export default function Sidebar() {
     ...(isBDM ? [
       { name: 'New Lead Assigned', path: '/dashboard/bdm-queue', icon: PhoneCall, badge: counts.queue > 0 ? counts.queue : null },
       { name: 'Self Calling Queue', path: '/dashboard/calling-queue', icon: PhoneCall, badge: counts.callingQueue > 0 ? counts.callingQueue : null },
-      { name: 'Retry Queue', path: '/dashboard/retry-calls', icon: PhoneMissed, badge: counts.retryQueue > 0 ? counts.retryQueue : null },
+      { name: 'BDM Follow-Ups', path: '/dashboard/bdm-follow-ups', icon: Clock, badge: ((counts.followUps || 0) + (counts.retryQueue || 0)) > 0 ? (counts.followUps || 0) + (counts.retryQueue || 0) : null },
       { name: 'Scheduled Meetings', path: '/dashboard/bdm-meetings', icon: CalendarCheck, badge: counts.meetings > 0 ? counts.meetings : null },
-      { name: 'BDM Follow-Ups', path: '/dashboard/bdm-follow-ups', icon: Clock, badge: counts.followUps > 0 ? counts.followUps : null },
-      { name: 'Lead Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
+      { name: 'Lead Pipeline', path: '/dashboard/lead-pipeline', icon: FileText, badge: counts.coldLeadsPending > 0 ? counts.coldLeadsPending : null },
+      { name: 'Create Opportunity', path: '/dashboard/create-opportunity', icon: Plus },
+      { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
       { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
-      { name: 'Reports', path: '/dashboard/bdm-reports', icon: BarChart3 },
+      {
+        name: 'Reports',
+        icon: BarChart3,
+        menuKey: 'bdmReports',
+        submenu: [
+          { name: 'Reports', path: '/dashboard/bdm-reports' },
+          { name: 'Leads', path: '/dashboard/leads' },
+        ]
+      },
     ] : []),
     // BDM Team Leader items - includes BDM work items + oversight items
     ...(isBDMTeamLeader ? [
       { name: 'New Lead Assigned', path: '/dashboard/bdm-queue', icon: PhoneCall, badge: counts.queue > 0 ? counts.queue : null },
-      { name: 'Scheduled Meetings', path: '/dashboard/bdm-meetings', icon: CalendarCheck, badge: counts.meetings > 0 ? counts.meetings : null },
       { name: 'BDM Follow-Ups', path: '/dashboard/bdm-follow-ups', icon: Clock, badge: counts.followUps > 0 ? counts.followUps : null },
-      { name: 'Lead Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
+      { name: 'Scheduled Meetings', path: '/dashboard/bdm-meetings', icon: CalendarCheck, badge: counts.meetings > 0 ? counts.meetings : null },
+      { name: 'Lead Pipeline', path: '/dashboard/lead-pipeline', icon: FileText, badge: counts.coldLeadsPending > 0 ? counts.coldLeadsPending : null },
+      { name: 'Create Opportunity', path: '/dashboard/create-opportunity', icon: Plus },
+      { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
       { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
-      { name: 'Reports', path: '/dashboard/bdm-reports', icon: BarChart3 },
+      {
+        name: 'Reports',
+        icon: BarChart3,
+        menuKey: 'tlReports',
+        submenu: [
+          { name: 'Reports', path: '/dashboard/bdm-reports' },
+          { name: 'Leads', path: '/dashboard/leads' },
+        ]
+      },
       { name: 'Feasibility Queue', path: '/dashboard/feasibility-queue', icon: FileText },
       { name: 'OPS Approval', path: '/dashboard/ops-approval', icon: FileText },
       { name: 'Docs Verification', path: '/dashboard/docs-verification', icon: FileText },
       { name: 'Accounts Verification', path: '/dashboard/accounts-verification', icon: DollarSign },
       { name: 'Delivery Queue', path: '/dashboard/delivery-queue', icon: Package },
       { name: 'NOC Queue', path: '/dashboard/noc-queue', icon: Network },
-      { name: 'Leads', path: '/dashboard/leads', icon: Users },
       { name: 'My BDMs', path: '/dashboard/employees', icon: UserCircle },
       { name: 'CP Leads', path: '/dashboard/cp-leads', icon: Handshake },
     ] : []),
@@ -459,12 +480,21 @@ export default function Sidebar() {
     ...(isBDMCP ? [
       { name: 'New Lead Assigned', path: '/dashboard/bdm-queue', icon: PhoneCall, badge: counts.queue > 0 ? counts.queue : null },
       { name: 'Self Calling Queue', path: '/dashboard/calling-queue', icon: PhoneCall, badge: counts.callingQueue > 0 ? counts.callingQueue : null },
-      { name: 'Retry Queue', path: '/dashboard/retry-calls', icon: PhoneMissed, badge: counts.retryQueue > 0 ? counts.retryQueue : null },
+      { name: 'BDM Follow-Ups', path: '/dashboard/bdm-follow-ups', icon: Clock, badge: ((counts.followUps || 0) + (counts.retryQueue || 0)) > 0 ? (counts.followUps || 0) + (counts.retryQueue || 0) : null },
       { name: 'Scheduled Meetings', path: '/dashboard/bdm-meetings', icon: CalendarCheck, badge: counts.meetings > 0 ? counts.meetings : null },
-      { name: 'BDM Follow-Ups', path: '/dashboard/bdm-follow-ups', icon: Clock, badge: counts.followUps > 0 ? counts.followUps : null },
-      { name: 'Lead Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
+      { name: 'Lead Pipeline', path: '/dashboard/lead-pipeline', icon: FileText, badge: counts.coldLeadsPending > 0 ? counts.coldLeadsPending : null },
+      { name: 'Create Opportunity', path: '/dashboard/create-opportunity', icon: Plus },
+      { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
       { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
-      { name: 'Reports', path: '/dashboard/bdm-reports', icon: BarChart3 },
+      {
+        name: 'Reports',
+        icon: BarChart3,
+        menuKey: 'cpReports',
+        submenu: [
+          { name: 'Reports', path: '/dashboard/bdm-reports' },
+          { name: 'Leads', path: '/dashboard/leads' },
+        ]
+      },
     ] : []),
     // Feasibility Team-only items
     ...(isFeasibilityTeam ? [
@@ -573,7 +603,7 @@ export default function Sidebar() {
       { name: 'Store Requests', path: '/dashboard/store-requests', icon: ClipboardCheck, badge: counts.storeRequests > 0 ? counts.storeRequests : null },
     ] : []),
     // Leads - available for all roles except Docs Team, Accounts Team, Store Manager, and OPS Team
-    ...(!isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isNOCHead && !isSuperAdmin && !isSalesDirector && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isBDMCP ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
+    ...(!isBDM && !isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isNOCHead && !isSuperAdmin && !isSalesDirector && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isBDMCP ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
     // ISR-only items
     ...(isISR ? [
       { name: 'Follow-Ups', path: '/dashboard/follow-ups', icon: Clock, badge: counts.followUps > 0 ? counts.followUps : null },

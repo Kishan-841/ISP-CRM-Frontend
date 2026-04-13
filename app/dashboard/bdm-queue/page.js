@@ -64,6 +64,7 @@ export default function BDMQueuePage() {
     reassignLeadToBDM,
     bulkReassignLeadsToBDM,
     transferAllLeads,
+    createDirectLead,
   } = useLeadStore();
   const { products, fetchProducts } = useProductStore();
 
@@ -122,9 +123,27 @@ export default function BDMQueuePage() {
   const [isTransferring, setIsTransferring] = useState(false);
   const [transferConfirmText, setTransferConfirmText] = useState('');
 
+  // Add Lead modal state (BDM direct-add)
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [isAddingLead, setIsAddingLead] = useState(false);
+  const emptyAddLeadForm = {
+    name: '',
+    company: '',
+    phone: '',
+    email: '',
+    title: '',
+    industry: '',
+    city: '',
+    bandwidthRequirement: '',
+    notes: '',
+  };
+  const [addLeadForm, setAddLeadForm] = useState(emptyAddLeadForm);
+  const [addLeadProductIds, setAddLeadProductIds] = useState([]);
+
   useModal(showDispositionDialog, () => !isSaving && setShowDispositionDialog(false));
   useModal(showMOMDialog, () => setShowMOMDialog(false));
   useModal(showTransferModal, () => !isTransferring && setShowTransferModal(false));
+  useModal(showAddLeadModal, () => !isAddingLead && setShowAddLeadModal(false));
 
   const canAccess = isBDM || isBDMCP || isBDMTeamLeader || isAdmin;
 
@@ -183,6 +202,54 @@ export default function BDMQueuePage() {
     setSelectedLead(lead);
     setLocation(lead.location || '');
     resetDisposition();
+  };
+
+  const openAddLeadModal = () => {
+    if (activeCall) {
+      toast.error('Please end the current call first');
+      return;
+    }
+    setAddLeadForm(emptyAddLeadForm);
+    setAddLeadProductIds([]);
+    setShowAddLeadModal(true);
+  };
+
+  const handleAddLeadFieldChange = (field, value) => {
+    setAddLeadForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const toggleAddLeadProduct = (productId) => {
+    setAddLeadProductIds((prev) =>
+      prev.includes(productId) ? prev.filter((p) => p !== productId) : [...prev, productId]
+    );
+  };
+
+  const handleSubmitAddLead = async () => {
+    const { name, company, phone, email } = addLeadForm;
+    if (!name.trim()) return toast.error('Full name is required');
+    if (!company.trim()) return toast.error('Company is required');
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) return toast.error('Phone must be exactly 10 digits');
+    if (!email.trim()) return toast.error('Email is required');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return toast.error('Please enter a valid email address');
+
+    setIsAddingLead(true);
+    const result = await createDirectLead({
+      ...addLeadForm,
+      phone: phoneDigits,
+      productIds: addLeadProductIds,
+    });
+    setIsAddingLead(false);
+
+    if (result.success) {
+      toast.success('Lead added successfully');
+      setShowAddLeadModal(false);
+      setAddLeadForm(emptyAddLeadForm);
+      setAddLeadProductIds([]);
+      fetchBDMQueue(selectedCampaignId || null);
+    } else {
+      toast.error(result.error || 'Failed to add lead');
+    }
   };
 
   const resetDisposition = () => {
@@ -1031,8 +1098,18 @@ export default function BDMQueuePage() {
           </p>
         </div>
 
-        {/* Campaign Filter + Transfer Button */}
+        {/* Campaign Filter + Transfer Button + Add Lead */}
         <div className="flex items-center gap-3">
+          {(isBDM || isBDMCP || isBDMTeamLeader || isAdmin) && (
+            <Button
+              onClick={openAddLeadModal}
+              size="sm"
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              <Plus size={14} className="mr-1.5" />
+              Add Lead
+            </Button>
+          )}
           {isAdmin && (
             <Button
               onClick={() => setShowTransferModal(true)}
@@ -1766,6 +1843,197 @@ export default function BDMQueuePage() {
         </div>
       )}
       {transferModal}
+
+      {/* Add Lead Modal (BDM direct-add) */}
+      {showAddLeadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Add Lead</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Directly add a lead you&apos;ve sourced yourself — lands in your queue as qualified and ready to work.
+                </p>
+              </div>
+              <button
+                onClick={() => !isAddingLead && setShowAddLeadModal(false)}
+                disabled={isAddingLead}
+                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6">
+              {/* Contact section */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+                  Contact Details
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addLeadForm.name}
+                      onChange={(e) => handleAddLeadFieldChange('name', e.target.value)}
+                      placeholder="e.g. Rohit Verma"
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Company <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addLeadForm.company}
+                      onChange={(e) => handleAddLeadFieldChange('company', e.target.value)}
+                      placeholder="e.g. BlueWave Solutions"
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Mobile Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={addLeadForm.phone}
+                      onChange={(e) => handleAddLeadFieldChange('phone', e.target.value)}
+                      placeholder="10 digits"
+                      maxLength={10}
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={addLeadForm.email}
+                      onChange={(e) => handleAddLeadFieldChange('email', e.target.value)}
+                      placeholder="name@company.com"
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Designation</label>
+                    <input
+                      type="text"
+                      value={addLeadForm.title}
+                      onChange={(e) => handleAddLeadFieldChange('title', e.target.value)}
+                      placeholder="e.g. IT Head"
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Industry</label>
+                    <input
+                      type="text"
+                      value={addLeadForm.industry}
+                      onChange={(e) => handleAddLeadFieldChange('industry', e.target.value)}
+                      placeholder="e.g. Technology"
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">City</label>
+                    <input
+                      type="text"
+                      value={addLeadForm.city}
+                      onChange={(e) => handleAddLeadFieldChange('city', e.target.value)}
+                      placeholder="e.g. Pune"
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Requirement section */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+                  Requirement
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Products of Interest
+                    </label>
+                    {products.length === 0 ? (
+                      <p className="text-xs text-slate-400">Loading products...</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {products.map((product) => {
+                          const selected = addLeadProductIds.includes(product.id);
+                          return (
+                            <button
+                              key={product.id}
+                              type="button"
+                              onClick={() => toggleAddLeadProduct(product.id)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                selected
+                                  ? 'bg-orange-600 border-orange-600 text-white'
+                                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-orange-400'
+                              }`}
+                            >
+                              {product.title}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Bandwidth Requirement
+                    </label>
+                    <input
+                      type="text"
+                      value={addLeadForm.bandwidthRequirement}
+                      onChange={(e) => handleAddLeadFieldChange('bandwidthRequirement', e.target.value)}
+                      placeholder="e.g. 100 Mbps"
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Notes</label>
+                    <textarea
+                      value={addLeadForm.notes}
+                      onChange={(e) => handleAddLeadFieldChange('notes', e.target.value)}
+                      rows={3}
+                      placeholder="Any context about how the lead was sourced, requirements, etc."
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100 resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
+              <Button
+                onClick={() => setShowAddLeadModal(false)}
+                variant="outline"
+                size="sm"
+                disabled={isAddingLead}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitAddLead}
+                disabled={isAddingLead}
+                size="sm"
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {isAddingLead ? 'Adding...' : 'Add Lead'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
