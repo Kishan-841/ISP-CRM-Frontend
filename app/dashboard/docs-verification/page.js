@@ -209,8 +209,23 @@ export default function DocsVerificationPage() {
   };
 
   const getDocumentUrl = (doc) => {
-    // Use Cloudinary URL directly if available, fallback to local path
     return doc.url || doc.path || '';
+  };
+
+  // For PDFs + Office docs, route through the backend proxy so Cloudinary's
+  // Content-Disposition: attachment header is stripped and the file renders
+  // inline inside the iframe instead of forcing a download.
+  const getPreviewUrl = (doc) => {
+    const rawUrl = getDocumentUrl(doc);
+    if (!rawUrl) return '';
+    const name = (doc.originalName || rawUrl).toLowerCase();
+    const isImage = doc.mimetype?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|$)/.test(name);
+    if (isImage) return rawUrl;
+    // Only proxy Cloudinary-hosted files
+    if (!rawUrl.includes('cloudinary.com')) return rawUrl;
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
+    return `${apiBase}/proxy/file?url=${encodeURIComponent(rawUrl)}&token=${encodeURIComponent(token || '')}`;
   };
 
   const handleViewDocument = (doc) => {
@@ -218,12 +233,16 @@ export default function DocsVerificationPage() {
     setShowDocPreview(true);
   };
 
-  const isImageFile = (mimetype) => {
-    return mimetype?.startsWith('image/');
+  // Detect by mimetype with extension fallback (Cloudinary raw uploads
+  // sometimes come back as application/octet-stream).
+  const getExt = (doc) => ((doc?.originalName || doc?.url || '').toLowerCase().match(/\.([a-z0-9]+)(\?|$)/)?.[1] || '');
+  const isImageFile = (doc) => {
+    if (doc?.mimetype?.startsWith('image/')) return true;
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(getExt(doc));
   };
-
-  const isPdfFile = (mimetype) => {
-    return mimetype?.includes('pdf');
+  const isPdfFile = (doc) => {
+    if (doc?.mimetype?.includes('pdf')) return true;
+    return getExt(doc) === 'pdf';
   };
 
   // Get current list based on tab
@@ -1008,7 +1027,7 @@ export default function DocsVerificationPage() {
                                 <Eye size={18} />
                               </button>
                               <a
-                                href={getDocumentUrl(doc)}
+                                href={getPreviewUrl(doc)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="p-2 text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -1274,7 +1293,7 @@ export default function DocsVerificationPage() {
               </div>
               <div className="flex items-center gap-2">
                 <a
-                  href={getDocumentUrl(previewDoc)}
+                  href={getPreviewUrl(previewDoc)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2 text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
@@ -1296,15 +1315,15 @@ export default function DocsVerificationPage() {
 
             {/* Preview Content */}
             <div className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-800 flex items-center justify-center p-4 min-h-[400px]">
-              {isImageFile(previewDoc.mimetype) ? (
+              {isImageFile(previewDoc) ? (
                 <img
                   src={getDocumentUrl(previewDoc)}
                   alt={previewDoc.originalName}
                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
                 />
-              ) : isPdfFile(previewDoc.mimetype) ? (
+              ) : isPdfFile(previewDoc) ? (
                 <iframe
-                  src={getDocumentUrl(previewDoc)}
+                  src={getPreviewUrl(previewDoc)}
                   className="w-full h-[70vh] rounded-lg border-0"
                   title={previewDoc.originalName}
                 />
@@ -1314,7 +1333,7 @@ export default function DocsVerificationPage() {
                   <p className="text-lg font-medium mb-2">Preview not available</p>
                   <p className="text-sm mb-4">This file type cannot be previewed directly</p>
                   <a
-                    href={getDocumentUrl(previewDoc)}
+                    href={getPreviewUrl(previewDoc)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg flex items-center gap-2 transition-colors"

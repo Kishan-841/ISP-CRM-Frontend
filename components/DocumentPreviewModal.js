@@ -32,9 +32,22 @@ export default function DocumentPreviewModal({ document, onClose, onReplace }) {
 
   if (!document) return null;
 
-  const isImage = document.mimetype?.startsWith('image/');
-  const isPDF = document.mimetype === 'application/pdf';
+  // Detect type from mimetype AND file extension (fallback when mimetype is missing/wrong)
+  const ext = (document.originalName || document.url || '').toLowerCase().match(/\.([a-z0-9]+)(\?|$)/)?.[1] || '';
+  const isImage = document.mimetype?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext);
+  const isPDF = document.mimetype === 'application/pdf' || ext === 'pdf';
+  const isOfficeDoc = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods'].includes(ext);
   const docTypeInfo = getDocumentTypeById(document.documentType);
+
+  // Our backend proxy re-serves Cloudinary files with Content-Disposition: inline
+  // so the browser renders them instead of downloading. Needed because Cloudinary
+  // raw uploads (PDFs, DOCs, etc.) come with an attachment header.
+  const proxyUrl = (() => {
+    if (!document.url) return '';
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
+    return `${apiBase}/proxy/file?url=${encodeURIComponent(document.url)}&token=${encodeURIComponent(token || '')}`;
+  })();
 
   const handleZoomIn = () => {
     setZoom((prev) => Math.min(prev + 25, 200));
@@ -183,36 +196,37 @@ export default function DocumentPreviewModal({ document, onClose, onReplace }) {
             />
           </div>
         ) : isPDF ? (
-          // PDF preview using iframe
+          // PDF via backend proxy (strips Content-Disposition: attachment)
           <iframe
-            src={document.url}
+            src={proxyUrl}
             title={document.originalName}
-            className="w-full h-full max-w-4xl bg-white rounded shadow-xl"
+            className="w-full h-full max-w-5xl bg-white rounded shadow-xl"
+            style={{ minHeight: 'calc(100vh - 120px)' }}
+          />
+        ) : isOfficeDoc ? (
+          // Office docs — Google Docs Viewer (browsers can't render natively)
+          <iframe
+            src={`https://docs.google.com/viewer?url=${encodeURIComponent(document.url)}&embedded=true`}
+            title={document.originalName}
+            className="w-full h-full max-w-5xl bg-white rounded shadow-xl"
             style={{ minHeight: 'calc(100vh - 120px)' }}
           />
         ) : (
-          // Other file types - show download prompt
-          <div className="text-center p-8 bg-slate-800 rounded-xl border border-slate-700 max-w-md">
-            <div className="p-4 bg-orange-600/20 rounded-xl inline-block mb-4">
-              {getFileIcon()}
+          // Truly unknown file types — still attempt inline iframe, fall back to download
+          <div className="w-full h-full max-w-5xl flex flex-col">
+            <iframe
+              src={document.url}
+              title={document.originalName}
+              className="w-full flex-1 bg-white rounded shadow-xl"
+              style={{ minHeight: 'calc(100vh - 180px)' }}
+            />
+            <div className="mt-3 flex items-center justify-between gap-3 px-4 py-2 bg-slate-800 rounded text-slate-400 text-sm">
+              <span>Can&apos;t preview? {document.mimetype || ext || 'unknown type'}</span>
+              <Button onClick={handleDownload} size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">
+                <Download size={14} className="mr-1.5" />
+                Download
+              </Button>
             </div>
-            <h4 className="text-lg font-medium text-white mb-2">
-              {document.originalName}
-            </h4>
-            <p className="text-slate-400 mb-4">
-              This file type cannot be previewed directly. Please download to view.
-            </p>
-            <div className="text-sm text-slate-500 mb-6">
-              <p>Type: {document.mimetype}</p>
-              <p>Size: {formatFileSize(document.size)}</p>
-            </div>
-            <Button
-              onClick={handleDownload}
-              className="bg-orange-600 hover:bg-orange-700 text-white"
-            >
-              <Download size={16} className="mr-2" />
-              Download File
-            </Button>
           </div>
         )}
       </div>

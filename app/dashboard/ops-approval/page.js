@@ -328,17 +328,33 @@ export default function OpsApprovalPage() {
     return doc.url || doc.path || '';
   };
 
+  // Route PDFs + Office docs through the backend proxy so Cloudinary's
+  // Content-Disposition: attachment header is stripped for inline rendering.
+  const getPreviewUrl = (doc) => {
+    const rawUrl = getDocumentUrl(doc);
+    if (!rawUrl) return '';
+    const name = (doc.originalName || rawUrl).toLowerCase();
+    const isImage = doc.mimetype?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|$)/.test(name);
+    if (isImage) return rawUrl;
+    if (!rawUrl.includes('cloudinary.com')) return rawUrl;
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
+    return `${apiBase}/proxy/file?url=${encodeURIComponent(rawUrl)}&token=${encodeURIComponent(token || '')}`;
+  };
+
   const handleViewDocument = (doc) => {
     setPreviewDoc(doc);
     setShowDocPreview(true);
   };
 
-  const isImageFile = (mimetype) => {
-    return mimetype?.startsWith('image/');
+  const getExt = (doc) => ((doc?.originalName || doc?.url || '').toLowerCase().match(/\.([a-z0-9]+)(\?|$)/)?.[1] || '');
+  const isImageFile = (doc) => {
+    if (doc?.mimetype?.startsWith('image/')) return true;
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(getExt(doc));
   };
-
-  const isPdfFile = (mimetype) => {
-    return mimetype?.includes('pdf');
+  const isPdfFile = (doc) => {
+    if (doc?.mimetype?.includes('pdf')) return true;
+    return getExt(doc) === 'pdf';
   };
 
   const getInterestLevelBadge = (level) => {
@@ -1669,7 +1685,7 @@ export default function OpsApprovalPage() {
               </div>
               <div className="flex items-center gap-2">
                 <a
-                  href={getDocumentUrl(previewDoc)}
+                  href={getPreviewUrl(previewDoc)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2 text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
@@ -1691,15 +1707,15 @@ export default function OpsApprovalPage() {
 
             {/* Preview Content */}
             <div className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-800 flex items-center justify-center p-4 min-h-[400px]">
-              {isImageFile(previewDoc.mimetype) ? (
+              {isImageFile(previewDoc) ? (
                 <img
                   src={getDocumentUrl(previewDoc)}
                   alt={previewDoc.originalName}
                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
                 />
-              ) : isPdfFile(previewDoc.mimetype) ? (
+              ) : isPdfFile(previewDoc) ? (
                 <iframe
-                  src={getDocumentUrl(previewDoc)}
+                  src={getPreviewUrl(previewDoc)}
                   className="w-full h-[70vh] rounded-lg border-0"
                   title={previewDoc.originalName}
                 />
@@ -1709,7 +1725,7 @@ export default function OpsApprovalPage() {
                   <p className="text-lg font-medium mb-2">Preview not available</p>
                   <p className="text-sm mb-4">This file type cannot be previewed directly</p>
                   <a
-                    href={getDocumentUrl(previewDoc)}
+                    href={getPreviewUrl(previewDoc)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg flex items-center gap-2 transition-colors"
