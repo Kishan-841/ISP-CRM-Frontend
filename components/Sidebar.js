@@ -467,7 +467,7 @@ export default function Sidebar() {
           { name: 'Leads', path: '/dashboard/leads' },
         ]
       },
-      { name: 'Feasibility Queue', path: '/dashboard/feasibility-queue', icon: FileText },
+      { name: 'Feasibility Queue', path: '/dashboard/feasibility-queue', icon: FileText, badge: counts.feasibilityPending > 0 ? counts.feasibilityPending : null },
       { name: 'OPS Approval', path: '/dashboard/ops-approval', icon: FileText },
       { name: 'Docs Verification', path: '/dashboard/docs-verification', icon: FileText },
       { name: 'Accounts Verification', path: '/dashboard/accounts-verification', icon: DollarSign },

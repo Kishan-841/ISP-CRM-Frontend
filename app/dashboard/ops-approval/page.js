@@ -540,14 +540,17 @@ export default function OpsApprovalPage() {
               label: 'Feasibility',
               render: (lead) => {
                 const feasibilityData = parseFeasibilityData(lead);
-                if (!feasibilityData?.vendorType) {
+                const hasData = feasibilityData?.vendorType || feasibilityData?.vendorDetails?.capex != null || feasibilityData?.vendorDetails?.opex != null;
+                if (!hasData) {
                   return <span className="text-slate-400 text-sm">-</span>;
                 }
                 return (
                   <div className="space-y-1">
-                    <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs">
-                      {getVendorTypeLabel(feasibilityData.vendorType)}
-                    </Badge>
+                    {feasibilityData?.vendorType && (
+                      <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs">
+                        {getVendorTypeLabel(feasibilityData.vendorType)}
+                      </Badge>
+                    )}
                     <div className="text-xs text-slate-500 space-y-0.5">
                       {feasibilityData.vendorDetails?.vendorName && (
                         <p className="truncate max-w-[100px]" title={feasibilityData.vendorDetails.vendorName}>
@@ -888,14 +891,17 @@ export default function OpsApprovalPage() {
               label: 'Feasibility',
               render: (lead) => {
                 const feasibilityData = parseFeasibilityData(lead);
-                if (!feasibilityData?.vendorType) {
+                const hasData = feasibilityData?.vendorType || feasibilityData?.vendorDetails?.capex != null || feasibilityData?.vendorDetails?.opex != null;
+                if (!hasData) {
                   return <span className="text-slate-400 text-sm">-</span>;
                 }
                 return (
                   <div className="space-y-1">
-                    <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs">
-                      {getVendorTypeLabel(feasibilityData.vendorType)}
-                    </Badge>
+                    {feasibilityData?.vendorType && (
+                      <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs">
+                        {getVendorTypeLabel(feasibilityData.vendorType)}
+                      </Badge>
+                    )}
                     <div className="text-xs text-slate-500 space-y-0.5">
                       {feasibilityData.vendorDetails?.vendorName && (
                         <p className="truncate max-w-[100px]" title={feasibilityData.vendorDetails.vendorName}>

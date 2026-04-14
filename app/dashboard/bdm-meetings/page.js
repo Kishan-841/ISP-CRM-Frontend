@@ -204,26 +204,18 @@ export default function BDMMeetingsPage() {
     }
 
     if (outcome === 'QUALIFIED' && qualifiedMode === 'ready') {
-      if (!interestLevel) {
-        toast.error('Please select customer interest level');
-        return;
-      }
-      if (!selectedFTUser) {
-        toast.error('Please select a Feasibility Team member');
-        return;
-      }
-      if (!latitude.trim() || !longitude.trim()) {
-        toast.error('Please enter location coordinates (Lat/Long)');
-        return;
-      }
-      if (isNaN(parseFloat(latitude)) || isNaN(parseFloat(longitude))) {
-        toast.error('Please enter valid numeric coordinates');
-        return;
-      }
-      if (!fullAddress.trim()) {
-        toast.error('Please enter the full address');
-        return;
-      }
+      if (!interestLevel) return toast.error('Please select customer interest level');
+      if (!selectedFTUser) return toast.error('Please select a Feasibility Team member');
+      if (!latitude.trim() || !longitude.trim()) return toast.error('Please enter location coordinates (Lat/Long)');
+      if (isNaN(parseFloat(latitude)) || isNaN(parseFloat(longitude))) return toast.error('Please enter valid numeric coordinates');
+      if (!fullAddress.trim()) return toast.error('Please enter the customer address');
+      if (!bandwidthRequirement || !String(bandwidthRequirement).trim()) return toast.error('Please enter bandwidth requirement');
+      if (!numberOfIPs || !String(numberOfIPs).trim()) return toast.error('Please enter number of IPs');
+      if (!tentativePrice || !String(tentativePrice).trim()) return toast.error('Please enter tentative price (ARC)');
+      if (!otcAmount || !String(otcAmount).trim()) return toast.error('Please enter OTC amount');
+      if (!billingAddress.trim()) return toast.error('Please enter billing address');
+      if (!billingPincode.trim()) return toast.error('Please enter billing pincode');
+      if (!expectedDeliveryDate) return toast.error('Please select expected delivery date');
     }
     // Cold lead mode has zero required fields — whatever the BDM typed gets saved as-is.
 
@@ -895,8 +887,9 @@ export default function BDMMeetingsPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                     <div>
                       <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Bandwidth {bandwidthRequirement && (
-                          <span className="text-orange-600 dark:text-orange-400 font-normal">
+                        Bandwidth {qualifiedMode === 'ready' && <span className="text-red-500">*</span>}
+                        {bandwidthRequirement && (
+                          <span className="text-orange-600 dark:text-orange-400 font-normal ml-1">
                             ({(() => { const n = parseInt(String(bandwidthRequirement).replace(/\D/g, '')); return n >= 1000 ? `${(n/1000).toFixed(n%1000===0?0:1)} Gbps` : `${n} Mbps`; })()})
                           </span>
                         )}
@@ -912,7 +905,7 @@ export default function BDMMeetingsPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        No. of IPs
+                        No. of IPs {qualifiedMode === 'ready' && <span className="text-red-500">*</span>}
                       </label>
                       <input
                         type="number"
@@ -925,7 +918,7 @@ export default function BDMMeetingsPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Price (₹)
+                        Price (₹) {qualifiedMode === 'ready' && <span className="text-red-500">*</span>}
                       </label>
                       <input
                         type="number"
@@ -937,7 +930,7 @@ export default function BDMMeetingsPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        OTC (₹)
+                        OTC (₹) {qualifiedMode === 'ready' && <span className="text-red-500">*</span>}
                       </label>
                       <input
                         type="number"
@@ -964,59 +957,62 @@ export default function BDMMeetingsPage() {
                     </div>
                   </div>
 
-                  {/* Billing Address */}
-                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-700">
-                    <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                      <h4 className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1">
-                        <FileText size={12} />
-                        Billing Address
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={() => setBillingAddress(fullAddress)}
-                        disabled={!fullAddress.trim()}
-                        className="text-[11px] font-medium px-2 py-1 rounded-md bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 disabled:cursor-not-allowed dark:disabled:bg-amber-900/40 text-white transition-colors"
-                        title={fullAddress.trim() ? 'Copy installation address into billing' : 'Enter installation address first'}
-                      >
-                        Same as installation address
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                      <div className="col-span-3">
-                        <input
-                          type="text"
-                          value={billingAddress}
-                          onChange={(e) => setBillingAddress(e.target.value)}
-                          placeholder="Full billing address..."
-                          className="w-full h-9 px-2 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-600 rounded text-slate-900 dark:text-slate-100 text-sm"
-                        />
+                  {/* Billing Address + Expected Delivery Date (side by side) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    {/* Billing Address — takes 2/3 */}
+                    <div className="lg:col-span-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-700">
+                      <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                        <h4 className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                          <FileText size={12} />
+                          Billing Address {qualifiedMode === 'ready' && <span className="text-red-500">*</span>}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => setBillingAddress(fullAddress)}
+                          disabled={!fullAddress.trim()}
+                          className="text-[11px] font-medium px-2 py-1 rounded-md bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 disabled:cursor-not-allowed dark:disabled:bg-amber-900/40 text-white transition-colors"
+                          title={fullAddress.trim() ? 'Copy installation address into billing' : 'Enter installation address first'}
+                        >
+                          Same as installation address
+                        </button>
                       </div>
-                      <div>
-                        <input
-                          type="text"
-                          value={billingPincode}
-                          onChange={(e) => setBillingPincode(e.target.value)}
-                          placeholder="Pincode"
-                          maxLength={6}
-                          className="w-full h-9 px-2 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-600 rounded text-slate-900 dark:text-slate-100 text-sm"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                        <div className="sm:col-span-3">
+                          <input
+                            type="text"
+                            value={billingAddress}
+                            onChange={(e) => setBillingAddress(e.target.value)}
+                            placeholder="Full billing address..."
+                            className="w-full h-9 px-2 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-600 rounded text-slate-900 dark:text-slate-100 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            value={billingPincode}
+                            onChange={(e) => setBillingPincode(e.target.value)}
+                            placeholder="Pincode"
+                            maxLength={6}
+                            className="w-full h-9 px-2 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-600 rounded text-slate-900 dark:text-slate-100 text-sm"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Expected Delivery Date */}
-                  <div className="p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl border border-cyan-200 dark:border-cyan-700">
-                    <h4 className="text-xs font-semibold text-cyan-800 dark:text-cyan-300 flex items-center gap-1 mb-2">
-                      <Calendar size={12} />
-                      Expected Delivery Date
-                    </h4>
-                    <input
-                      type="date"
-                      value={expectedDeliveryDate}
-                      onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full sm:w-auto h-9 px-2 bg-white dark:bg-slate-800 border border-cyan-300 dark:border-cyan-600 rounded text-slate-900 dark:text-slate-100 text-sm"
-                    />
+                    {/* Expected Delivery Date — takes 1/3 */}
+                    <div className="p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl border border-cyan-200 dark:border-cyan-700">
+                      <h4 className="text-xs font-semibold text-cyan-800 dark:text-cyan-300 flex items-center gap-1 mb-2">
+                        <Calendar size={12} />
+                        Expected Delivery Date {qualifiedMode === 'ready' && <span className="text-red-500">*</span>}
+                      </h4>
+                      <input
+                        type="date"
+                        value={expectedDeliveryDate}
+                        onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full h-9 px-2 bg-white dark:bg-slate-800 border border-cyan-300 dark:border-cyan-600 rounded text-slate-900 dark:text-slate-100 text-sm"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1065,7 +1061,7 @@ export default function BDMMeetingsPage() {
                 disabled={
                   !outcome ||
                   isSaving ||
-                  (outcome === 'QUALIFIED' && qualifiedMode === 'ready' && (!interestLevel || !selectedFTUser || !latitude.trim() || !longitude.trim() || !fullAddress.trim())) ||
+                  (outcome === 'QUALIFIED' && qualifiedMode === 'ready' && (!interestLevel || !selectedFTUser || !latitude.trim() || !longitude.trim() || !fullAddress.trim() || !String(bandwidthRequirement || '').trim() || !String(numberOfIPs || '').trim() || !String(tentativePrice || '').trim() || !String(otcAmount || '').trim() || !billingAddress.trim() || !billingPincode.trim() || !expectedDeliveryDate)) ||
                   (outcome === 'DROPPED' && !dropReason.trim()) ||
                   (outcome === 'MEETING_LATER' && (!newMeetingDate || !newMeetingTime || !newMeetingPlace.trim()))
                 }
