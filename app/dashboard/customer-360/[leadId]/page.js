@@ -193,6 +193,7 @@ const TABS = [
   { key: 'documents', label: 'Documents', icon: FileText },
   { key: 'complaints', label: 'Complaints', icon: AlertTriangle },
   { key: 'sam', label: 'SAM', icon: Users },
+  { key: 'feasibility', label: 'Feasibility', icon: Building2 },
 ];
 
 // ─── Skeleton loader ───
@@ -1653,6 +1654,232 @@ function SamTab({ data, loading }) {
   );
 }
 
+// ─── Feasibility / Vendor tab ───
+
+const VENDOR_TYPE_LABELS = {
+  ownNetwork: 'Own Network',
+  fiberVendor: 'Fiber Vendor',
+  commissionVendor: 'Commission Vendor',
+  thirdParty: 'Third Party',
+  telco: 'Telco',
+};
+
+const STATUS_BADGE = {
+  PENDING: { label: 'Pending Feasibility', color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400' },
+  FEASIBILITY_DONE: { label: 'Feasibility Done — Awaiting Delivery Setup', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+  COMPLETED: { label: 'Vendor Setup Completed', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+};
+
+function FeasibilityTab({ data, loading }) {
+  if (loading) return <TabSkeleton label="feasibility" />;
+  if (!data) return <EmptyTab message="No feasibility data available." />;
+
+  const { status, feasibility, delivery } = data;
+  const fmt = (v) => v != null ? `₹${Number(v).toLocaleString('en-IN')}` : '—';
+  const statusInfo = STATUS_BADGE[status] || STATUS_BADGE.PENDING;
+
+  // Variance between tentative and actual
+  const capexVariance = feasibility?.tentativeCapex != null && delivery?.actualCapex != null
+    ? delivery.actualCapex - feasibility.tentativeCapex : null;
+  const opexVariance = feasibility?.tentativeOpex != null && delivery?.actualOpex != null
+    ? delivery.actualOpex - feasibility.tentativeOpex : null;
+
+  return (
+    <div className="space-y-6">
+      {/* Overall status */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Feasibility &amp; Vendor Status</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Tracks the vendor type, tentative pricing from feasibility review, and final CAPEX/OPEX after delivery vendor setup.
+            </p>
+          </div>
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusInfo.color}`}>
+            {statusInfo.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Feasibility Stage Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+            <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Feasibility Review</h4>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              {feasibility?.reviewedAt ? `Reviewed ${formatDate(feasibility.reviewedAt)}${feasibility?.reviewedBy?.name ? ` by ${feasibility.reviewedBy.name}` : ''}` : 'Not yet reviewed'}
+            </p>
+          </div>
+        </div>
+
+        {feasibility?.vendorType || feasibility?.tentativeCapex != null || feasibility?.tentativeOpex != null ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Vendor Type</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                {VENDOR_TYPE_LABELS[feasibility.vendorType] || feasibility.vendorType || '—'}
+              </p>
+            </div>
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-[10px] uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">Tentative CAPEX</p>
+              <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{fmt(feasibility.tentativeCapex)}</p>
+            </div>
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-[10px] uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">Tentative OPEX</p>
+              <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{fmt(feasibility.tentativeOpex)}</p>
+            </div>
+            {feasibility.popLocation && (
+              <div className="sm:col-span-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">POP Location</p>
+                <p className="text-sm text-slate-900 dark:text-white">
+                  {feasibility.popLocation}
+                  {feasibility.popLatitude && feasibility.popLongitude && (
+                    <span className="text-xs text-slate-400 ml-2">({feasibility.popLatitude}, {feasibility.popLongitude})</span>
+                  )}
+                </p>
+              </div>
+            )}
+            {feasibility.description && (
+              <div className="sm:col-span-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Notes</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{feasibility.description}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500 dark:text-slate-400">No feasibility data recorded yet.</p>
+        )}
+      </div>
+
+      {/* Delivery Vendor Setup Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+              <Package className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Delivery Vendor Setup</h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Final vendor selection and actual CAPEX/OPEX from delivery stage.
+              </p>
+            </div>
+          </div>
+          {delivery?.setupDone ? (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+              Completed
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              Not yet done
+            </span>
+          )}
+        </div>
+
+        {delivery?.setupDone ? (
+          <div className="space-y-4">
+            {/* Actuals */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Vendor</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {delivery.vendor?.companyName || (delivery.vendorType === 'ownNetwork' ? 'Own Network' : '—')}
+                </p>
+                {delivery.vendor?.commissionPercentage != null && (
+                  <p className="text-[10px] text-slate-500 mt-0.5">Commission: {delivery.vendor.commissionPercentage}%</p>
+                )}
+              </div>
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                <p className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
+                  Actual CAPEX {capexVariance != null && (
+                    <span className={`ml-1 ${capexVariance >= 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                      ({capexVariance >= 0 ? '+' : ''}{fmt(capexVariance).replace('₹', '₹')})
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmt(delivery.actualCapex)}</p>
+              </div>
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                <p className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
+                  Actual OPEX {opexVariance != null && (
+                    <span className={`ml-1 ${opexVariance >= 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                      ({opexVariance >= 0 ? '+' : ''}{fmt(opexVariance).replace('₹', '₹')})
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmt(delivery.actualOpex)}</p>
+              </div>
+            </div>
+
+            {/* Fiber details */}
+            {delivery.fiberDetails && (delivery.fiberDetails.fiberRequired || delivery.fiberDetails.perMtrCost) && (
+              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                <p className="text-[10px] uppercase tracking-wider text-orange-600 dark:text-orange-400 mb-2">Fiber Cost</p>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <span className="text-[10px] text-slate-500">Required</span>
+                    <p className="font-semibold text-slate-900 dark:text-white">{delivery.fiberDetails.fiberRequired} mtr</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500">Per Mtr Cost</span>
+                    <p className="font-semibold text-slate-900 dark:text-white">{fmt(delivery.fiberDetails.perMtrCost)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500">Total</span>
+                    <p className="font-semibold text-orange-700 dark:text-orange-300">{fmt(delivery.fiberDetails.fiberAmount)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Materials */}
+            {delivery.materials && delivery.materials.length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Equipment / Materials</p>
+                <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-[11px] uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="text-left px-3 py-2">Item</th>
+                        <th className="text-left px-3 py-2">Category</th>
+                        <th className="text-center px-3 py-2">Qty</th>
+                        <th className="text-right px-3 py-2">Unit Price</th>
+                        <th className="text-right px-3 py-2">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {delivery.materials.map((m, i) => {
+                        const qty = parseFloat(m.quantity) || 0;
+                        const price = parseFloat(m.unitPrice) || 0;
+                        return (
+                          <tr key={i} className="text-slate-700 dark:text-slate-300">
+                            <td className="px-3 py-2 font-medium text-slate-900 dark:text-white">{m.name}</td>
+                            <td className="px-3 py-2 text-xs text-slate-500">{m.category || '—'}</td>
+                            <td className="px-3 py-2 text-center">{qty} {m.unit || ''}</td>
+                            <td className="px-3 py-2 text-right">{fmt(price)}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-emerald-700 dark:text-emerald-400">{fmt(qty * price)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Vendor setup not yet completed by the delivery team. Actual CAPEX/OPEX and materials will appear here once the delivery team finishes the vendor setup step.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Shared tab helpers ───
 
 function TabSkeleton({ label }) {
@@ -1858,6 +2085,8 @@ export default function Customer360DetailPage() {
             <ComplaintsTab data={tabData.complaints} loading={tabLoading.complaints} />
           ) : activeTab === 'sam' ? (
             <SamTab data={tabData.sam} loading={tabLoading.sam} />
+          ) : activeTab === 'feasibility' ? (
+            <FeasibilityTab data={tabData.feasibility} loading={tabLoading.feasibility} />
           ) : null}
         </>
       )}
