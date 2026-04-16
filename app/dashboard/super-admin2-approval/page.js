@@ -17,10 +17,8 @@ import {
   ShieldCheck,
   DollarSign,
   Wifi,
-  Network,
-  Hash,
   Eye,
-  AlertCircle
+  Send
 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatCard from '@/components/StatCard';
@@ -31,10 +29,17 @@ import { useModal } from '@/lib/useModal';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
 
+const TABS = [
+  { key: 'pending', label: 'Pending', icon: Clock, color: 'amber' },
+  { key: 'approved', label: 'Approved', icon: CheckCircle, color: 'emerald' },
+  { key: 'rejected', label: 'Rejected', icon: XCircle, color: 'red' }
+];
+
 export default function SuperAdmin2ApprovalPage() {
   const router = useRouter();
   const { user } = useAuthStore();
 
+  const [activeTab, setActiveTab] = useState('pending');
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -68,33 +73,56 @@ export default function SuperAdmin2ApprovalPage() {
     }
   }, [user, isSA2, isAdmin, router]);
 
-  const fetchQueue = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: pageSize.toString()
-      });
-      const response = await api.get(`/leads/super-admin2/queue?${params}`);
-      setLeads(response.data.leads);
-      setStats(response.data.stats);
-      setTotal(response.data.pagination.total);
-      setTotalPages(response.data.pagination.totalPages);
+      if (activeTab === 'pending') {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: pageSize.toString()
+        });
+        const response = await api.get(`/leads/super-admin2/queue?${params}`);
+        setLeads(response.data.leads);
+        setStats(response.data.stats);
+        setTotal(response.data.pagination.total);
+        setTotalPages(response.data.pagination.totalPages);
+      } else {
+        const params = new URLSearchParams({
+          tab: activeTab,
+          page: page.toString(),
+          limit: pageSize.toString()
+        });
+        const response = await api.get(`/leads/super-admin2/history?${params}`);
+        setLeads(response.data.leads);
+        setTotal(response.data.pagination.total);
+        setTotalPages(response.data.pagination.totalPages);
+        // Refresh stats from queue endpoint (lightweight — just stats)
+        try {
+          const statsRes = await api.get('/leads/super-admin2/queue?page=1&limit=1');
+          setStats(statsRes.data.stats);
+        } catch {}
+      }
     } catch (error) {
-      console.error('Error fetching SA2 queue:', error);
-      toast.error('Failed to load approval queue');
+      console.error('Error fetching SA2 data:', error);
+      toast.error('Failed to load data');
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize]);
+  }, [activeTab, page, pageSize]);
 
   useEffect(() => {
     if (isSA2 || isAdmin) {
-      fetchQueue();
+      fetchData();
     }
-  }, [isSA2, isAdmin, fetchQueue]);
+  }, [isSA2, isAdmin, fetchData]);
 
-  useSocketRefresh(fetchQueue, { enabled: isSA2 || isAdmin });
+  useSocketRefresh(fetchData, { enabled: isSA2 || isAdmin });
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setPage(1);
+    setSearch('');
+  };
 
   const handleViewDetails = (lead) => {
     setSelectedLead(lead);
@@ -127,7 +155,7 @@ export default function SuperAdmin2ApprovalPage() {
       toast.success(response.data.message || 'Decision saved');
       setShowDispositionModal(false);
       setSelectedLead(null);
-      fetchQueue();
+      fetchData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to save decision');
     } finally {
@@ -146,7 +174,8 @@ export default function SuperAdmin2ApprovalPage() {
       )
     : leads;
 
-  const columns = [
+  // Common columns
+  const baseColumns = [
     {
       key: 'company',
       label: 'Company',
@@ -207,7 +236,12 @@ export default function SuperAdmin2ApprovalPage() {
       render: (row) => (
         <p className="text-slate-900 dark:text-slate-100">{row.assignedTo?.name || row.createdBy?.name || '-'}</p>
       )
-    },
+    }
+  ];
+
+  // Tab-specific columns
+  const pendingColumns = [
+    ...baseColumns,
     {
       key: 'submitted',
       label: 'Submitted',
@@ -217,21 +251,93 @@ export default function SuperAdmin2ApprovalPage() {
     }
   ];
 
+  const approvedColumns = [
+    ...baseColumns,
+    {
+      key: 'approvedAt',
+      label: 'Approved At',
+      render: (row) => (
+        <div>
+          <p className="text-sm text-slate-900 dark:text-slate-100">{formatDate(row.superAdmin2ApprovedAt)}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{row.superAdmin2ApprovedBy?.name || '-'}</p>
+        </div>
+      )
+    }
+  ];
+
+  const rejectedColumns = [
+    ...baseColumns,
+    {
+      key: 'rejectedAt',
+      label: 'Rejected',
+      render: (row) => (
+        <div>
+          <p className="text-sm text-slate-900 dark:text-slate-100">{formatDate(row.superAdmin2ApprovedAt)}</p>
+          <p className="text-xs text-red-600 dark:text-red-400 max-w-[200px] truncate" title={row.superAdmin2RejectedReason}>
+            {row.superAdmin2RejectedReason || '-'}
+          </p>
+        </div>
+      )
+    }
+  ];
+
+  const columns = activeTab === 'approved' ? approvedColumns : activeTab === 'rejected' ? rejectedColumns : pendingColumns;
+
+  const tableTitle = activeTab === 'pending' ? 'Pending Approvals' : activeTab === 'approved' ? 'Approved Quotations' : 'Rejected Quotations';
+  const emptyMessage = activeTab === 'pending' ? 'No quotations pending approval' : activeTab === 'approved' ? 'No approved quotations yet' : 'No rejected quotations';
+  const emptySubtitle = activeTab === 'pending' ? 'All quotations have been reviewed.' : '';
+
   return (
     <>
       {/* Header */}
       <PageHeader title="Quotation Approval" description="Review and approve quotations after OPS approval" />
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <StatCard color="amber" icon={Clock} label="Pending" value={stats.pending} />
-        <StatCard color="emerald" icon={CheckCircle} label="Approved" value={stats.approved} />
-        <StatCard color="red" icon={XCircle} label="Rejected" value={stats.rejected} />
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => handleTabChange(tab.key)}
+            className={`text-left transition-all ${activeTab === tab.key ? 'ring-2 ring-offset-2 ring-orange-500 rounded-xl' : ''}`}
+          >
+            <StatCard color={tab.color} icon={tab.icon} label={tab.label} value={stats[tab.key] || 0} />
+          </button>
+        ))}
       </div>
 
-      {/* Queue Table */}
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg mb-6 w-fit">
+        {TABS.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                activeTab === tab.key
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              <Icon size={16} />
+              {tab.label}
+              {stats[tab.key] > 0 && (
+                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === tab.key
+                    ? tab.key === 'pending' ? 'bg-amber-100 text-amber-700' : tab.key === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                    : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
+                }`}>
+                  {stats[tab.key]}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Table */}
       <DataTable
-        title="Pending Approvals"
+        title={tableTitle}
         totalCount={total}
         columns={columns}
         data={filteredLeads}
@@ -244,7 +350,7 @@ export default function SuperAdmin2ApprovalPage() {
         onPageChange={(newPage) => setPage(newPage)}
         onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(1); }}
         onRowClick={(row) => handleViewDetails(row)}
-        actions={(row) => (
+        actions={activeTab === 'pending' ? (row) => (
           <div className="flex items-center gap-2">
             <Button
               size="sm"
@@ -262,9 +368,19 @@ export default function SuperAdmin2ApprovalPage() {
               Review
             </Button>
           </div>
+        ) : (row) => (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => { e.stopPropagation(); handleViewDetails(row); }}
+            className="border-slate-300 dark:border-slate-700"
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            View
+          </Button>
         )}
-        emptyMessage="No quotations pending approval"
-        emptySubtitle="All quotations have been reviewed."
+        emptyMessage={emptyMessage}
+        emptySubtitle={emptySubtitle}
       />
 
       {/* Detail Modal */}
@@ -280,6 +396,31 @@ export default function SuperAdmin2ApprovalPage() {
             </div>
 
             <div className="p-6 space-y-6">
+              {/* SA2 Decision Banner (for approved/rejected tabs) */}
+              {selectedLead.superAdmin2ApprovalStatus === 'APPROVED' && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center gap-3">
+                  <CheckCircle className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" size={20} />
+                  <div>
+                    <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Approved by {selectedLead.superAdmin2ApprovedBy?.name || 'Admin'}</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">{formatDate(selectedLead.superAdmin2ApprovedAt)}</p>
+                  </div>
+                </div>
+              )}
+              {selectedLead.superAdmin2ApprovalStatus === 'REJECTED' && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <div className="flex items-center gap-3 mb-1">
+                    <XCircle className="text-red-600 dark:text-red-400 flex-shrink-0" size={20} />
+                    <div>
+                      <p className="text-sm font-medium text-red-800 dark:text-red-300">Rejected by {selectedLead.superAdmin2ApprovedBy?.name || 'Admin'}</p>
+                      <p className="text-xs text-red-600 dark:text-red-400">{formatDate(selectedLead.superAdmin2ApprovedAt)}</p>
+                    </div>
+                  </div>
+                  {selectedLead.superAdmin2RejectedReason && (
+                    <p className="text-sm text-red-700 dark:text-red-300 mt-2 ml-8">Reason: {selectedLead.superAdmin2RejectedReason}</p>
+                  )}
+                </div>
+              )}
+
               {/* Company Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -420,15 +561,17 @@ export default function SuperAdmin2ApprovalPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <Button
-                  variant="outline"
-                  onClick={() => { setShowDetailModal(false); handleOpenDisposition(selectedLead); }}
-                  className="bg-orange-600 hover:bg-orange-700 text-white border-orange-600"
-                >
-                  Review & Decide
-                </Button>
-              </div>
+              {activeTab === 'pending' && (
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <Button
+                    variant="outline"
+                    onClick={() => { setShowDetailModal(false); handleOpenDisposition(selectedLead); }}
+                    className="bg-orange-600 hover:bg-orange-700 text-white border-orange-600"
+                  >
+                    Review & Decide
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -494,7 +637,7 @@ export default function SuperAdmin2ApprovalPage() {
                 </div>
               </div>
 
-              {/* Reason (required for rejection, optional for approval) */}
+              {/* Reason (required for rejection) */}
               {decision === 'REJECTED' && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">

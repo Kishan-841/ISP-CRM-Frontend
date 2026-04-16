@@ -1045,7 +1045,7 @@ export default function QuotationManagementPage() {
           return (
             <div className="space-y-1">
               <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
-                Admin Rejected
+                Sales Director Rejected
               </Badge>
               {lead.superAdmin2RejectedReason && (
                 <p className="text-xs text-red-600 dark:text-red-400 max-w-[180px] truncate" title={lead.superAdmin2RejectedReason}>
@@ -1058,7 +1058,7 @@ export default function QuotationManagementPage() {
         return (
           <Badge className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
             <Clock size={12} className="mr-1" />
-            Admin Review Pending
+            Sales Director Review
           </Badge>
         );
       }
@@ -1226,13 +1226,26 @@ export default function QuotationManagementPage() {
     }
 
     if (activeStage === 'approval') {
+      const sa2Status = getSA2Status(lead);
       if (opsStatus === 'rejected') {
         return (
           <Button
             size="icon"
             onClick={() => handleOpenQuoteModal(lead)}
             className="bg-red-600 hover:bg-red-700 text-white h-8 w-8"
-            title="Edit & Resubmit"
+            title="Edit & Resubmit to OPS"
+          >
+            <RefreshCw size={16} />
+          </Button>
+        );
+      }
+      if (opsStatus === 'approved' && sa2Status === 'rejected') {
+        return (
+          <Button
+            size="icon"
+            onClick={() => handleOpenQuoteModal(lead)}
+            className="bg-red-600 hover:bg-red-700 text-white h-8 w-8"
+            title="Edit & Resubmit to Sales Director"
           >
             <RefreshCw size={16} />
           </Button>
@@ -1919,7 +1932,9 @@ export default function QuotationManagementPage() {
             {/* Footer */}
             <div className="p-5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                This quotation will be sent to OPS Team for verification
+                {selectedLead?.opsApprovalStatus === 'APPROVED' && selectedLead?.superAdmin2ApprovalStatus === 'REJECTED'
+                  ? 'OPS already approved — this will go directly to Sales Director'
+                  : 'This quotation will be sent to OPS Team for verification'}
               </p>
               <div className="flex gap-3">
                 <Button
@@ -1941,7 +1956,9 @@ export default function QuotationManagementPage() {
                   ) : (
                     <>
                       <Send size={16} className="mr-2" />
-                      Submit to OPS Team
+                      {selectedLead?.opsApprovalStatus === 'APPROVED' && selectedLead?.superAdmin2ApprovalStatus === 'REJECTED'
+                        ? 'Resubmit to Sales Director'
+                        : 'Submit to OPS Team'}
                     </>
                   )}
                 </Button>
