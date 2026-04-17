@@ -2,11 +2,12 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore, useThemeStore, useSidebarStore, useNotificationStore } from '@/lib/store';
+import { useAuthStore, useThemeStore, useSidebarStore, useNotificationStore, useNexusStore } from '@/lib/store';
 import { initSocket, disconnectSocket } from '@/lib/socket';
 import Sidebar, { Header } from '@/components/Sidebar';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import NexusWidget from '@/components/nexus/NexusWidget';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
@@ -83,6 +84,7 @@ export default function DashboardLayout({ children }) {
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
+      <NexusWidget useStoreHook={useNexusStore} />
     </div>
   );
 }

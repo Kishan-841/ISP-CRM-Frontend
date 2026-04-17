@@ -47,6 +47,7 @@ import {
   TrendingDown,
   Inbox,
   Plus,
+  Sparkles,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -397,6 +398,7 @@ export default function Sidebar() {
         { name: 'Vendors', path: '/dashboard/vendors' },
         { name: 'Products', path: '/dashboard/products' },
         { name: 'Inventory', path: '/dashboard/inventory' },
+        { name: 'VECTRA Knowledge', path: '/dashboard/admin/nexus-knowledge' },
       ]
     },
   ];
@@ -404,6 +406,8 @@ export default function Sidebar() {
   const navItems = isMaster ? masterNavItems : [
     // Super Admin / Sales Director top item
     ...(isSuperAdmin || isSalesDirector ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
+    // NEXUS Knowledge Base (SUPER_ADMIN only)
+    ...(isSuperAdmin ? [{ name: 'VECTRA Knowledge', path: '/dashboard/admin/nexus-knowledge', icon: Sparkles }] : []),
     ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager && !isSalesDirector && !isBDMCP ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
     // Raw Data - available for Admin, ISR, BDM, and BDM Team Leader
     ...(isAdmin || isSalesDirector || isISR || isBDM || isBDMCP || isBDMTeamLeader ? [

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useCustomerAuthStore } from '@/lib/customerStore';
+import { useCustomerAuthStore, useCustomerNexusStore } from '@/lib/customerStore';
 import CustomerSidebar, { CustomerHeader } from '@/components/CustomerSidebar';
+import NexusWidget from '@/components/nexus/NexusWidget';
 import { cn } from '@/lib/utils';
 
 export default function CustomerPortalLayout({ children }) {
@@ -69,6 +70,7 @@ export default function CustomerPortalLayout({ children }) {
           {children}
         </main>
       </div>
+      <NexusWidget useStoreHook={useCustomerNexusStore} />
     </div>
   );
 }
