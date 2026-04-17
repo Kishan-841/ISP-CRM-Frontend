@@ -799,7 +799,7 @@ export default function QuotationManagementPage() {
       });
 
       if (result.success) {
-        toast.success('Quotation submitted for OPS approval');
+        toast.success('Quotation submitted for Sales Director approval');
         setShowQuoteModal(false);
         fetchLeads();
       } else {
@@ -1039,48 +1039,24 @@ export default function QuotationManagementPage() {
 
     if (activeStage === 'approval') {
       const sa2Status = getSA2Status(lead);
-      // Lead is in Admin Review phase (OPS already approved)
-      if (opsStatus === 'approved') {
-        if (sa2Status === 'rejected') {
-          return (
-            <div className="space-y-1">
-              <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
-                Sales Director Rejected
-              </Badge>
-              {lead.superAdmin2RejectedReason && (
-                <p className="text-xs text-red-600 dark:text-red-400 max-w-[180px] truncate" title={lead.superAdmin2RejectedReason}>
-                  {lead.superAdmin2RejectedReason}
-                </p>
-              )}
-            </div>
-          );
-        }
-        return (
-          <Badge className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
-            <Clock size={12} className="mr-1" />
-            Sales Director Review
-          </Badge>
-        );
-      }
-      // Lead is in OPS Review phase
-      if (opsStatus === 'rejected') {
+      if (sa2Status === 'rejected') {
         return (
           <div className="space-y-1">
             <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
-              OPS Rejected
+              Sales Director Rejected
             </Badge>
-            {lead.opsRejectedReason && (
-              <p className="text-xs text-red-600 dark:text-red-400 max-w-[180px] truncate" title={lead.opsRejectedReason}>
-                {lead.opsRejectedReason}
+            {lead.superAdmin2RejectedReason && (
+              <p className="text-xs text-red-600 dark:text-red-400 max-w-[180px] truncate" title={lead.superAdmin2RejectedReason}>
+                {lead.superAdmin2RejectedReason}
               </p>
             )}
           </div>
         );
       }
       return (
-        <Badge className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+        <Badge className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
           <Clock size={12} className="mr-1" />
-          OPS Review Pending
+          Sales Director Review
         </Badge>
       );
     }
@@ -1227,19 +1203,7 @@ export default function QuotationManagementPage() {
 
     if (activeStage === 'approval') {
       const sa2Status = getSA2Status(lead);
-      if (opsStatus === 'rejected') {
-        return (
-          <Button
-            size="icon"
-            onClick={() => handleOpenQuoteModal(lead)}
-            className="bg-red-600 hover:bg-red-700 text-white h-8 w-8"
-            title="Edit & Resubmit to OPS"
-          >
-            <RefreshCw size={16} />
-          </Button>
-        );
-      }
-      if (opsStatus === 'approved' && sa2Status === 'rejected') {
+      if (sa2Status === 'rejected') {
         return (
           <Button
             size="icon"
@@ -1933,8 +1897,7 @@ export default function QuotationManagementPage() {
             <div className="p-5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {selectedLead?.opsApprovalStatus === 'APPROVED' && selectedLead?.superAdmin2ApprovalStatus === 'REJECTED'
-                  ? 'OPS already approved — this will go directly to Sales Director'
-                  : 'This quotation will be sent to OPS Team for verification'}
+                {'This quotation will be sent to Sales Director for approval'}
               </p>
               <div className="flex gap-3">
                 <Button
@@ -1956,9 +1919,7 @@ export default function QuotationManagementPage() {
                   ) : (
                     <>
                       <Send size={16} className="mr-2" />
-                      {selectedLead?.opsApprovalStatus === 'APPROVED' && selectedLead?.superAdmin2ApprovalStatus === 'REJECTED'
-                        ? 'Resubmit to Sales Director'
-                        : 'Submit to OPS Team'}
+                      Submit to Sales Director
                     </>
                   )}
                 </Button>
@@ -2520,18 +2481,7 @@ export default function QuotationManagementPage() {
                 <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Approval Status</h4>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">OPS Approval</span>
-                    <Badge className={
-                      getOpsStatus(selectedLead) === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                      getOpsStatus(selectedLead) === 'rejected' ? 'bg-red-100 text-red-700' :
-                      getOpsStatus(selectedLead) === 'pending' ? 'bg-amber-100 text-amber-700' :
-                      'bg-slate-100 text-slate-700'
-                    }>
-                      {getOpsStatus(selectedLead)?.toUpperCase() || 'NOT SUBMITTED'}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Admin Approval</span>
+                    <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Sales Director Approval</span>
                     <Badge className={
                       getSA2Status(selectedLead) === 'approved' ? 'bg-emerald-100 text-emerald-700' :
                       getSA2Status(selectedLead) === 'rejected' ? 'bg-red-100 text-red-700' :

@@ -216,21 +216,6 @@ export default function SuperAdmin2ApprovalPage() {
       )
     },
     {
-      key: 'opsApproval',
-      label: 'OPS Approval',
-      render: (row) => (
-        <div>
-          <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-            <CheckCircle size={12} className="mr-1" />
-            Approved
-          </Badge>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {row.opsApprovedBy?.name || '-'}
-          </p>
-        </div>
-      )
-    },
-    {
       key: 'bdm',
       label: 'BDM',
       render: (row) => (
@@ -290,7 +275,7 @@ export default function SuperAdmin2ApprovalPage() {
   return (
     <>
       {/* Header */}
-      <PageHeader title="Quotation Approval" description="Review and approve quotations after OPS approval" />
+      <PageHeader title="Quotation Approval" description="Review and approve quotations submitted by BDM" />
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
@@ -532,21 +517,6 @@ export default function SuperAdmin2ApprovalPage() {
                   </div>
                 </div>
               )}
-
-              {/* OPS Approval Info */}
-              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-2">
-                  <ShieldCheck size={16} />
-                  OPS Approval
-                </h4>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-amber-700 dark:text-amber-300">Approved by: {selectedLead.opsApprovedBy?.name || '-'}</p>
-                    <p className="text-xs text-amber-600 dark:text-amber-400">{formatDate(selectedLead.opsApprovedAt)}</p>
-                  </div>
-                  <Badge className="bg-emerald-100 text-emerald-700">APPROVED</Badge>
-                </div>
-              </div>
 
               {/* BDM Info */}
               <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
