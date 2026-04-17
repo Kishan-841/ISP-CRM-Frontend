@@ -1896,8 +1896,7 @@ export default function QuotationManagementPage() {
             {/* Footer */}
             <div className="p-5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {selectedLead?.opsApprovalStatus === 'APPROVED' && selectedLead?.superAdmin2ApprovalStatus === 'REJECTED'
-                {'This quotation will be sent to Sales Director for approval'}
+                This quotation will be sent to Sales Director for approval
               </p>
               <div className="flex gap-3">
                 <Button
