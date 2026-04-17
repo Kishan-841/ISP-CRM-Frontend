@@ -231,6 +231,29 @@ function SummarySkeleton() {
 
 // ─── Journey Tab ───
 
+const ORIGIN_BADGE = {
+  CAMPAIGN_ISR: {
+    label: 'Campaign → ISR',
+    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900/50',
+    accentClass: 'bg-indigo-500',
+  },
+  BDM_SELF: {
+    label: 'Create Opportunity',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900/50',
+    accentClass: 'bg-purple-500',
+  },
+  COLD_LEAD: {
+    label: 'Cold Lead',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50',
+    accentClass: 'bg-amber-500',
+  },
+  DIRECT: {
+    label: 'Direct Lead',
+    badgeClass: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700',
+    accentClass: 'bg-slate-500',
+  },
+};
+
 function JourneyTab({ data, loading }) {
   if (loading) return <JourneyTabSkeleton />;
 
@@ -242,52 +265,79 @@ function JourneyTab({ data, loading }) {
     );
   }
 
-  const { timeline = [], statusChangeLogs = [], materials = [] } = data;
+  const {
+    timeline = [],
+    statusChangeLogs = [],
+    materials = [],
+    leadOrigin = 'CAMPAIGN_ISR',
+    leadOriginLabel = 'Campaign → ISR',
+    leadOriginDescription = '',
+  } = data;
 
-  // Merge timeline events and status change logs
-  const allEvents = [
-    ...timeline.map((e) => ({ ...e, eventType: 'stage' })),
-    ...statusChangeLogs.map((e) => ({
-      stage: 'STATUS_CHANGE',
-      label: `${formatFieldName(e.field)}: ${e.oldValue || '-'} → ${e.newValue || '-'}`,
-      timestamp: e.changedAt,
-      user: e.changedBy,
-      meta: e.reason ? { reason: e.reason } : null,
-      eventType: 'statusChange',
-    })),
-  ].sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+  // Main journey = curated stage events (what the timeline should communicate)
+  const mainEvents = [...timeline].sort(
+    (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0)
+  );
+
+  // Audit log = raw status change entries (separate section, not mixed in)
+  const auditEvents = [...statusChangeLogs].sort(
+    (a, b) => new Date(a.changedAt || 0) - new Date(b.changedAt || 0)
+  );
+
+  const badge = ORIGIN_BADGE[leadOrigin] || ORIGIN_BADGE.DIRECT;
 
   return (
     <div className="space-y-6">
-      {/* Timeline */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
-        <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-6">
-          Customer Journey Timeline
-        </h3>
+      {/* Origin banner */}
+      <div className={`rounded-xl border px-5 py-4 flex items-start gap-3 ${badge.badgeClass}`}>
+        <span className={`mt-1.5 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full ${badge.accentClass}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs uppercase tracking-wider font-semibold opacity-80">Lead Source</span>
+            <span className="text-sm font-semibold">{leadOriginLabel}</span>
+          </div>
+          {leadOriginDescription && (
+            <p className="mt-1 text-xs opacity-80">{leadOriginDescription}</p>
+          )}
+        </div>
+      </div>
 
-        {allEvents.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
-            No journey events recorded.
+      {/* Journey table */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            Customer Journey
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Every stage this lead has passed through, in order.
+          </p>
+        </div>
+
+        {mainEvents.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-10">
+            No journey events recorded yet.
           </p>
         ) : (
-          <div className="relative">
-            {/* Vertical line */}
-            <div className="absolute left-[7px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700" />
-
-            <div className="space-y-0">
-              {allEvents.map((event, index) => (
-                <TimelineEvent
-                  key={`${event.stage}-${index}`}
-                  event={event}
-                  isLast={index === allEvents.length - 1}
-                />
-              ))}
-            </div>
-          </div>
+          <JourneyTable events={mainEvents} />
         )}
       </div>
 
-      {/* Materials section */}
+      {/* Audit log */}
+      {auditEvents.length > 0 && (
+        <details className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+          <summary className="px-5 py-4 cursor-pointer select-none hover:bg-slate-50 dark:hover:bg-slate-800/50">
+            <span className="text-sm font-semibold text-slate-900 dark:text-white">
+              Detailed Audit Log ({auditEvents.length})
+            </span>
+            <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
+              Every field change recorded by the system.
+            </span>
+          </summary>
+          <AuditTable events={auditEvents} />
+        </details>
+      )}
+
+      {/* Materials */}
       {materials.length > 0 && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
           <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4">
@@ -300,56 +350,131 @@ function JourneyTab({ data, loading }) {
   );
 }
 
-function TimelineEvent({ event, isLast }) {
-  const color = getStageColor(event.stage, event.label);
-  const colors = STAGE_COLORS[color];
-  const isStatusChange = event.eventType === 'statusChange';
+function stageAccentClass(stage, label, isError) {
+  if (isError || label?.includes('Rejected') || label?.includes('Dropped')) {
+    return 'bg-red-500';
+  }
+  const green = [
+    'ACTUAL_PLAN', 'CUSTOMER_ACCEPTANCE', 'CUSTOMER_CREATED', 'NOC_CONFIGURED',
+    'DOCS_VERIFIED', 'ACCOUNTS_VERIFIED', 'GST_VERIFIED', 'SALES_DIRECTOR_APPROVED',
+    'QUOTATION_SUBMITTED',
+  ];
+  const blue = [
+    'BDM_ASSIGNED', 'ISR_ASSIGNED', 'FEASIBILITY_ASSIGNED', 'DELIVERY_REQUESTED',
+    'DEMO_PLAN', 'PUSHED_TO_INSTALLATION', 'SPEED_TEST',
+  ];
+  const purple = ['OPPORTUNITY_CREATED', 'LEAD_CREATED', 'COLD_LEAD_ADDED', 'DATA_UPLOADED'];
+  if (green.includes(stage)) return 'bg-emerald-500';
+  if (blue.includes(stage)) return 'bg-blue-500';
+  if (purple.includes(stage)) return 'bg-purple-500';
+  if (stage === 'ISR_CALL') return 'bg-indigo-500';
+  return 'bg-slate-400';
+}
 
+function JourneyTable({ events }) {
   return (
-    <div className={`relative flex gap-4 ${isLast ? '' : 'pb-6'}`}>
-      {/* Dot */}
-      <div
-        className={`relative z-10 flex-shrink-0 mt-1.5 rounded-full ring-4 ${colors.dot} ${colors.ring} ${
-          isStatusChange ? 'w-2.5 h-2.5 ml-[2px]' : 'w-3.5 h-3.5'
-        }`}
-      />
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <tr>
+            <th className="text-left py-2.5 px-4 font-semibold w-10">#</th>
+            <th className="text-left py-2.5 px-4 font-semibold">Stage</th>
+            <th className="text-left py-2.5 px-4 font-semibold">Actor</th>
+            <th className="text-left py-2.5 px-4 font-semibold">Role</th>
+            <th className="text-left py-2.5 px-4 font-semibold">When</th>
+            <th className="text-left py-2.5 px-4 font-semibold">Details</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          {events.map((event, idx) => (
+            <JourneyTableRow key={`${event.stage}-${idx}`} event={event} index={idx + 1} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-          <span
-            className={`font-medium ${
-              isStatusChange
-                ? 'text-xs text-slate-500 dark:text-slate-400'
-                : 'text-sm text-slate-900 dark:text-white'
-            }`}
-          >
+function JourneyTableRow({ event, index }) {
+  const accent = stageAccentClass(event.stage, event.label, event.isError);
+  return (
+    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 align-top">
+      <td className="py-3 px-4 text-xs text-slate-400 dark:text-slate-500 font-mono">{index}</td>
+      <td className="py-3 px-4">
+        <div className="flex items-center gap-2">
+          <span className={`inline-block h-2 w-2 rounded-full flex-shrink-0 ${accent}`} />
+          <span className={`font-medium ${event.isError ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
             {event.label}
           </span>
-          {event.user && (
-            <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-              <span className="font-medium text-slate-700 dark:text-slate-300">
-                {event.user.name}
-              </span>
-              {event.user.role && (
-                <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded text-[10px] uppercase tracking-wider">
-                  {event.user.role.replace(/_/g, ' ')}
-                </span>
-              )}
-            </span>
-          )}
         </div>
-
-        {/* Timestamp */}
-        {event.timestamp && (
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-            {formatDateTime(event.timestamp)}
-          </p>
+      </td>
+      <td className="py-3 px-4 text-slate-700 dark:text-slate-300">
+        {event.user?.name || <span className="text-slate-400">—</span>}
+      </td>
+      <td className="py-3 px-4">
+        {event.user?.role ? (
+          <span className="inline-block px-2 py-0.5 text-[10px] uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded">
+            {event.user.role.replace(/_/g, ' ')}
+          </span>
+        ) : (
+          <span className="text-slate-400">—</span>
         )}
+      </td>
+      <td className="py-3 px-4 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+        {event.timestamp ? formatDateTime(event.timestamp) : '—'}
+      </td>
+      <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-300 max-w-md">
+        {event.details ? (
+          <span>{event.details}</span>
+        ) : event.meta ? (
+          <EventMeta meta={event.meta} stage={event.stage} />
+        ) : (
+          <span className="text-slate-400">—</span>
+        )}
+      </td>
+    </tr>
+  );
+}
 
-        {/* Meta details */}
-        {event.meta && <EventMeta meta={event.meta} stage={event.stage} />}
-      </div>
+function AuditTable({ events }) {
+  return (
+    <div className="overflow-x-auto border-t border-slate-200 dark:border-slate-700">
+      <table className="w-full text-xs">
+        <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <tr>
+            <th className="text-left py-2 px-4 font-semibold">Field</th>
+            <th className="text-left py-2 px-4 font-semibold">Change</th>
+            <th className="text-left py-2 px-4 font-semibold">By</th>
+            <th className="text-left py-2 px-4 font-semibold">When</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          {events.map((e) => (
+            <tr key={e.id} className="align-top">
+              <td className="py-2 px-4 font-medium text-slate-700 dark:text-slate-300">
+                {formatFieldName(e.field)}
+              </td>
+              <td className="py-2 px-4 text-slate-500 dark:text-slate-400">
+                <span className="text-slate-400">{e.oldValue || '—'}</span>
+                <span className="mx-1.5">→</span>
+                <span className="text-slate-700 dark:text-slate-300">{e.newValue || '—'}</span>
+                {e.reason && <div className="mt-0.5 italic text-[11px] opacity-80">{e.reason}</div>}
+              </td>
+              <td className="py-2 px-4 text-slate-600 dark:text-slate-400">
+                {e.changedBy?.name || '—'}
+                {e.changedBy?.role && (
+                  <div className="text-[10px] opacity-60 uppercase tracking-wider">
+                    {e.changedBy.role.replace(/_/g, ' ')}
+                  </div>
+                )}
+              </td>
+              <td className="py-2 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                {e.changedAt ? formatDateTime(e.changedAt) : '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
