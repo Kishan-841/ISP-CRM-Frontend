@@ -6,8 +6,10 @@ import { useRoleCheck } from '@/lib/useRoleCheck';
 import { Badge } from '@/components/ui/badge';
 import DataTable from '@/components/DataTable';
 import StatCard from '@/components/StatCard';
+import { Button } from '@/components/ui/button';
 import {
   Package,
+  Plus,
   Search,
   Loader2,
   X,
@@ -53,6 +55,13 @@ export default function StoreInventoryPage() {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Add material modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [addForm, setAddForm] = useState({ productId: '', serialText: '', quantity: '', unitPrice: '' });
+  const [isAdding, setIsAdding] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
 
   // Serial numbers dropdown state
   const [expandedSerials, setExpandedSerials] = useState(null);
@@ -153,6 +162,66 @@ export default function StoreInventoryPage() {
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get('/store/products/all');
+      setProducts(response.data.filter(p => p.isActive));
+    } catch (error) {
+      toast.error('Failed to fetch products');
+    }
+  };
+
+  const handleOpenAddModal = () => {
+    setAddForm({ productId: '', serialText: '', quantity: '', unitPrice: '' });
+    setProductSearch('');
+    fetchProducts();
+    setShowAddModal(true);
+  };
+
+  const selectedProduct = products.find(p => p.id === addForm.productId);
+  const isBulkProduct = selectedProduct && (selectedProduct.category === 'FIBER' || selectedProduct.unit === 'mtrs');
+
+  const handleSubmitAdd = async () => {
+    if (!addForm.productId) {
+      toast.error('Please select a product');
+      return;
+    }
+    const payload = {
+      productId: addForm.productId,
+      unitPrice: addForm.unitPrice ? parseFloat(addForm.unitPrice) : null
+    };
+    if (isBulkProduct) {
+      const qty = parseInt(addForm.quantity, 10);
+      if (!qty || qty <= 0) {
+        toast.error('Enter a valid quantity');
+        return;
+      }
+      payload.quantity = qty;
+    } else {
+      const serials = addForm.serialText
+        .split(/[\n,]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (serials.length === 0) {
+        toast.error('Enter at least one serial number');
+        return;
+      }
+      payload.serialNumbers = serials;
+    }
+    setIsAdding(true);
+    try {
+      const response = await api.post('/store/inventory/direct-add', payload);
+      toast.success(response.data.message || 'Material added');
+      setShowAddModal(false);
+      fetchInventory();
+      fetchStats();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to add material');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   const getCategoryLabel = (category) => CATEGORY_LABELS[category] || category;
 
   // Filter inventory
@@ -179,8 +248,8 @@ export default function StoreInventoryPage() {
         <StatCard color="emerald" icon={Hash} label="Products" value={stats.totalProducts} />
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-4">
+      {/* Search + Add Material */}
+      <div className="flex items-center gap-3">
         <div className="flex-1 sm:max-w-md relative">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -191,6 +260,13 @@ export default function StoreInventoryPage() {
             className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-orange-600 focus:border-transparent"
           />
         </div>
+        <Button
+          onClick={handleOpenAddModal}
+          className="bg-orange-600 hover:bg-orange-700 text-white"
+        >
+          <Plus size={16} className="mr-2" />
+          Add Material
+        </Button>
       </div>
 
       {/* Inventory Table */}
@@ -556,6 +632,147 @@ export default function StoreInventoryPage() {
         </>
       )}
 
+      {/* Add Material Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !isAdding && setShowAddModal(false)} />
+          <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Add Material to Inventory</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Direct entry without a purchase order</p>
+              </div>
+              <button onClick={() => !isAdding && setShowAddModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              {/* Product selector */}
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">
+                  Product <span className="text-red-500">*</span>
+                </label>
+                <div className="relative mb-2">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Search by model, brand, category..."
+                    className="w-full pl-8 pr-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded"
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded">
+                  {products.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-slate-500">No products available</div>
+                  ) : (
+                    products
+                      .filter(p => {
+                        if (!productSearch) return true;
+                        const q = productSearch.toLowerCase();
+                        return p.modelNumber?.toLowerCase().includes(q) ||
+                          p.brandName?.toLowerCase().includes(q) ||
+                          p.category?.toLowerCase().includes(q);
+                      })
+                      .map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setAddForm(f => ({ ...f, productId: p.id }))}
+                          className={`w-full text-left px-3 py-2 text-sm border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800 ${
+                            addForm.productId === p.id ? 'bg-orange-50 dark:bg-orange-900/20' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-slate-900 dark:text-slate-100">{p.modelNumber}</p>
+                              <p className="text-xs text-slate-500">{p.brandName} • {getCategoryLabel(p.category)}</p>
+                            </div>
+                            <span className="text-xs text-slate-400">{p.unit}</span>
+                          </div>
+                        </button>
+                      ))
+                  )}
+                </div>
+              </div>
+
+              {/* Conditional: serial or quantity input */}
+              {selectedProduct && (
+                <>
+                  {isBulkProduct ? (
+                    <div>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">
+                        Quantity ({selectedProduct.unit}) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={addForm.quantity}
+                        onChange={(e) => setAddForm(f => ({ ...f, quantity: e.target.value }))}
+                        placeholder={`e.g. 500`}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">
+                        Serial Numbers <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        value={addForm.serialText}
+                        onChange={(e) => setAddForm(f => ({ ...f, serialText: e.target.value }))}
+                        rows={5}
+                        placeholder="Enter one serial per line (or comma-separated)&#10;SN-001&#10;SN-002&#10;SN-003"
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-900 dark:text-slate-100 font-mono text-sm"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        {(() => {
+                          const count = addForm.serialText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length;
+                          return `${count} serial number${count !== 1 ? 's' : ''} detected`;
+                        })()}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Unit price (optional) */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">
+                      Unit Price (optional)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={addForm.unitPrice}
+                      onChange={(e) => setAddForm(f => ({ ...f, unitPrice: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 flex-shrink-0">
+              <Button variant="outline" onClick={() => setShowAddModal(false)} disabled={isAdding}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitAdd}
+                disabled={isAdding || !addForm.productId}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {isAdding ? (
+                  <><Loader2 size={14} className="mr-2 animate-spin" /> Adding...</>
+                ) : (
+                  <><Plus size={14} className="mr-2" /> Add to Inventory</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
