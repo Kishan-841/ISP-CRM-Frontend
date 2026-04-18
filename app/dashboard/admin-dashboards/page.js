@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -23,7 +25,8 @@ import {
   Eye,
   ChevronRight,
   Loader2,
-  Truck
+  Truck,
+  UserCog,
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 
@@ -35,12 +38,14 @@ export default function AdminDashboardsPage() {
   const [selectedUsers, setSelectedUsers] = useState({
     isr: '',
     bdm: '',
+    bdmTL: '',
     accounts: '',
     delivery: ''
   });
   const [users, setUsers] = useState({
     isr: [],
     bdm: [],
+    bdmTL: [],
     accounts: [],
     delivery: []
   });
@@ -60,30 +65,34 @@ export default function AdminDashboardsPage() {
     setIsLoading(true);
     try {
       if (isTL) {
-        // Team Leader: fetch only ISR and BDM users (filtered to their team on backend)
+        // Team Leader: fetch only ISR and BDM users (filtered to their team on backend).
+        // BDMs include team-leader info so the dropdown can group them.
         const [isrRes, bdmRes] = await Promise.all([
           api.get('/users/by-role?role=ISR'),
-          api.get('/users/by-role?role=BDM')
+          api.get('/users/by-role?role=BDM&includeTeam=1'),
         ]);
         setUsers({
           isr: isrRes.data.users || [],
           bdm: bdmRes.data.users || [],
+          bdmTL: [],
           accounts: [],
-          delivery: []
+          delivery: [],
         });
       } else {
-        // Super Admin: fetch all roles
-        const [isrRes, bdmRes, accountsRes, deliveryRes] = await Promise.all([
+        // Super Admin / Sales Director / Master: fetch every role.
+        const [isrRes, bdmRes, bdmTLRes, accountsRes, deliveryRes] = await Promise.all([
           api.get('/users/by-role?role=ISR'),
-          api.get('/users/by-role?role=BDM'),
+          api.get('/users/by-role?role=BDM&includeTeam=1'),
+          api.get('/users/by-role?role=BDM_TEAM_LEADER'),
           api.get('/users/by-role?role=ACCOUNTS_TEAM'),
-          api.get('/users/by-role?role=DELIVERY_TEAM')
+          api.get('/users/by-role?role=DELIVERY_TEAM'),
         ]);
         setUsers({
           isr: isrRes.data.users || [],
           bdm: bdmRes.data.users || [],
+          bdmTL: bdmTLRes.data.users || [],
           accounts: accountsRes.data.users || [],
-          delivery: deliveryRes.data.users || []
+          delivery: deliveryRes.data.users || [],
         });
       }
     } catch (error) {
@@ -105,9 +114,53 @@ export default function AdminDashboardsPage() {
 
     if (roleId === 'delivery') {
       router.push(`/dashboard/delivery-report?userId=${memberId}`);
+    } else if (roleId === 'bdmTL') {
+      // Team Leader individual page reuses the BDM detail page
+      router.push(`/dashboard/admin-dashboards/bdm/${memberId}`);
     } else {
       router.push(`/dashboard/admin-dashboards/${roleId}/${memberId}`);
     }
+  };
+
+  // Group BDM users by their team leader so the dropdown shows
+  // "Team Leader A → BDM 1, BDM 2" instead of a flat list. BDMs without
+  // a team leader fall into the "Unassigned" group at the bottom.
+  const groupBDMsByLeader = (bdmUsers, teamLeaders = []) => {
+    const groups = new Map(); // leaderId -> { leaderName, members: [] }
+    const unassigned = [];
+
+    // Seed groups with known team leaders so even empty teams render.
+    teamLeaders.forEach((tl) => {
+      groups.set(tl.id, { leaderName: tl.name, members: [] });
+    });
+
+    bdmUsers.forEach((bdm) => {
+      if (bdm.teamLeaderId && bdm.teamLeader) {
+        if (!groups.has(bdm.teamLeaderId)) {
+          groups.set(bdm.teamLeaderId, { leaderName: bdm.teamLeader.name, members: [] });
+        }
+        groups.get(bdm.teamLeaderId).members.push(bdm);
+      } else if (bdm.teamLeaderId) {
+        // Team leader id present but no user info — fall back to group by id.
+        if (!groups.has(bdm.teamLeaderId)) {
+          groups.set(bdm.teamLeaderId, { leaderName: 'Team Leader', members: [] });
+        }
+        groups.get(bdm.teamLeaderId).members.push(bdm);
+      } else {
+        unassigned.push(bdm);
+      }
+    });
+
+    // Only return groups that have at least one member, ordered by name.
+    const result = Array.from(groups.entries())
+      .filter(([, g]) => g.members.length > 0)
+      .map(([id, g]) => ({ id, label: g.leaderName, members: g.members }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    if (unassigned.length > 0) {
+      result.push({ id: '__unassigned__', label: 'No Team Leader', members: unassigned });
+    }
+    return result;
   };
 
   if (!user || !isAllowed) {
@@ -135,7 +188,19 @@ export default function AdminDashboardsPage() {
       iconBg: 'bg-green-100 text-green-600',
       borderColor: 'border-green-200 dark:border-green-800',
       overallPath: '/dashboard/admin-dashboards/bdm',
-      users: users.bdm
+      users: users.bdm,
+      groupByTeamLeader: true, // show BDMs nested under their team leader
+    },
+    {
+      id: 'bdmTL',
+      title: 'BDM Team Leader Dashboard',
+      description: 'Team leaders & their teams',
+      icon: UserCog,
+      color: 'from-purple-500 to-indigo-600',
+      iconBg: 'bg-purple-100 text-purple-600',
+      borderColor: 'border-purple-200 dark:border-purple-800',
+      overallPath: '/dashboard/admin-dashboards/bdm',
+      users: users.bdmTL,
     },
     {
       id: 'accounts',
@@ -161,7 +226,7 @@ export default function AdminDashboardsPage() {
     }
   ];
 
-  // TL only sees ISR and BDM dashboards
+  // TL only sees ISR and BDM dashboards — no TL card (they don't oversee other TLs)
   const roleCards = isTL
     ? allRoleCards.filter(c => c.id === 'isr' || c.id === 'bdm')
     : allRoleCards;
@@ -237,6 +302,28 @@ export default function AdminDashboardsPage() {
                           <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
                           No members found
                         </div>
+                      ) : role.groupByTeamLeader ? (
+                        groupBDMsByLeader(role.users, users.bdmTL).map((group) => (
+                          <SelectGroup key={group.id}>
+                            <SelectLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-500">
+                              <UserCog className="h-3 w-3" />
+                              {group.label}
+                              <span className="ml-auto text-[10px] text-slate-400 normal-case tracking-normal">
+                                {group.members.length} {group.members.length === 1 ? 'BDM' : 'BDMs'}
+                              </span>
+                            </SelectLabel>
+                            {group.members.map((member) => (
+                              <SelectItem key={member.id} value={member.id} className="pl-6">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${role.iconBg} text-xs font-semibold`}>
+                                    {member.name?.charAt(0)?.toUpperCase() || '?'}
+                                  </div>
+                                  <span>{member.name}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ))
                       ) : (
                         role.users.map((member) => (
                           <SelectItem key={member.id} value={member.id}>
