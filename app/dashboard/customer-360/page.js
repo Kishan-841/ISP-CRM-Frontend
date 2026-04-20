@@ -2,11 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useCustomer360Store } from '@/lib/store';
-import { Search, ArrowRight } from 'lucide-react';
+import { Search, ArrowRight, Download, Loader2 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/components/PageHeader';
+import { Button } from '@/components/ui/button';
+import api from '@/lib/api';
 import {
   CUSTOMER_360_LEAD_STATUS_CONFIG,
   CUSTOMER_360_DELIVERY_STATUS_CONFIG,
@@ -33,7 +35,40 @@ export default function Customer360Page() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [searchQuery, setSearchQuery] = useState('');
+  const [exporting, setExporting] = useState(false);
   const debounceRef = useRef(null);
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    const t = toast.loading('Preparing export…');
+    try {
+      const params = searchQuery.trim().length >= 2
+        ? `?q=${encodeURIComponent(searchQuery.trim())}`
+        : '';
+      const response = await api.get(`/customer-360/export${params}`, {
+        responseType: 'blob',
+      });
+      const count = response.headers?.['x-total-count'];
+
+      // Trigger download from the blob
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `customer-360-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(count ? `Exported ${count} customers` : 'Export ready', { id: t });
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Export failed';
+      toast.error(msg, { id: t });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Load all customers on mount
   useEffect(() => {
@@ -165,7 +200,22 @@ export default function Customer360Page() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <PageHeader title="Customer 360" description="Search and view complete customer lifecycle" />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader title="Customer 360" description="Search and view complete customer lifecycle" />
+        <Button
+          onClick={handleExport}
+          disabled={exporting}
+          variant="outline"
+          className="gap-2"
+        >
+          {exporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
+          {exporting ? 'Exporting…' : 'Export to Excel'}
+        </Button>
+      </div>
 
       <DataTable
         title="Customers"
