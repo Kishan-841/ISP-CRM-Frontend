@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore, useThemeStore, useSidebarStore, useNotificationStore, useNexusStore, useMeetingReminderStore } from '@/lib/store';
+import { useAuthStore, useThemeStore, useSidebarStore, useNotificationStore, useNexusStore, useReminderStore } from '@/lib/store';
 import { initSocket, disconnectSocket } from '@/lib/socket';
 import Sidebar, { Header } from '@/components/Sidebar';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -48,18 +48,19 @@ export default function DashboardLayout({ children }) {
 
       socket.on('notification', handleNotification);
 
-      // Meeting reminder — shows a stacked modal 5 minutes before each meeting
-      const handleMeetingReminder = (payload) => {
-        useMeetingReminderStore.getState().pushReminder(payload);
+      // Scheduled reminders (meetings, follow-ups, SAM visits, complaint TAT,
+      // invoice due) — all share one unified socket event + modal.
+      const handleReminder = (payload) => {
+        useReminderStore.getState().pushReminder(payload);
       };
-      socket.on('meeting:reminder', handleMeetingReminder);
+      socket.on('reminder:show', handleReminder);
 
       // Fetch initial unread count
       useNotificationStore.getState().fetchUnreadCount();
 
       return () => {
         socket.off('notification', handleNotification);
-        socket.off('meeting:reminder', handleMeetingReminder);
+        socket.off('reminder:show', handleReminder);
         disconnectSocket();
       };
     }
