@@ -48,6 +48,7 @@ import {
   Inbox,
   Plus,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -401,11 +402,16 @@ export default function Sidebar() {
         { name: 'VECTRA Knowledge', path: '/dashboard/admin/nexus-knowledge' },
       ]
     },
+    // Master-only: permanent lead deletion — promoted to a top-level tab
+    // so it's visible (and intentionally separate from regular admin tools).
+    { name: 'Delete Lead', path: '/dashboard/master/delete-lead', icon: Trash2 },
   ];
 
   const navItems = isMaster ? masterNavItems : [
     // Super Admin / Sales Director top item
     ...(isSuperAdmin || isSalesDirector ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
+    // Master-only lead deletion (SUPER_ADMIN sees it here too)
+    ...(isSuperAdmin ? [{ name: 'Delete Lead', path: '/dashboard/master/delete-lead', icon: Trash2 }] : []),
     // NEXUS Knowledge Base (SUPER_ADMIN only)
     ...(isSuperAdmin ? [{ name: 'VECTRA Knowledge', path: '/dashboard/admin/nexus-knowledge', icon: Sparkles }] : []),
     ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager && !isSalesDirector && !isBDMCP ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
