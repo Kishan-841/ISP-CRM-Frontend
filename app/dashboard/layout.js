@@ -2,12 +2,13 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore, useThemeStore, useSidebarStore, useNotificationStore, useNexusStore } from '@/lib/store';
+import { useAuthStore, useThemeStore, useSidebarStore, useNotificationStore, useNexusStore, useMeetingReminderStore } from '@/lib/store';
 import { initSocket, disconnectSocket } from '@/lib/socket';
 import Sidebar, { Header } from '@/components/Sidebar';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import NexusWidget from '@/components/nexus/NexusWidget';
+import MeetingReminderModal from '@/components/MeetingReminderModal';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
@@ -47,11 +48,18 @@ export default function DashboardLayout({ children }) {
 
       socket.on('notification', handleNotification);
 
+      // Meeting reminder — shows a stacked modal 5 minutes before each meeting
+      const handleMeetingReminder = (payload) => {
+        useMeetingReminderStore.getState().pushReminder(payload);
+      };
+      socket.on('meeting:reminder', handleMeetingReminder);
+
       // Fetch initial unread count
       useNotificationStore.getState().fetchUnreadCount();
 
       return () => {
         socket.off('notification', handleNotification);
+        socket.off('meeting:reminder', handleMeetingReminder);
         disconnectSocket();
       };
     }
@@ -85,6 +93,7 @@ export default function DashboardLayout({ children }) {
         </main>
       </div>
       <NexusWidget useStoreHook={useNexusStore} />
+      <MeetingReminderModal />
     </div>
   );
 }
