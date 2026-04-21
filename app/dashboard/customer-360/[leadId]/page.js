@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useMemo, useState, Fragment } from 'react';
 import { useParams } from 'next/navigation';
 import { useCustomer360Store } from '@/lib/store';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
@@ -232,13 +232,28 @@ function SummarySkeleton() {
 // ─── Journey Tab ───
 
 const ORIGIN_BADGE = {
-  CAMPAIGN_ISR: {
-    label: 'Campaign → ISR',
+  BULK_UPLOAD_BDM: {
+    label: 'Campaign → ISR (BDM-Uploaded)',
     badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900/50',
     accentClass: 'bg-indigo-500',
   },
-  BDM_SELF: {
-    label: 'Create Opportunity',
+  BULK_UPLOAD_ADMIN: {
+    label: 'Campaign → ISR (Admin-Uploaded)',
+    badgeClass: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900/50',
+    accentClass: 'bg-sky-500',
+  },
+  ISR_SELF_DATA: {
+    label: 'ISR Self-Sourced',
+    badgeClass: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-900/50',
+    accentClass: 'bg-teal-500',
+  },
+  BDM_DIRECT_LEAD: {
+    label: 'Direct Lead (Add Lead)',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50',
+    accentClass: 'bg-emerald-500',
+  },
+  BDM_OPPORTUNITY: {
+    label: 'Opportunity (BDM Direct)',
     badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900/50',
     accentClass: 'bg-purple-500',
   },
@@ -246,6 +261,27 @@ const ORIGIN_BADGE = {
     label: 'Cold Lead',
     badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50',
     accentClass: 'bg-amber-500',
+  },
+  SAM_REFERRAL: {
+    label: 'SAM Referral',
+    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50',
+    accentClass: 'bg-rose-500',
+  },
+  UNKNOWN: {
+    label: 'Legacy Lead',
+    badgeClass: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700',
+    accentClass: 'bg-slate-500',
+  },
+  // Backward-compat shims for any cached data on old clients
+  CAMPAIGN_ISR: {
+    label: 'Campaign → ISR',
+    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900/50',
+    accentClass: 'bg-indigo-500',
+  },
+  BDM_SELF: {
+    label: 'Opportunity (BDM Direct)',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900/50',
+    accentClass: 'bg-purple-500',
   },
   DIRECT: {
     label: 'Direct Lead',
@@ -274,17 +310,63 @@ function JourneyTab({ data, loading }) {
     leadOriginDescription = '',
   } = data;
 
-  // Main journey = curated stage events (what the timeline should communicate)
-  const mainEvents = [...timeline].sort(
-    (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0)
+  const [filter, setFilter] = useState('all');
+
+  // Main journey = curated stage events sorted chronologically. Backend
+  // guarantees canonical phase ordering; the client-side sort is a safety net.
+  const mainEvents = useMemo(
+    () => [...timeline].sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0)),
+    [timeline]
   );
+
+  // Awaiting-reupload detection: for each rejection-phase family, mark the
+  // latest rejection row as "awaiting" if no matching re-submit follows it.
+  // We annotate the event objects directly (_awaiting flag) so filtering
+  // doesn't break the association — index-based keys would shift when the
+  // user picks a filter chip.
+  const mainEventsAnnotated = useMemo(() => {
+    const REJECTION_TO_RESUBMIT = {
+      DOCS_REJECTED:           ['DOCS_RESUBMITTED', 'DOCS_SUBMITTED'],
+      ACCOUNTS_REJECTED:       ['DOCS_RESUBMITTED'],
+      ACCOUNTS_SENT_BACK:      ['DOCS_RESUBMITTED'],
+      OPS_REJECTED:            ['QUOTATION_RESUBMITTED', 'QUOTATION_SUBMITTED'],
+      SALES_DIRECTOR_REJECTED: ['QUOTATION_RESUBMITTED', 'QUOTATION_SUBMITTED'],
+      FEASIBILITY_REJECTED:    ['FEASIBILITY_RESUBMITTED'],
+    };
+    return mainEvents.map((e, i) => {
+      const resubmitStages = REJECTION_TO_RESUBMIT[e.stage];
+      if (!resubmitStages) return e;
+      const hasResubmit = mainEvents.slice(i + 1).some(later => resubmitStages.includes(later.stage));
+      return hasResubmit ? e : { ...e, _awaitingReupload: true };
+    });
+  }, [mainEvents]);
+
+  // Unique roles encountered — drives the "By role" filter dropdown.
+  const rolesInJourney = useMemo(() => {
+    const roles = new Set();
+    mainEventsAnnotated.forEach(e => { if (e.user?.role) roles.add(e.user.role); });
+    return Array.from(roles).sort();
+  }, [mainEventsAnnotated]);
+
+  // Apply active filter. 'all' = no filter. 'milestones' = hide retries +
+  // non-milestone audit noise. 'rejections' = errors only. 'role:X' = by actor.
+  const displayedEvents = useMemo(() => {
+    if (filter === 'all') return mainEventsAnnotated;
+    if (filter === 'milestones') return mainEventsAnnotated.filter(e => !e.meta?.isRetry && !e.isError);
+    if (filter === 'rejections') return mainEventsAnnotated.filter(e => e.isError);
+    if (filter.startsWith('role:')) {
+      const role = filter.slice(5);
+      return mainEventsAnnotated.filter(e => e.user?.role === role);
+    }
+    return mainEventsAnnotated;
+  }, [mainEventsAnnotated, filter]);
 
   // Audit log = raw status change entries (separate section, not mixed in)
   const auditEvents = [...statusChangeLogs].sort(
     (a, b) => new Date(a.changedAt || 0) - new Date(b.changedAt || 0)
   );
 
-  const badge = ORIGIN_BADGE[leadOrigin] || ORIGIN_BADGE.DIRECT;
+  const badge = ORIGIN_BADGE[leadOrigin] || ORIGIN_BADGE.UNKNOWN || ORIGIN_BADGE.DIRECT;
 
   return (
     <div className="space-y-6">
@@ -304,21 +386,30 @@ function JourneyTab({ data, loading }) {
 
       {/* Journey table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-            Customer Journey
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Every stage this lead has passed through, in order.
-          </p>
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+              Customer Journey
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Every stage this lead has passed through, in order.
+            </p>
+          </div>
+          <JourneyFilterChips
+            filter={filter}
+            setFilter={setFilter}
+            roles={rolesInJourney}
+            totalCount={mainEventsAnnotated.length}
+            rejectionCount={mainEventsAnnotated.filter(e => e.isError).length}
+          />
         </div>
 
-        {mainEvents.length === 0 ? (
+        {displayedEvents.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-10">
-            No journey events recorded yet.
+            {mainEventsAnnotated.length === 0 ? 'No journey events recorded yet.' : 'No events match the current filter.'}
           </p>
         ) : (
-          <JourneyTable events={mainEvents} />
+          <JourneyTable events={displayedEvents} />
         )}
       </div>
 
@@ -379,6 +470,45 @@ function stageAccentClass(stage, label, isError) {
   return 'bg-slate-400';
 }
 
+// Filter chips above the journey table. Lightweight client-side filtering
+// on the same event list the backend returned — no extra API calls.
+function JourneyFilterChips({ filter, setFilter, roles, totalCount, rejectionCount }) {
+  const chipBase = 'inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full border transition-colors';
+  const active = 'bg-indigo-600 text-white border-indigo-600 dark:bg-indigo-500 dark:border-indigo-500';
+  const inactive = 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800';
+  const isRoleFilter = filter.startsWith('role:');
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button type="button" onClick={() => setFilter('all')}
+        className={`${chipBase} ${filter === 'all' ? active : inactive}`}>
+        All ({totalCount})
+      </button>
+      <button type="button" onClick={() => setFilter('milestones')}
+        className={`${chipBase} ${filter === 'milestones' ? active : inactive}`}>
+        Milestones
+      </button>
+      <button type="button" onClick={() => setFilter('rejections')}
+        className={`${chipBase} ${filter === 'rejections' ? active : inactive} ${rejectionCount > 0 && filter !== 'rejections' ? 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50' : ''}`}>
+        Rejections ({rejectionCount})
+      </button>
+      {roles.length > 0 && (
+        <div className="relative">
+          <select
+            value={isRoleFilter ? filter : ''}
+            onChange={(e) => setFilter(e.target.value ? `role:${e.target.value}` : 'all')}
+            className={`${chipBase} ${isRoleFilter ? active : inactive} cursor-pointer appearance-none pr-7`}
+          >
+            <option value="">By role ▾</option>
+            {roles.map(r => (
+              <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function JourneyTable({ events }) {
   return (
     <div className="overflow-x-auto">
@@ -395,7 +525,12 @@ function JourneyTable({ events }) {
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {events.map((event, idx) => (
-            <JourneyTableRow key={`${event.stage}-${idx}`} event={event} index={idx + 1} />
+            <JourneyTableRow
+              key={`${event.stage}-${event.timestamp || idx}`}
+              event={event}
+              index={idx + 1}
+              isAwaitingReupload={!!event._awaitingReupload}
+            />
           ))}
         </tbody>
       </table>
@@ -403,17 +538,46 @@ function JourneyTable({ events }) {
   );
 }
 
-function JourneyTableRow({ event, index }) {
+// Stages that are logically sub-events of a parent material request —
+// indent them in the table for visual grouping under their request.
+const DELIVERY_SUB_STAGES = new Set([
+  'DELIVERY_SUPER_ADMIN_APPROVED', 'DELIVERY_SUPER_ADMIN_REJECTED',
+  'DELIVERY_AREA_HEAD_APPROVED',   'DELIVERY_AREA_HEAD_REJECTED',
+  'DELIVERY_ASSIGNED_TO_STORE',    'DELIVERY_DISPATCHED',
+  'DELIVERY_COMPLETED',
+]);
+
+function JourneyTableRow({ event, index, isAwaitingReupload }) {
   const accent = stageAccentClass(event.stage, event.label, event.isError);
+  const isRetry = !!event.meta?.isRetry;
+  const isDeliverySub = DELIVERY_SUB_STAGES.has(event.stage);
   return (
-    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 align-top">
-      <td className="py-3 px-4 text-xs text-slate-400 dark:text-slate-500 font-mono">{index}</td>
+    <tr className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 align-top ${isAwaitingReupload ? 'bg-amber-50/40 dark:bg-amber-950/10' : ''}`}>
+      <td className="py-3 px-4 text-xs text-slate-400 dark:text-slate-500 font-mono">
+        {isRetry ? (
+          <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400" title="Retry after earlier rejection">
+            <RefreshCw className="h-3 w-3" />
+          </span>
+        ) : (
+          index
+        )}
+      </td>
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
+          {/* indent delivery-request sub-events so they visually nest */}
+          {isDeliverySub && (
+            <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">└─</span>
+          )}
           <span className={`inline-block h-2 w-2 rounded-full flex-shrink-0 ${accent}`} />
           <span className={`font-medium ${event.isError ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
             {event.label}
           </span>
+          {isAwaitingReupload && (
+            <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" title="Lead is currently blocked here — waiting for BDM to re-submit">
+              <Clock className="h-3 w-3" />
+              Awaiting Re-upload
+            </span>
+          )}
         </div>
       </td>
       <td className="py-3 px-4 text-slate-700 dark:text-slate-300">
