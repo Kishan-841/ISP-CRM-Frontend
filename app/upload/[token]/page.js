@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { getRequiredCount } from '@/lib/documentTypes';
 import {
   Upload,
   FileText,
@@ -234,7 +235,7 @@ export default function CustomerUploadPage() {
     );
   }
 
-  const uploadProgress = linkData?.uploadProgress || { uploaded: 0, total: 11 };
+  const uploadProgress = linkData?.uploadProgress || { uploaded: 0, total: getRequiredCount() };
   const progressPercent = Math.round((uploadProgress.uploaded / uploadProgress.total) * 100);
   const isComplete = uploadProgress.uploaded >= uploadProgress.total;
 

@@ -59,7 +59,7 @@ import {
 } from 'lucide-react';
 import DocumentUploadSlot from '@/components/DocumentUploadSlot';
 import DocumentPreviewModal from '@/components/DocumentPreviewModal';
-import { getAllDocumentTypes, getUploadProgress, getMissingDocuments, getDocumentTypeById } from '@/lib/documentTypes';
+import { getAllDocumentTypes, getUploadProgress, getMissingDocuments, getDocumentTypeById, getRequiredCount } from '@/lib/documentTypes';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { formatCurrency } from '@/lib/formatters';
@@ -1088,7 +1088,7 @@ export default function QuotationManagementPage() {
 
     if (activeStage === 'docs_upload') {
       const docCount = Object.keys(lead.documents || {}).length;
-      const totalRequired = 11;
+      const totalRequired = getRequiredCount();
       // Check if this lead was sent back from accounts (has rejection reason)
       const isAccountsRejected = lead.docsRejectedReason?.includes('Accounts rejected') || lead.docsRejectedReason?.includes('accounts');
       return (
@@ -3573,7 +3573,7 @@ export default function QuotationManagementPage() {
                 <Button
                   onClick={async () => {
                     const docCount = Object.keys(leadDocuments).length;
-                    const requiredCount = testMode ? 0 : 11;
+                    const requiredCount = getRequiredCount(testMode);
 
                     if (!testMode && docCount < requiredCount) {
                       toast.error(`Please upload all ${requiredCount} documents before submitting`);
