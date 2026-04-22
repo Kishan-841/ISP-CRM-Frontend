@@ -48,6 +48,7 @@ import {
   RotateCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '@/lib/api';
 import {
   CUSTOMER_360_DETAIL_LEAD_STATUS_CONFIG,
   CUSTOMER_360_DETAIL_DELIVERY_STATUS_CONFIG,
@@ -137,6 +138,33 @@ function exportCustomerCSV(summary, tabData) {
   a.download = `customer-360-${(summary.company || 'export').replace(/\s+/g, '_')}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// Single-customer Excel export — hits the backend endpoint with leadId so
+// the same column set (BDM commercials + lifecycle) is used as the bulk
+// export, just scoped to one row. Filename comes from Content-Disposition.
+async function exportSingleCustomerExcel(leadId) {
+  const t = toast.loading('Preparing export…');
+  try {
+    const response = await api.get(`/customer-360/export?leadId=${encodeURIComponent(leadId)}`, {
+      responseType: 'blob',
+    });
+    const cd = response.headers?.['content-disposition'] || '';
+    const m = cd.match(/filename="?([^";]+)"?/i);
+    const downloadName = m?.[1] || `customer-360-${leadId}.xlsx`;
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = downloadName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    toast.success('Export ready', { id: t });
+  } catch (err) {
+    toast.error(err?.response?.data?.message || 'Export failed', { id: t });
+  }
 }
 
 function formatFieldName(field) {
@@ -2326,13 +2354,22 @@ export default function Customer360DetailPage() {
           Back to Search
         </Link>
         {summary && (
-          <button
-            onClick={() => exportCustomerCSV(summary, tabData)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => exportCustomerCSV(summary, tabData)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
+            </button>
+            <button
+              onClick={() => exportSingleCustomerExcel(leadId)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export Excel
+            </button>
+          </div>
         )}
       </div>
 
