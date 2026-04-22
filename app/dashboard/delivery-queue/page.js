@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import DeliveryVendorSetup from '@/components/DeliveryVendorSetup';
+import DeliveryDocsReview from '@/components/DeliveryDocsReview';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
@@ -1722,17 +1723,48 @@ export default function DeliveryQueuePage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {/* Left Column - Lead Info & Products */}
                 <div className="space-y-4">
-                  {/* Vendor Setup (mandatory before material request) */}
-                  <DeliveryVendorSetup
-                    lead={selectedLead}
-                    onSaved={(updatedLead) => {
-                      setSelectedLead(prev => ({ ...prev, ...updatedLead, deliveryVendorSetupDone: true }));
-                      // Switch to pending tab so the user sees the lead in its new home
-                      setActiveTab('pending');
-                      fetchDeliveryQueue('pending');
-                      setShowDetailsModal(false);
-                    }}
-                  />
+                  {/* Customer Documents review — gates vendor setup. Only
+                      shown until vendor setup is complete; after that it's
+                      ambient info noise. */}
+                  {!selectedLead.deliveryVendorSetupDone && (
+                    <DeliveryDocsReview
+                      lead={selectedLead}
+                      onReviewed={(updated) => {
+                        setSelectedLead((prev) => ({
+                          ...prev,
+                          deliveryDocsReviewedAt: updated?.deliveryDocsReviewedAt || new Date().toISOString(),
+                          deliveryDocsReviewedBy: updated?.deliveryDocsReviewedBy || prev.deliveryDocsReviewedBy,
+                        }));
+                      }}
+                    />
+                  )}
+
+                  {/* Vendor Setup (mandatory before material request) —
+                      hidden until docs are reviewed so the delivery user
+                      has a clear linear flow: review docs → then setup. */}
+                  {selectedLead.deliveryDocsReviewedAt ? (
+                    <DeliveryVendorSetup
+                      lead={selectedLead}
+                      onSaved={(updatedLead) => {
+                        setSelectedLead(prev => ({ ...prev, ...updatedLead, deliveryVendorSetupDone: true }));
+                        // Switch to pending tab so the user sees the lead in its new home
+                        setActiveTab('pending');
+                        fetchDeliveryQueue('pending');
+                        setShowDetailsModal(false);
+                      }}
+                    />
+                  ) : (
+                    !selectedLead.deliveryVendorSetupDone && (
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-4 text-center">
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Vendor setup locked
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Review and acknowledge the customer documents above to proceed.
+                        </p>
+                      </div>
+                    )
+                  )}
 
                   {/* Installation Address */}
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
