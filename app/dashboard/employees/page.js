@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuthStore, useUserStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -18,10 +18,22 @@ import { formatDate } from '@/lib/formatters';
 export default function EmployeesPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { users, isLoading, fetchUsers, createUser, updateUser, deleteUser } = useUserStore();
+  const { users, isLoading, usersPagination, fetchUsers, createUser, updateUser, deleteUser } = useUserStore();
 
+  // Server-driven pagination state. Search is debounced (300ms) so typing
+  // doesn't hammer the API; role filter + page fire immediately.
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+  // Reset to page 1 whenever a filter narrows the result set, otherwise we
+  // could land on an empty page (e.g. page 3 of a now-single-page result).
+  useEffect(() => { setPage(1); }, [debouncedSearch, roleFilter, pageSize]);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({
@@ -47,8 +59,8 @@ export default function EmployeesPage() {
       router.push('/dashboard');
       return;
     }
-    fetchUsers();
-  }, [user, router, fetchUsers]);
+    fetchUsers({ page, limit: pageSize, search: debouncedSearch, role: roleFilter });
+  }, [user, router, fetchUsers, page, pageSize, debouncedSearch, roleFilter]);
 
   const openCreateModal = () => {
     setEditingUser(null);
@@ -132,6 +144,7 @@ export default function EmployeesPage() {
       toast.success(editingUser ? 'Employee updated successfully' : 'Employee created successfully');
       setIsFormDirty(false);
       closeModal();
+      refetchCurrent();
     } else {
       setFormError(result.error);
       toast.error(result.error || 'Operation failed');
@@ -148,20 +161,25 @@ export default function EmployeesPage() {
     const result = await deleteUser(confirmDialog.userId);
     if (result.success) {
       toast.success('Employee deleted successfully');
+      refetchCurrent();
     } else {
       toast.error(result.error || 'Failed to delete employee');
     }
     setConfirmDialog({ open: false, userId: null, userName: '' });
   };
 
-  const filteredUsers = users.filter(u => {
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      if (!u.name?.toLowerCase().includes(term) && !u.email?.toLowerCase().includes(term)) return false;
-    }
-    if (roleFilter && u.role !== roleFilter) return false;
-    return true;
-  });
+  // Filtering + pagination are now server-driven — the store gives us the
+  // current page's slice. No more client-side filter; search/role flow as
+  // URL params through fetchUsers.
+  const totalUsers = usersPagination?.total ?? users.length;
+  const totalPages = usersPagination?.totalPages ?? 1;
+  const hasActiveFilter = !!(debouncedSearch || roleFilter);
+
+  // Refetch the current page after a create/update/delete so the badge
+  // total + page contents reflect the mutation without a manual reload.
+  const refetchCurrent = useCallback(() => {
+    fetchUsers({ page, limit: pageSize, search: debouncedSearch, role: roleFilter });
+  }, [fetchUsers, page, pageSize, debouncedSearch, roleFilter]);
 
   if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'SALES_DIRECTOR' && user?.role !== 'BDM_TEAM_LEADER' && user?.role !== 'MASTER') {
     return null;
@@ -182,7 +200,7 @@ export default function EmployeesPage() {
       <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-lg">
         <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 px-6 py-4">
           <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            {isTL ? 'Team BDMs' : 'All Employees'} ({filteredUsers.length}{(searchTerm || roleFilter) && filteredUsers.length !== users.length ? ` of ${users.length}` : ''})
+            {isTL ? 'Team BDMs' : 'All Employees'} ({totalUsers.toLocaleString()}{hasActiveFilter ? ' matching' : ''})
           </CardTitle>
           <Button
             onClick={openCreateModal}
@@ -241,7 +259,7 @@ export default function EmployeesPage() {
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
             </div>
-          ) : filteredUsers.length === 0 ? (
+          ) : users.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -269,7 +287,7 @@ export default function EmployeesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {filteredUsers.map((u) => (
+                  {users.map((u) => (
                     <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                       <td className="py-4 px-6 border-r border-slate-200 dark:border-slate-700">
                         <div className="flex items-center gap-3">
@@ -375,6 +393,51 @@ export default function EmployeesPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Pagination footer. Shown whenever we have >0 users; disabled
+              prev/next at list edges. pageSize select lets users widen the
+              page if they prefer scrolling to clicking. */}
+          {users.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40">
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                Showing <span className="font-medium">{((page - 1) * pageSize) + 1}</span>–
+                <span className="font-medium">{Math.min(page * pageSize, totalUsers)}</span> of
+                {' '}<span className="font-medium">{totalUsers.toLocaleString()}</span>
+                {hasActiveFilter ? ' matching employees' : ' employees'}
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-slate-600 dark:text-slate-400">Rows:</label>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="px-2 py-1 text-xs border rounded-md bg-background border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                >
+                  {[10, 25, 50, 100].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1 || isLoading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <span className="text-xs text-slate-600 dark:text-slate-400 px-2">
+                  Page <span className="font-medium">{page}</span> of <span className="font-medium">{totalPages || 1}</span>
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= (totalPages || 1) || isLoading}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
