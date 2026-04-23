@@ -1612,6 +1612,27 @@ export default function QuotationManagementPage() {
                 </div>
               )}
 
+              {/* Approval notes forwarded from OPS / Sales Director — shown
+                  to the BDM on both approve and reject flows so handoff
+                  context isn't lost. Quiet when neither approver left a note. */}
+              {(selectedLead.opsApprovalNotes || selectedLead.superAdmin2ApprovalNotes) && (
+                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg space-y-3">
+                  <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">Approval Notes</p>
+                  {selectedLead.opsApprovalNotes && (
+                    <div>
+                      <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">OPS</p>
+                      <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{selectedLead.opsApprovalNotes}</p>
+                    </div>
+                  )}
+                  {selectedLead.superAdmin2ApprovalNotes && (
+                    <div>
+                      <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">Sales Director</p>
+                      <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{selectedLead.superAdmin2ApprovalNotes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Feasibility Information Summary */}
               {(() => {
                 const feasibilityData = parseFeasibilityData(selectedLead);

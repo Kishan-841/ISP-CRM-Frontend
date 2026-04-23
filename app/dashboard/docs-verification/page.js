@@ -921,6 +921,27 @@ export default function DocsVerificationPage() {
                 </div>
               )}
 
+              {/* Approval notes forwarded from OPS / Sales Director. Both
+                  are optional and quiet when unset; when set, the Docs team
+                  gets the context before verifying documents. */}
+              {(selectedLead.opsApprovalNotes || selectedLead.superAdmin2ApprovalNotes) && (
+                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800 space-y-3">
+                  <h4 className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">Approval Notes from Quotation Review</h4>
+                  {selectedLead.opsApprovalNotes && (
+                    <div>
+                      <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">OPS</p>
+                      <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{selectedLead.opsApprovalNotes}</p>
+                    </div>
+                  )}
+                  {selectedLead.superAdmin2ApprovalNotes && (
+                    <div>
+                      <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">Sales Director</p>
+                      <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{selectedLead.superAdmin2ApprovalNotes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Expected Delivery Date */}
               {selectedLead.expectedDeliveryDate && (
                 <div className="p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl border border-cyan-200 dark:border-cyan-800">

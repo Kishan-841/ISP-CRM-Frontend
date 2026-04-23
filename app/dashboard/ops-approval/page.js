@@ -117,6 +117,10 @@ export default function OpsApprovalPage() {
   // Disposition state
   const [decision, setDecision] = useState('');
   const [reason, setReason] = useState('');
+  // Optional notes — forwarded to Sales Director + BDM on whichever
+  // decision is taken (approve or reject). Independent of the REJECTED
+  // rejection reason, which remains a required field on reject.
+  const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Sort state (pending tab only)
@@ -171,6 +175,7 @@ export default function OpsApprovalPage() {
   const resetDecision = () => {
     setDecision('');
     setReason('');
+    setNotes('');
   };
 
   const handleViewDetails = (lead) => {
@@ -199,7 +204,8 @@ export default function OpsApprovalPage() {
 
     const result = await opsTeamDisposition(selectedLead.id, {
       decision,
-      reason: reason.trim() || null
+      reason: reason.trim() || null,
+      notes: notes.trim() || null,
     });
 
     if (result.success) {
@@ -1630,6 +1636,27 @@ export default function OpsApprovalPage() {
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700">
                   <p className="text-sm text-emerald-700 dark:text-emerald-300">
                     After approval, this quotation will be sent back to BDM and then further sent to customer.
+                  </p>
+                </div>
+              )}
+
+              {/* Optional approval notes — forwarded to the next-step user
+                  (Sales Director + BDM). Shown on both approve and reject
+                  flows so OPS can add context regardless of the decision. */}
+              {decision && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Notes <span className="text-slate-400 text-xs font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    placeholder="Add any context for the Sales Director or BDM…"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 text-sm resize-none focus:ring-2 focus:ring-orange-600 focus:border-transparent"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Visible to the Sales Director and the BDM on the next step.
                   </p>
                 </div>
               )}
