@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   X,
@@ -39,15 +39,55 @@ export default function DocumentPreviewModal({ document, onClose, onReplace }) {
   const isOfficeDoc = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods'].includes(ext);
   const docTypeInfo = getDocumentTypeById(document.documentType);
 
-  // Our backend proxy re-serves Cloudinary files with Content-Disposition: inline
-  // so the browser renders them instead of downloading. Needed because Cloudinary
-  // raw uploads (PDFs, DOCs, etc.) come with an attachment header.
-  const proxyUrl = (() => {
-    if (!document.url) return '';
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
-    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
-    return `${apiBase}/proxy/file?url=${encodeURIComponent(document.url)}&token=${encodeURIComponent(token || '')}`;
-  })();
+  // Our backend proxy re-serves Cloudinary files with Content-Disposition:
+  // inline so the browser renders them instead of downloading.
+  //
+  // We fetch via Authorization header (standard Bearer) and pipe the bytes
+  // through a blob URL rather than pointing the iframe at the proxy URL
+  // directly with `?token=<jwt>`. The query-param form breaks in production
+  // under some reverse proxies / WAFs that truncate long URLs or strip
+  // unrecognised query strings, which was surfacing as a misleading 401 in
+  // the preview modal even though the token itself was valid (the same
+  // token succeeds on every other authenticated API call).
+  const [blobUrl, setBlobUrl] = useState('');
+  const [blobError, setBlobError] = useState('');
+
+  useEffect(() => {
+    if (!document?.url) return undefined;
+    let cancelled = false;
+    let objectUrl = null;
+
+    (async () => {
+      try {
+        setBlobError('');
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+        const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : '';
+        const res = await fetch(
+          `${apiBase}/proxy/file?url=${encodeURIComponent(document.url)}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        );
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          if (!cancelled) setBlobError(`${res.status} ${body || res.statusText}`);
+          return;
+        }
+        const blob = await res.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      } catch (err) {
+        if (!cancelled) setBlobError(err?.message || 'Failed to load document');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setBlobUrl('');
+    };
+  }, [document?.url]);
+
+  const proxyUrl = blobUrl;
 
   const handleZoomIn = () => {
     setZoom((prev) => Math.min(prev + 25, 200));
@@ -196,13 +236,28 @@ export default function DocumentPreviewModal({ document, onClose, onReplace }) {
             />
           </div>
         ) : isPDF ? (
-          // PDF via backend proxy (strips Content-Disposition: attachment)
-          <iframe
-            src={proxyUrl}
-            title={document.originalName}
-            className="w-full h-full max-w-5xl bg-white rounded shadow-xl"
-            style={{ minHeight: 'calc(100vh - 120px)' }}
-          />
+          // PDF via backend proxy (strips Content-Disposition: attachment).
+          // We render a loader until the blob resolves, and surface any
+          // proxy error in the modal instead of a blank iframe.
+          blobError ? (
+            <div className="w-full max-w-2xl bg-slate-800 text-slate-200 rounded shadow-xl p-6 space-y-3">
+              <p className="text-sm font-semibold text-red-400">Could not load preview</p>
+              <p className="text-xs text-slate-400 break-all">{blobError}</p>
+              <Button onClick={handleDownload} size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">
+                <Download size={14} className="mr-1.5" />
+                Download instead
+              </Button>
+            </div>
+          ) : proxyUrl ? (
+            <iframe
+              src={proxyUrl}
+              title={document.originalName}
+              className="w-full h-full max-w-5xl bg-white rounded shadow-xl"
+              style={{ minHeight: 'calc(100vh - 120px)' }}
+            />
+          ) : (
+            <div className="text-slate-300 text-sm">Loading preview…</div>
+          )
         ) : isOfficeDoc ? (
           // Office docs — Google Docs Viewer (browsers can't render natively)
           <iframe
