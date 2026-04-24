@@ -6,7 +6,36 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
 import { getDocumentTypeById } from '@/lib/documentTypes';
+import DocumentPreviewModal from '@/components/DocumentPreviewModal';
 import toast from 'react-hot-toast';
+
+// Map MIME types to file extensions so we can recover the extension when
+// the original filename doesn't carry one (common for older uploads whose
+// public_id was stored without an extension).
+const MIME_TO_EXT = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+};
+
+// Build a Cloudinary download URL that forces the correct filename (with
+// extension). Older uploads were stored with extensionless public_ids, so
+// a plain `fl_attachment` without a filename would download as "po" with
+// no extension — macOS / Windows then label it "unknown type".
+const buildDownloadUrl = (doc, docId) => {
+  if (!doc?.url || !doc.url.includes('/upload/')) return doc?.url || '';
+  const extFromName = doc.originalName?.match(/\.([^.]+)$/)?.[1]?.toLowerCase();
+  const extFromMime = MIME_TO_EXT[doc.mimetype];
+  const ext = extFromName || extFromMime || '';
+  const base = docId.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+  const filename = ext ? `${base}.${ext}` : base;
+  return doc.url.replace('/upload/', `/upload/fl_attachment:${filename}/`);
+};
 
 /**
  * Delivery team must review these two documents before vendor setup opens.
@@ -18,6 +47,7 @@ const REQUIRED_DOC_IDS = ['PO', 'IIL_PROTOCOL_SHEET'];
 
 export default function DeliveryDocsReview({ lead, onReviewed }) {
   const [acking, setAcking] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState(null);
 
   const documents = lead?.documents || {};
   const alreadyReviewed = !!lead?.deliveryDocsReviewedAt;
@@ -66,7 +96,12 @@ export default function DeliveryDocsReview({ lead, onReviewed }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {REQUIRED_DOC_IDS.map((docId) => (
-          <DocumentCard key={docId} docId={docId} doc={documents[docId]} />
+          <DocumentCard
+            key={docId}
+            docId={docId}
+            doc={documents[docId]}
+            onView={setPreviewDoc}
+          />
         ))}
       </div>
 
@@ -106,23 +141,27 @@ export default function DeliveryDocsReview({ lead, onReviewed }) {
           </Button>
         </div>
       )}
+
+      {/* Inline preview — same modal + backend proxy used by docs-verification
+          and accounts, so PDFs/Office docs render in place instead of
+          forcing a download. */}
+      <DocumentPreviewModal
+        document={previewDoc}
+        onClose={() => setPreviewDoc(null)}
+      />
     </div>
   );
 }
 
-// One document tile — preview link + download button. Cloudinary URLs open
-// inline in most browsers; the download button forces file save via the
-// `download` attribute.
-function DocumentCard({ docId, doc }) {
+// One document tile — "View" opens the shared preview modal (inline render
+// via backend proxy); "Download" forces save with a Cloudinary-side filename
+// transform so the file lands with its proper extension.
+function DocumentCard({ docId, doc, onView }) {
   const typeInfo = getDocumentTypeById(docId);
   const label = typeInfo?.label || docId;
   const isMissing = !doc;
-  const url = doc?.url || doc?.fileUrl || '';
-  const fileName = doc?.fileName || `${docId.toLowerCase()}${url ? url.slice(url.lastIndexOf('.')) : ''}`;
-  // Cloudinary image/pdf URLs support fl_attachment for forced download.
-  const downloadUrl = url && url.includes('/upload/')
-    ? url.replace('/upload/', '/upload/fl_attachment/')
-    : url;
+  const displayName = doc?.originalName || doc?.fileName || `${docId.toLowerCase()}`;
+  const downloadUrl = buildDownloadUrl(doc, docId);
 
   return (
     <div className={`rounded-md border p-3 ${isMissing ? 'border-red-200 dark:border-red-900/40 bg-red-50/40 dark:bg-red-950/20' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'}`}>
@@ -135,26 +174,24 @@ function DocumentCard({ docId, doc }) {
           {isMissing ? (
             <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">Not uploaded yet</p>
           ) : (
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate" title={fileName}>
-              {fileName}
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate" title={displayName}>
+              {displayName}
             </p>
           )}
         </div>
       </div>
       {!isMissing && (
         <div className="flex gap-1.5 mt-2">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => onView(doc)}
             className="inline-flex items-center gap-1 flex-1 justify-center px-2 py-1 text-[11px] font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 rounded border border-indigo-100 dark:border-indigo-900/40"
           >
             <Eye className="h-3 w-3" />
             View
-          </a>
+          </button>
           <a
             href={downloadUrl}
-            download={fileName}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 flex-1 justify-center px-2 py-1 text-[11px] font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700"
