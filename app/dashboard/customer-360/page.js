@@ -168,6 +168,24 @@ export default function Customer360Page() {
       },
     },
     {
+      key: 'currentStage',
+      label: 'Current Stage',
+      render: (row) => (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+          {row.currentStage || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'currentOwner',
+      label: 'Current Owner',
+      render: (row) => (
+        <span className="text-slate-700 dark:text-slate-300 text-sm">
+          {row.currentOwner || '-'}
+        </span>
+      ),
+    },
+    {
       key: 'deliveryStatus',
       label: 'Delivery Status',
       render: (row) => {
