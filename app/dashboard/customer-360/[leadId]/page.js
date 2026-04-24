@@ -340,12 +340,12 @@ function JourneyTab({ data, loading }) {
 
   const [filter, setFilter] = useState('all');
 
-  // Main journey = curated stage events sorted chronologically. Backend
-  // guarantees canonical phase ordering; the client-side sort is a safety net.
-  const mainEvents = useMemo(
-    () => [...timeline].sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0)),
-    [timeline]
-  );
+  // Backend already sorts timeline by phase index first, then timestamp
+  // (see customer360.controller.js STAGE_ORDER). Re-sorting by timestamp
+  // alone here destroys the phase order — e.g. a FIRST_PAYMENT backdated
+  // to a cheque date ends up before the lead was even created. Preserve
+  // whatever order the backend sent.
+  const mainEvents = useMemo(() => timeline, [timeline]);
 
   // Awaiting-reupload detection: for each rejection-phase family, mark the
   // latest rejection row as "awaiting" if no matching re-submit follows it.
