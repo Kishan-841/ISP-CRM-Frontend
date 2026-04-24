@@ -37,19 +37,26 @@ export default function PipelineARCPage() {
   const { user } = useAuthStore();
   const searchParams = useSearchParams();
   const { fetchBDMDashboardStats, bdmDashboardStats, bdmDashboardLoading, fetchBDMUsers, bdmUsers } = useLeadStore();
+  const isBDM = user?.role === 'BDM';
+  const isTL = user?.role === 'BDM_TEAM_LEADER';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isMaster = user?.role === 'MASTER';
+  const isAdmin = isSuperAdmin || isMaster;
+  const canView = isBDM || isTL || isAdmin;
+
+  // Default selection: Super-Admin / Master should see platform-wide ("all")
+  // by default — viewing their own pipeline returns zero. BDM / TL keep the
+  // "myself" default (empty string).
+  const initialBDM = searchParams.get('userId') || (isAdmin ? 'all' : '');
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBDM, setSelectedBDM] = useState(searchParams.get('userId') || '');
+  const [selectedBDM, setSelectedBDM] = useState(initialBDM);
   const [selectedPeriod, setSelectedPeriod] = useState(searchParams.get('period') || 'ytd');
   const [stageFilter, setStageFilter] = useState(searchParams.get('stage') || '');
   const [customFromDate, setCustomFromDate] = useState('');
   const [customToDate, setCustomToDate] = useState('');
 
-  const isBDM = user?.role === 'BDM';
-  const isTL = user?.role === 'BDM_TEAM_LEADER';
-  const isAdmin = user?.role === 'SUPER_ADMIN';
-  const canView = isBDM || isTL || isAdmin;
-
-  // Fetch BDM users list for TL/Admin
+  // Fetch BDM users list for TL/Admin (Master/Super-Admin)
   useEffect(() => {
     if (isTL || isAdmin) {
       fetchBDMUsers();
@@ -111,9 +118,12 @@ export default function PipelineARCPage() {
     { key: 'ftb', label: 'FTB Received', icon: Banknote, badgeClass: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400', dateField: 'ftbDate' },
   ];
 
-  const selectedBDMName = selectedBDM
-    ? bdmUsers.find(u => u.id === selectedBDM)?.name || 'Selected BDM'
-    : null;
+  const selectedBDMName =
+    selectedBDM === 'all'
+      ? 'All BDMs'
+      : selectedBDM
+      ? bdmUsers.find(u => u.id === selectedBDM)?.name || 'Selected BDM'
+      : null;
 
   return (
     <div className="space-y-6">
@@ -129,7 +139,9 @@ export default function PipelineARCPage() {
 
       {/* Filters Row */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* BDM Selector - for TL and Admin */}
+        {/* BDM Selector - for TL and Admin (Super-Admin / Master). Admin roles
+            default to "All BDMs" (their own pipeline is empty); TL defaults to
+            their own "My Pipeline". */}
         {(isTL || isAdmin) && (
           <div className="flex items-center gap-2">
             <Users size={16} className="text-slate-500" />
@@ -138,7 +150,8 @@ export default function PipelineARCPage() {
               onChange={(e) => setSelectedBDM(e.target.value)}
               className="text-sm border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500"
             >
-              <option value="">My Pipeline</option>
+              <option value="all">All BDMs</option>
+              {isTL && <option value="">My Pipeline</option>}
               {bdmUsers.map((bdm) => (
                 <option key={bdm.id} value={bdm.id}>{bdm.name}</option>
               ))}
