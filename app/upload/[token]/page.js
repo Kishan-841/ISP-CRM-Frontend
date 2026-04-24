@@ -405,7 +405,7 @@ export default function CustomerUploadPage() {
                         <input
                           type="file"
                           className="hidden"
-                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          accept={(docType.acceptedFormats || ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']).map(f => `.${f}`).join(',')}
                           onChange={(e) => {
                             if (e.target.files?.[0]) {
                               handleFileUpload(docType.id, e.target.files[0]);

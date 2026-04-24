@@ -3130,7 +3130,7 @@ export default function QuotationManagementPage() {
                                 <input
                                   type="file"
                                   className="hidden"
-                                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                  accept={(docType.acceptedFormats || ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']).map(f => `.${f}`).join(',')}
                                   disabled={hasActiveLink || isUploading}
                                   onChange={async (e) => {
                                     if (e.target.files?.[0]) {
@@ -3507,7 +3507,7 @@ export default function QuotationManagementPage() {
                                   ) : (
                                     <label className="cursor-pointer shrink-0">
                                       {isUploading ? <Loader2 size={12} className="animate-spin text-indigo-600" /> : <span className="text-indigo-600 hover:text-indigo-700 text-xs font-medium">Upload</span>}
-                                      <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" disabled={isUploading}
+                                      <input type="file" className="hidden" accept={(docType.acceptedFormats || ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']).map(f => `.${f}`).join(',')} disabled={isUploading}
                                         onChange={async (e) => {
                                           if (e.target.files?.[0]) {
                                             setUploadingType(docType.id);
