@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeadStore, useProductStore, useEmailStore, useUserStore } from '@/lib/store';
 import api from '@/lib/api';
@@ -291,11 +291,22 @@ export default function QuotationManagementPage() {
     }
   }, [user, isAdmin, canAccessBDM, router]);
 
-  useSocketRefresh(() => { fetchLeads(); }, { enabled: isAdmin || canAccessBDM });
+  // Opportunity Pipeline only shows leads whose status is FEASIBLE. Bare
+  // fetchLeads() pulls the 25 newest regardless of status, so if recent
+  // activity created a lot of NEW / QUALIFIED / FOLLOW_UP leads, the
+  // FEASIBLE ones get pushed off page 1 and the UI looks empty even when
+  // the sidebar badge says otherwise. Filter server-side and ask for a
+  // big-enough page to cover realistic quotation-pipeline volume.
+  const refreshOpportunityLeads = useCallback(
+    () => fetchLeads(1, 500, { status: 'FEASIBLE' }),
+    [fetchLeads]
+  );
+
+  useSocketRefresh(() => { refreshOpportunityLeads(); }, { enabled: isAdmin || canAccessBDM });
 
   useEffect(() => {
-    fetchLeads();
-  }, [fetchLeads]);
+    refreshOpportunityLeads();
+  }, [refreshOpportunityLeads]);
 
   useEffect(() => {
     fetchProducts();
@@ -801,7 +812,7 @@ export default function QuotationManagementPage() {
       if (result.success) {
         toast.success('Quotation submitted for Sales Director approval');
         setShowQuoteModal(false);
-        fetchLeads();
+        refreshOpportunityLeads();
       } else {
         toast.error(result.error || 'Failed to submit');
       }
@@ -896,7 +907,7 @@ export default function QuotationManagementPage() {
 
         toast.success('Quotation email sent successfully!');
         setShowShareModal(false);
-        fetchLeads();
+        refreshOpportunityLeads();
       } else {
         toast.error(emailResult.error || 'Failed to send email');
       }
@@ -927,7 +938,7 @@ export default function QuotationManagementPage() {
 
       toast.success('BYPASS: Lead pushed to Docs Upload');
       setShowShareModal(false);
-      fetchLeads();
+      refreshOpportunityLeads();
     } catch (error) {
       console.error('Bypass share error:', error);
       toast.error('Failed to bypass share');
@@ -952,7 +963,7 @@ export default function QuotationManagementPage() {
       if (result.success) {
         toast.success('Login marked complete');
         setShowLoginModal(false);
-        fetchLeads();
+        refreshOpportunityLeads();
       } else {
         toast.error(result.error || 'Failed to mark login complete');
       }
@@ -978,7 +989,7 @@ export default function QuotationManagementPage() {
       if (result.success) {
         toast.success('Assigned to Delivery Team');
         setShowInstallationModal(false);
-        fetchLeads();
+        refreshOpportunityLeads();
       } else {
         toast.error(result.error || 'Failed to push');
       }
@@ -1011,7 +1022,7 @@ export default function QuotationManagementPage() {
       if (result.success) {
         toast.success('Pricing updated and resubmitted to accounts team!');
         setShowAccountsRejectedModal(false);
-        fetchLeads();
+        refreshOpportunityLeads();
       } else {
         toast.error(result.error || 'Failed to resubmit');
       }
@@ -3613,7 +3624,7 @@ export default function QuotationManagementPage() {
                       if (result.success) {
                         toast.success(testMode ? 'Test mode: Bypassed to verification!' : 'Documents submitted for verification!');
                         setShowDocsUploadModal(false);
-                        fetchLeads();
+                        refreshOpportunityLeads();
                       } else {
                         toast.error(result.error || 'Failed to submit');
                       }
