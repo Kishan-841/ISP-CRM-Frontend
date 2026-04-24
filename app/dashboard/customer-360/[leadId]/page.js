@@ -217,11 +217,11 @@ const STAGE_COLORS = {
 
 const TABS = [
   { key: 'journey', label: 'Journey', icon: Activity },
+  { key: 'feasibility', label: 'Feasibility', icon: Building2 },
   { key: 'billing', label: 'Billing', icon: DollarSign },
   { key: 'documents', label: 'Documents', icon: FileText },
   { key: 'complaints', label: 'Complaints', icon: AlertTriangle },
   { key: 'sam', label: 'SAM', icon: Users },
-  { key: 'feasibility', label: 'Feasibility', icon: Building2 },
 ];
 
 // ─── Skeleton loader ───
