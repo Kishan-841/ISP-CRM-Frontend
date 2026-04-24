@@ -45,7 +45,7 @@ export default function BDMOverallDashboard() {
   const { user } = useAuthStore();
 
   const [isLoading, setIsLoading] = useState(true);
-  const [dateRange, setDateRange] = useState('7days');
+  const [dateRange, setDateRange] = useState('alltime');
   const [bdmList, setBdmList] = useState([]);
   const [allMeetings, setAllMeetings] = useState([]);
   const [meetingStats, setMeetingStats] = useState({ upcoming: 0, today: 0 });
@@ -112,17 +112,20 @@ export default function BDMOverallDashboard() {
       const bdmUsers = (usersRes.data.users || []).filter(u => u.role === 'BDM');
       setBdmList(bdmUsers);
 
-      // Map period to API format
+      // Map period to API format. 'alltime' omits the period param entirely —
+      // the backend returns unbounded stats when no period is supplied.
       const periodMap = {
         '7days': 'last7days',
         'month': 'lastMonth',
-        'year': 'lastYear'
+        'year': 'lastYear',
+        'alltime': null,
       };
-      const apiPeriod = periodMap[dateRange] || 'last7days';
+      const apiPeriod = dateRange in periodMap ? periodMap[dateRange] : 'last7days';
+      const periodQuery = apiPeriod ? `&period=${apiPeriod}` : '';
 
       // Fetch BDM dashboard stats for each BDM using the correct endpoint
       const dashboardPromises = bdmUsers.map(bdm =>
-        api.get(`/leads/bdm/dashboard-stats?userId=${bdm.id}&period=${apiPeriod}`).catch(() => ({ data: null }))
+        api.get(`/leads/bdm/dashboard-stats?userId=${bdm.id}${periodQuery}`).catch(() => ({ data: null }))
       );
 
       const dashboardResults = await Promise.all(dashboardPromises);
@@ -346,7 +349,8 @@ export default function BDMOverallDashboard() {
             {[
               { value: '7days', label: 'Last 7 Days' },
               { value: 'month', label: 'Last Month' },
-              { value: 'year', label: 'Last Year' }
+              { value: 'year', label: 'Last Year' },
+              { value: 'alltime', label: 'All Time' }
             ].map(range => (
               <button
                 key={range.value}
