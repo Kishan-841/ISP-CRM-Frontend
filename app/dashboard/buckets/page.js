@@ -13,8 +13,6 @@ import {
   FileText,
   Banknote,
   Truck,
-  Activity,
-  Snowflake,
   ChevronRight,
 } from 'lucide-react';
 import { useLeadStore } from '@/lib/store';
@@ -24,18 +22,74 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
 
-// Order matters — this is the left-to-right tab order.
+// Order matters — this is the left-to-right tab order, mirroring the
+// natural pipeline progression. Each entry carries the colour palette
+// used by both the tab card and the active-state border, so a tab's
+// look stays consistent across states.
 const BUCKETS = [
-  { key: 'BDM',                 label: 'BDM',               icon: Briefcase,     accent: 'bg-orange-500' },
-  { key: 'FEASIBILITY',         label: 'Feasibility',       icon: ClipboardCheck, accent: 'bg-purple-500' },
-  { key: 'OPS',                 label: 'OPS',               icon: CheckCircle2,  accent: 'bg-emerald-500' },
-  { key: 'SALES_DIRECTOR',      label: 'Sales Director',    icon: ShieldCheck,   accent: 'bg-indigo-500' },
-  { key: 'DOCS',                label: 'Docs',              icon: FileText,      accent: 'bg-cyan-500' },
-  { key: 'ACCOUNTS',            label: 'Accounts',          icon: Banknote,      accent: 'bg-amber-500' },
-  { key: 'DELIVERY',            label: 'Delivery',          icon: Truck,         accent: 'bg-pink-500' },
-  { key: 'PENDING_ACTIVATION',  label: 'Pending Activation', icon: Activity,     accent: 'bg-yellow-500' },
-  { key: 'ACTIVE',              label: 'Active Customers',  icon: CheckCircle2,  accent: 'bg-green-600' },
-  { key: 'COLD',                label: 'Cold Leads',        icon: Snowflake,     accent: 'bg-slate-400' },
+  {
+    key: 'BDM',
+    label: 'BDM',
+    icon: Briefcase,
+    iconBg: 'bg-orange-100 dark:bg-orange-900/30',
+    iconText: 'text-orange-600 dark:text-orange-400',
+    activeRing: 'ring-orange-500',
+    activeBg: 'bg-orange-50 dark:bg-orange-950/40',
+  },
+  {
+    key: 'FEASIBILITY',
+    label: 'Feasibility',
+    icon: ClipboardCheck,
+    iconBg: 'bg-purple-100 dark:bg-purple-900/30',
+    iconText: 'text-purple-600 dark:text-purple-400',
+    activeRing: 'ring-purple-500',
+    activeBg: 'bg-purple-50 dark:bg-purple-950/40',
+  },
+  {
+    key: 'OPS',
+    label: 'OPS',
+    icon: CheckCircle2,
+    iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
+    iconText: 'text-emerald-600 dark:text-emerald-400',
+    activeRing: 'ring-emerald-500',
+    activeBg: 'bg-emerald-50 dark:bg-emerald-950/40',
+  },
+  {
+    key: 'SALES_DIRECTOR',
+    label: 'Sales Director',
+    icon: ShieldCheck,
+    iconBg: 'bg-indigo-100 dark:bg-indigo-900/30',
+    iconText: 'text-indigo-600 dark:text-indigo-400',
+    activeRing: 'ring-indigo-500',
+    activeBg: 'bg-indigo-50 dark:bg-indigo-950/40',
+  },
+  {
+    key: 'DOCS',
+    label: 'Docs',
+    icon: FileText,
+    iconBg: 'bg-cyan-100 dark:bg-cyan-900/30',
+    iconText: 'text-cyan-600 dark:text-cyan-400',
+    activeRing: 'ring-cyan-500',
+    activeBg: 'bg-cyan-50 dark:bg-cyan-950/40',
+  },
+  {
+    key: 'ACCOUNTS',
+    label: 'Accounts',
+    icon: Banknote,
+    iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+    iconText: 'text-amber-600 dark:text-amber-400',
+    activeRing: 'ring-amber-500',
+    activeBg: 'bg-amber-50 dark:bg-amber-950/40',
+  },
+  {
+    key: 'DELIVERY',
+    label: 'Delivery',
+    icon: Truck,
+    iconBg: 'bg-pink-100 dark:bg-pink-900/30',
+    iconText: 'text-pink-600 dark:text-pink-400',
+    activeRing: 'ring-pink-500',
+    activeBg: 'bg-pink-50 dark:bg-pink-950/40',
+  },
 ];
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -132,8 +186,10 @@ export default function LeadBucketsPage() {
         </div>
       </div>
 
-      {/* Tab strip */}
-      <div className="flex flex-wrap gap-2">
+      {/* Tab strip — card-style buttons. Each shows a coloured icon block,
+          the bucket label, and the live count. Active tab gets a coloured
+          ring + tinted background so it stands out at a glance. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
         {BUCKETS.map((b) => {
           const count = data.summary?.[b.key] ?? 0;
           const active = activeBucket === b.key;
@@ -142,24 +198,22 @@ export default function LeadBucketsPage() {
             <button
               key={b.key}
               onClick={() => switchBucket(b.key)}
-              className={`group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-all whitespace-nowrap
+              className={`group relative flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all
                 ${active
-                  ? 'bg-white dark:bg-slate-900 border-orange-500 text-slate-900 dark:text-slate-100 shadow-sm'
-                  : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900'
+                  ? `${b.activeBg} border-transparent ring-2 ${b.activeRing} shadow-sm`
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm'
                 }`}
             >
-              <span className={`inline-flex h-5 w-5 items-center justify-center rounded ${b.accent} text-white`}>
-                <Icon size={12} />
+              <span className={`flex-shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg ${b.iconBg} ${b.iconText}`}>
+                <Icon size={18} />
               </span>
-              <span>{b.label}</span>
-              <span
-                className={`inline-flex items-center justify-center min-w-[1.5rem] px-1.5 h-5 rounded-full text-[11px] font-semibold
-                  ${active
-                    ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
-                    : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                  }`}
-              >
-                {count}
+              <span className="flex-1 min-w-0">
+                <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {b.label}
+                </span>
+                <span className="block text-lg font-semibold leading-tight text-slate-900 dark:text-slate-100">
+                  {count}
+                </span>
               </span>
             </button>
           );
