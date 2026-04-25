@@ -49,6 +49,7 @@ import {
   Plus,
   Sparkles,
   Trash2,
+  Briefcase,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -395,6 +396,7 @@ export default function Sidebar() {
       submenu: [
         { name: 'Team Dashboard', path: '/dashboard/admin-dashboards' },
         { name: 'Customer 360', path: '/dashboard/customer-360' },
+        { name: 'Lead Buckets', path: '/dashboard/buckets' },
         { name: 'Employees', path: '/dashboard/employees' },
         { name: 'Vendors', path: '/dashboard/vendors' },
         { name: 'Products', path: '/dashboard/products' },
@@ -575,6 +577,7 @@ export default function Sidebar() {
     // Customer 360
     ...(isSuperAdmin || isSalesDirector ? [
       { name: 'Customer 360', path: '/dashboard/customer-360', icon: UserCircle },
+      { name: 'Lead Buckets', path: '/dashboard/buckets', icon: Briefcase },
       { name: 'Business Impact', path: '/dashboard/sam-head/business-impact', icon: TrendingDown },
       { name: 'CP Leads', path: '/dashboard/cp-leads', icon: Handshake },
     ] : []),
