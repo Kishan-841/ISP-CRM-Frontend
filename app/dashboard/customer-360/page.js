@@ -8,6 +8,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
+import { stageColorClass } from '@/lib/leadStageColors';
 import api from '@/lib/api';
 import {
   CUSTOMER_360_LEAD_STATUS_CONFIG,
@@ -171,7 +172,7 @@ export default function Customer360Page() {
       key: 'currentStage',
       label: 'Current Stage',
       render: (row) => (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${stageColorClass(row.currentStage)}`}>
           {row.currentStage || '-'}
         </span>
       ),

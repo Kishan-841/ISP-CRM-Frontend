@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search,
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useLeadStore } from '@/lib/store';
 import useRoleCheck from '@/lib/useRoleCheck';
+import { stageColorClass } from '@/lib/leadStageColors';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -181,17 +182,6 @@ export default function LeadBucketsPage() {
 
   const totalAcrossBuckets = data.summary?.TOTAL || 0;
 
-  const stageColor = useMemo(
-    () => ({
-      // map a few common stages to colours; everything else falls through.
-      'Active Customer': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-      'Demo Plan': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
-      'Plan Creation': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
-      'Awaiting Plan Activation': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
-    }),
-    [],
-  );
-
   if (!canView) return null;
 
   return (
@@ -308,11 +298,7 @@ export default function LeadBucketsPage() {
                         {[lead.city, lead.state].filter(Boolean).join(', ') || '—'}
                       </Td>
                       <Td>
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                            ${stageColor[lead.currentStage] ||
-                              'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'}`}
-                        >
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${stageColorClass(lead.currentStage)}`}>
                           {lead.currentStage || '—'}
                         </span>
                       </Td>
