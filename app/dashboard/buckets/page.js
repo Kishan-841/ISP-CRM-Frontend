@@ -13,6 +13,8 @@ import {
   FileText,
   Banknote,
   Truck,
+  Network,
+  Warehouse,
   ChevronRight,
 } from 'lucide-react';
 import { useLeadStore } from '@/lib/store';
@@ -80,6 +82,24 @@ const BUCKETS = [
     iconText: 'text-amber-600 dark:text-amber-400',
     activeRing: 'ring-amber-500',
     activeBg: 'bg-amber-50 dark:bg-amber-950/40',
+  },
+  {
+    key: 'NOC',
+    label: 'NOC',
+    icon: Network,
+    iconBg: 'bg-teal-100 dark:bg-teal-900/30',
+    iconText: 'text-teal-600 dark:text-teal-400',
+    activeRing: 'ring-teal-500',
+    activeBg: 'bg-teal-50 dark:bg-teal-950/40',
+  },
+  {
+    key: 'STORE',
+    label: 'Store',
+    icon: Warehouse,
+    iconBg: 'bg-stone-200 dark:bg-stone-800',
+    iconText: 'text-stone-700 dark:text-stone-300',
+    activeRing: 'ring-stone-500',
+    activeBg: 'bg-stone-50 dark:bg-stone-900',
   },
   {
     key: 'DELIVERY',
@@ -188,8 +208,9 @@ export default function LeadBucketsPage() {
 
       {/* Tab strip — card-style buttons. Each shows a coloured icon block,
           the bucket label, and the live count. Active tab gets a coloured
-          ring + tinted background so it stands out at a glance. */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+          ring + tinted background so it stands out at a glance.
+          Grid wraps to 2 rows on lg, single row on xl (9 tabs). */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-9 gap-3">
         {BUCKETS.map((b) => {
           const count = data.summary?.[b.key] ?? 0;
           const active = activeBucket === b.key;
