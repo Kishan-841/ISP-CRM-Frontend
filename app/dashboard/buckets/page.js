@@ -209,8 +209,10 @@ export default function LeadBucketsPage() {
       {/* Tab strip — card-style buttons. Each shows a coloured icon block,
           the bucket label, and the live count. Active tab gets a coloured
           ring + tinted background so it stands out at a glance.
-          Grid wraps to 2 rows on lg, single row on xl (9 tabs). */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+          Capped at 5 columns so labels like "Sales Director" don't get
+          squeezed onto two lines and each card has room to breathe. With
+          9 tabs, this lays out as 5 + 4 on wide screens. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {BUCKETS.map((b) => {
           const count = data.summary?.[b.key] ?? 0;
           const active = activeBucket === b.key;
