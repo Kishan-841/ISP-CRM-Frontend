@@ -551,7 +551,7 @@ export default function RawDataCampaignPage() {
                   onChange={handleFileChange}
                   className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-100 dark:file:bg-orange-900/30 file:text-orange-600 dark:file:text-orange-400 hover:file:bg-orange-200"
                 />
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Required columns: Name, Phone, Email, Title</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Required columns: Name, Company, Phone, Email, Title</p>
               </div>
 
               {parsedData.length > 0 && (
@@ -568,7 +568,7 @@ export default function RawDataCampaignPage() {
                   </div>
 
                   {/* Breakdown */}
-                  {(uploadResult.duplicateCount > 0 || uploadResult.skippedNoPhone > 0 || uploadResult.skippedInvalidPhone > 0 || uploadResult.skippedNoName > 0 || uploadResult.skippedNoEmail > 0 || uploadResult.skippedNoTitle > 0) && (
+                  {(uploadResult.duplicateCount > 0 || uploadResult.skippedNoPhone > 0 || uploadResult.skippedInvalidPhone > 0 || uploadResult.skippedNoName > 0 || uploadResult.skippedNoCompany > 0 || uploadResult.skippedNoEmail > 0 || uploadResult.skippedNoTitle > 0) && (
                     <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-300">
                       <p className="font-semibold mb-1">Skipped Records Breakdown:</p>
                       <ul className="space-y-0.5 text-xs">
@@ -576,6 +576,7 @@ export default function RawDataCampaignPage() {
                         {uploadResult.skippedNoPhone > 0 && <li>• Missing phone: {uploadResult.skippedNoPhone}</li>}
                         {uploadResult.skippedInvalidPhone > 0 && <li>• Invalid phone (not 10 digits): {uploadResult.skippedInvalidPhone}</li>}
                         {uploadResult.skippedNoName > 0 && <li>• Missing name: {uploadResult.skippedNoName}</li>}
+                        {uploadResult.skippedNoCompany > 0 && <li>• Missing company: {uploadResult.skippedNoCompany}</li>}
                         {uploadResult.skippedNoEmail > 0 && <li>• Missing email: {uploadResult.skippedNoEmail}</li>}
                         {uploadResult.skippedNoTitle > 0 && <li>• Missing title: {uploadResult.skippedNoTitle}</li>}
                       </ul>
