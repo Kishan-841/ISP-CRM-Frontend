@@ -374,13 +374,17 @@ export default function AccountsVerificationPage() {
     }
 
     if (decision === 'APPROVED') {
+      // GST is only mandatory when the BDM declared the customer is
+      // GST-registered at docs-upload time. Keep the format check below
+      // applicable only when a value is actually present.
+      const gstApplicable = selectedLead?.hasGst !== false;
       // Validate company name
       if (!companyName || companyName.trim().length === 0) {
         toast.error('Company name is required for approval');
         return;
       }
       // Validate GST
-      if (!customerGstNo || customerGstNo.trim().length !== 15) {
+      if (gstApplicable && (!customerGstNo || customerGstNo.trim().length !== 15)) {
         toast.error('Valid 15-character GST number is required for approval');
         return;
       }
@@ -426,8 +430,8 @@ export default function AccountsVerificationPage() {
         toast.error('Valid OTC amount is required for approval');
         return;
       }
-      // Validate legal name
-      if (!customerLegalName || customerLegalName.trim().length === 0) {
+      // Validate legal name (only when GST is applicable for this lead)
+      if (gstApplicable && (!customerLegalName || customerLegalName.trim().length === 0)) {
         toast.error('Legal name (as per GST) is required for approval');
         return;
       }
@@ -2305,6 +2309,15 @@ export default function AccountsVerificationPage() {
                         <Building2 size={14} />
                         Company & Tax Details
                       </h4>
+                      {/* When the BDM marked this lead as not GST-registered
+                          at docs-upload time, the GST and Legal Name inputs
+                          stay visible (in case Accounts wants to record one
+                          anyway) but are no longer mandatory for approval. */}
+                      {selectedLead?.hasGst === false && (
+                        <div className="mb-3 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                          BDM marked this customer as <strong>not GST-registered</strong>. GST number and Legal Name are optional for approval.
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div>
                           <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">Company Name *</Label>
@@ -2317,7 +2330,7 @@ export default function AccountsVerificationPage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">GST Number *</Label>
+                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">GST Number {selectedLead?.hasGst === false ? <span className="text-slate-400 font-normal">(optional)</span> : '*'}</Label>
                           <Input
                             type="text"
                             value={customerGstNo}
@@ -2349,7 +2362,7 @@ export default function AccountsVerificationPage() {
                           />
                         </div>
                         <div className="sm:col-span-2">
-                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">Legal Name (as per GST) *</Label>
+                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">Legal Name (as per GST) {selectedLead?.hasGst === false ? <span className="text-slate-400 font-normal">(optional)</span> : '*'}</Label>
                           <Input
                             type="text"
                             value={customerLegalName}

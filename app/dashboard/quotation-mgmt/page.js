@@ -59,7 +59,7 @@ import {
 } from 'lucide-react';
 import DocumentUploadSlot from '@/components/DocumentUploadSlot';
 import DocumentPreviewModal from '@/components/DocumentPreviewModal';
-import { getAllDocumentTypes, getUploadProgress, getMissingDocuments, getDocumentTypeById, getRequiredCount } from '@/lib/documentTypes';
+import { getAllDocumentTypes, getVisibleDocumentTypes, getUploadProgress, getMissingDocuments, getDocumentTypeById, getRequiredCount } from '@/lib/documentTypes';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { formatCurrency } from '@/lib/formatters';
@@ -199,6 +199,11 @@ export default function QuotationManagementPage() {
   // Form states
   const [isSaving, setIsSaving] = useState(false);
   const [testMode, setTestMode] = useState(false);
+  // Whether the customer is GST-registered. Drives both the GST_DETAILS doc
+  // requirement here and the GST/legal-name requirement on the Accounts side.
+  // Initialised when the docs-upload modal opens from the lead's persisted
+  // value (defaults to true to match the schema default).
+  const [hasGst, setHasGst] = useState(true);
   const [leadDocuments, setLeadDocuments] = useState({});
   const [uploadingType, setUploadingType] = useState(null);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
@@ -498,6 +503,8 @@ export default function QuotationManagementPage() {
     setSelectedLead(lead);
     setUploadMethodState(lead.docUploadMethod || 'bdm');
     setLeadDocuments(lead.documents || {});
+    // Seed GST applicability from the lead (default true if never set).
+    setHasGst(lead.hasGst !== false);
     setLinkExpiryDays(7);
     setCustomerNote('');
     // Initialize all documents as selected for link generation
@@ -2780,10 +2787,15 @@ export default function QuotationManagementPage() {
 
         // Get documents assigned to customer via active link
         const customerDocIds = activeLink?.requiredDocuments || [];
-        // Documents for BDM are those NOT assigned to customer
-        const allDocTypes = getAllDocumentTypes();
+        // The visible doc list collapses to 11 items (instead of 12) when the
+        // BDM declared the customer is not GST-registered. Everything in this
+        // modal — progress count, BDM grid, customer-link selector — flows
+        // off this single list so toggling "GST: No" cleanly removes the
+        // GST_DETAILS row everywhere.
+        const allDocTypes = getVisibleDocumentTypes({ hasGst });
         const bdmDocTypes = allDocTypes.filter(d => !customerDocIds.includes(d.id));
         const customerDocTypes = allDocTypes.filter(d => customerDocIds.includes(d.id));
+        const requiredDocsCount = getRequiredCount(testMode, { hasGst });
 
         return (
           <div data-modal className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -2877,22 +2889,67 @@ export default function QuotationManagementPage() {
                       </div>
                     )}
 
+                    {/* GST applicability — drives whether GST_DETAILS upload
+                        is shown here and whether the Accounts team is forced
+                        to record GST number / legal name later. */}
+                    <div className="flex items-center justify-between p-2 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-violet-800 dark:text-violet-300">Is the customer GST-registered?</p>
+                        <p className="text-[11px] text-violet-700/80 dark:text-violet-400/80">Choose <strong>No</strong> to skip the GST Details upload — Accounts will also stop asking for a GST number.</p>
+                      </div>
+                      <div className="flex items-center gap-1 p-0.5 bg-white dark:bg-slate-900 rounded-md border border-violet-200 dark:border-violet-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHasGst(true);
+                          }}
+                          disabled={hasActiveLink}
+                          className={`px-3 py-1 text-xs font-semibold rounded ${hasGst
+                            ? 'bg-violet-600 text-white'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Drop any previously uploaded GST_DETAILS doc
+                            // from the local view so it doesn't sneak through
+                            // as a stale upload after toggling off.
+                            setLeadDocuments((prev) => {
+                              if (!prev?.GST_DETAILS) return prev;
+                              const next = { ...prev };
+                              delete next.GST_DETAILS;
+                              return next;
+                            });
+                            setHasGst(false);
+                          }}
+                          disabled={hasActiveLink}
+                          className={`px-3 py-1 text-xs font-semibold rounded ${!hasGst
+                            ? 'bg-violet-600 text-white'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Progress */}
                     <div className="flex items-center justify-between p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
                       <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-                        Progress: {Object.keys(leadDocuments).length} / {testMode ? '1 (Test)' : '11'} documents
+                        Progress: {Object.keys(leadDocuments).length} / {testMode ? '1 (Test)' : requiredDocsCount} documents
                       </span>
                       <div className="w-32 bg-indigo-200 dark:bg-indigo-800 rounded-full h-2">
                         <div
                           className="bg-indigo-600 h-2 rounded-full transition-all"
-                          style={{ width: `${Math.min(100, (Object.keys(leadDocuments).length / (testMode ? 1 : 11)) * 100)}%` }}
+                          style={{ width: `${Math.min(100, (Object.keys(leadDocuments).length / (testMode ? 1 : requiredDocsCount)) * 100)}%` }}
                         />
                       </div>
                     </div>
 
                     {/* Compact Document Grid */}
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                      {getAllDocumentTypes().map((docType) => {
+                      {allDocTypes.map((docType) => {
                         const doc = leadDocuments[docType.id];
                         const isUploading = uploadingType === docType.id;
                         const isAdvanceOtc = docType.id === 'ADVANCE_OTC';
@@ -3216,11 +3273,11 @@ export default function QuotationManagementPage() {
                             </p>
                             <div className="flex items-center justify-between mb-1.5">
                               <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                                Customer Docs ({selectedDocsForLink.length}/{getAllDocumentTypes().length})
+                                Customer Docs ({selectedDocsForLink.length}/{allDocTypes.length})
                               </span>
                               <div className="flex gap-1">
                                 <button
-                                  onClick={() => setSelectedDocsForLink(getAllDocumentTypes().map(d => d.id))}
+                                  onClick={() => setSelectedDocsForLink(allDocTypes.map(d => d.id))}
                                   className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
                                 >
                                   All
@@ -3235,7 +3292,7 @@ export default function QuotationManagementPage() {
                               </div>
                             </div>
                             <div className="grid grid-cols-1 gap-0.5 max-h-32 overflow-y-auto">
-                              {getAllDocumentTypes().map((docType) => (
+                              {allDocTypes.map((docType) => (
                                 <label
                                   key={docType.id}
                                   className="flex items-center gap-2 p-1 rounded hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
@@ -3326,7 +3383,7 @@ export default function QuotationManagementPage() {
                             {uploadLinks.map((link) => {
                               const isExpired = new Date() > new Date(link.expiresAt);
                               const isInactive = !link.isActive || isExpired;
-                              const docsCount = link.requiredDocuments?.length || getAllDocumentTypes().length;
+                              const docsCount = link.requiredDocuments?.length || allDocTypes.length;
                               return (
                                 <div key={link.id} className={`p-2 rounded border text-xs ${isInactive ? 'opacity-50 bg-slate-100 dark:bg-slate-700' : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700'}`}>
                                   <div className="flex items-center justify-between">
@@ -3360,7 +3417,7 @@ export default function QuotationManagementPage() {
                       {/* Overall Progress */}
                       <div className="flex items-center justify-between p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
                         <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-                          Total: {Object.keys(leadDocuments).length} / {testMode ? '1 (Test)' : getAllDocumentTypes().length} documents
+                          Total: {Object.keys(leadDocuments).length} / {testMode ? '1 (Test)' : allDocTypes.length} documents
                         </span>
                         <Button variant="outline" size="sm" onClick={refreshLeadDocuments} disabled={isLoadingDocs} className="h-7 text-xs">
                           <RefreshCw size={12} className={isLoadingDocs ? 'animate-spin' : ''} />
@@ -3542,10 +3599,10 @@ export default function QuotationManagementPage() {
                       {!hasActiveLink && (
                         <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            All Documents ({Object.keys(leadDocuments).length}/{getAllDocumentTypes().length})
+                            All Documents ({Object.keys(leadDocuments).length}/{allDocTypes.length})
                           </h3>
                           <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto">
-                            {getAllDocumentTypes().map((docType) => {
+                            {allDocTypes.map((docType) => {
                               const doc = leadDocuments[docType.id];
                               return (
                                 <div key={docType.id} className={`flex items-center justify-between p-1.5 rounded text-xs ${doc ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-white dark:bg-slate-900'}`}>
@@ -3605,7 +3662,7 @@ export default function QuotationManagementPage() {
                 <Button
                   onClick={async () => {
                     const docCount = Object.keys(leadDocuments).length;
-                    const requiredCount = getRequiredCount(testMode);
+                    const requiredCount = getRequiredCount(testMode, { hasGst });
 
                     if (!testMode && docCount < requiredCount) {
                       toast.error(`Please upload all ${requiredCount} documents before submitting`);
@@ -3618,7 +3675,8 @@ export default function QuotationManagementPage() {
                         selectedLead.id,
                         testMode ? '(TEST MODE) Bypassed document upload' : 'Documents submitted for verification',
                         testMode,
-                        { arcAmount: parseFloat(editableArc) || selectedLead.arcAmount, otcAmount: parseFloat(editableOtc) || selectedLead.otcAmount }
+                        { arcAmount: parseFloat(editableArc) || selectedLead.arcAmount, otcAmount: parseFloat(editableOtc) || selectedLead.otcAmount },
+                        hasGst,
                       );
 
                       if (result.success) {
