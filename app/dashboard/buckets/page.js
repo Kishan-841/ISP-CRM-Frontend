@@ -117,9 +117,9 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function LeadBucketsPage() {
   const router = useRouter();
-  const { user, isMaster, isSuperAdmin, isAdmin } = useRoleCheck();
+  const { user, isMaster, isSuperAdmin, isAdmin, isOpsTeam } = useRoleCheck();
   const isSalesDirector = user?.role === 'SALES_DIRECTOR' || isMaster;
-  const canView = isMaster || isSuperAdmin || isAdmin || isSalesDirector;
+  const canView = isMaster || isSuperAdmin || isAdmin || isSalesDirector || isOpsTeam;
 
   const { fetchLeadBuckets } = useLeadStore();
 

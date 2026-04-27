@@ -67,7 +67,7 @@ export default function IndividualAccountsDashboard() {
 
   // Check authorization
   useEffect(() => {
-    if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'SALES_DIRECTOR' && user.role !== 'MASTER') {
+    if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'SALES_DIRECTOR' && user.role !== 'MASTER' && user.role !== 'OPS_TEAM') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -94,12 +94,12 @@ export default function IndividualAccountsDashboard() {
   }, [userId, timeFilter]);
 
   useEffect(() => {
-    if (user?.role === 'SUPER_ADMIN' || user?.role === 'SALES_DIRECTOR' || user?.role === 'MASTER' && userId) {
+    if (user?.role === 'SUPER_ADMIN' || user?.role === 'SALES_DIRECTOR' || user?.role === 'MASTER' || user?.role === 'OPS_TEAM' && userId) {
       fetchData();
     }
   }, [user, userId, fetchData]);
 
-  if (!user || user.role !== 'SUPER_ADMIN' && user.role !== 'SALES_DIRECTOR' && user.role !== 'MASTER') {
+  if (!user || user.role !== 'SUPER_ADMIN' && user.role !== 'SALES_DIRECTOR' && user.role !== 'MASTER' && user.role !== 'OPS_TEAM') {
     return null;
   }
 

@@ -517,6 +517,9 @@ export default function Sidebar() {
     ...(isOpsTeam ? [
       { name: 'OPS Approval Queue', path: '/dashboard/ops-approval', icon: FileText, badge: counts.opsPending > 0 ? counts.opsPending : null },
       { name: 'Installation Assignment', path: '/dashboard/ops-installation', icon: Package, badge: counts.installationPending > 0 ? counts.installationPending : null },
+      { name: 'Team Dashboard', path: '/dashboard/admin-dashboards', icon: BarChart3 },
+      { name: 'Customer 360', path: '/dashboard/customer-360', icon: UserCircle },
+      { name: 'Lead Buckets', path: '/dashboard/buckets', icon: Briefcase },
     ] : []),
     // Super Admin 2-only items
     ...(isSuperAdmin2 ? [

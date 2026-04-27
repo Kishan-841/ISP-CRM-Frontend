@@ -94,7 +94,7 @@ export default function BDMOverallDashboard() {
     }
   });
 
-  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'SALES_DIRECTOR' || user?.role === 'MASTER' || user?.role === 'BDM_TEAM_LEADER';
+  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'SALES_DIRECTOR' || user?.role === 'MASTER' || user?.role === 'OPS_TEAM' || user?.role === 'BDM_TEAM_LEADER';
 
   // Check authorization
   useEffect(() => {
