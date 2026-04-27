@@ -387,12 +387,20 @@ export default function SuperAdmin2ApprovalPage() {
             <div className="p-6 space-y-6">
               {/* SA2 Decision Banner (for approved/rejected tabs) */}
               {selectedLead.superAdmin2ApprovalStatus === 'APPROVED' && (
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center gap-3">
-                  <CheckCircle className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" size={20} />
-                  <div>
-                    <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Approved by {selectedLead.superAdmin2ApprovedBy?.name || 'Admin'}</p>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400">{formatDate(selectedLead.superAdmin2ApprovedAt)}</p>
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" size={20} />
+                    <div>
+                      <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Approved by {selectedLead.superAdmin2ApprovedBy?.name || 'Admin'}</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">{formatDate(selectedLead.superAdmin2ApprovedAt)}</p>
+                    </div>
                   </div>
+                  {selectedLead.superAdmin2ApprovalNotes && (
+                    <div className="mt-2 ml-8">
+                      <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">Approval Notes</p>
+                      <p className="text-sm text-emerald-900 dark:text-emerald-200 whitespace-pre-wrap">{selectedLead.superAdmin2ApprovalNotes}</p>
+                    </div>
+                  )}
                 </div>
               )}
               {selectedLead.superAdmin2ApprovalStatus === 'REJECTED' && (
