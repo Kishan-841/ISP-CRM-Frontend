@@ -25,19 +25,15 @@ import { useModal } from '@/lib/useModal';
  * - onReplace: () => void (optional)
  */
 export default function DocumentPreviewModal({ document, onClose, onReplace }) {
+  // All hooks must be declared unconditionally before any early return —
+  // otherwise React throws #310 ("Rendered more hooks than during the
+  // previous render") when `document` flips from null to a real object.
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
+  const [blobUrl, setBlobUrl] = useState('');
+  const [blobError, setBlobError] = useState('');
 
   useModal(!!document, onClose);
-
-  if (!document) return null;
-
-  // Detect type from mimetype AND file extension (fallback when mimetype is missing/wrong)
-  const ext = (document.originalName || document.url || '').toLowerCase().match(/\.([a-z0-9]+)(\?|$)/)?.[1] || '';
-  const isImage = document.mimetype?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext);
-  const isPDF = document.mimetype === 'application/pdf' || ext === 'pdf';
-  const isOfficeDoc = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods'].includes(ext);
-  const docTypeInfo = getDocumentTypeById(document.documentType);
 
   // Our backend proxy re-serves Cloudinary files with Content-Disposition:
   // inline so the browser renders them instead of downloading.
@@ -49,9 +45,6 @@ export default function DocumentPreviewModal({ document, onClose, onReplace }) {
   // unrecognised query strings, which was surfacing as a misleading 401 in
   // the preview modal even though the token itself was valid (the same
   // token succeeds on every other authenticated API call).
-  const [blobUrl, setBlobUrl] = useState('');
-  const [blobError, setBlobError] = useState('');
-
   useEffect(() => {
     if (!document?.url) return undefined;
     let cancelled = false;
@@ -86,6 +79,15 @@ export default function DocumentPreviewModal({ document, onClose, onReplace }) {
       setBlobUrl('');
     };
   }, [document?.url]);
+
+  if (!document) return null;
+
+  // Detect type from mimetype AND file extension (fallback when mimetype is missing/wrong)
+  const ext = (document.originalName || document.url || '').toLowerCase().match(/\.([a-z0-9]+)(\?|$)/)?.[1] || '';
+  const isImage = document.mimetype?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext);
+  const isPDF = document.mimetype === 'application/pdf' || ext === 'pdf';
+  const isOfficeDoc = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods'].includes(ext);
+  const docTypeInfo = getDocumentTypeById(document.documentType);
 
   const proxyUrl = blobUrl;
 
