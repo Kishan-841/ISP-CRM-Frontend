@@ -391,8 +391,8 @@ export default function RawDataSelfDataPage() {
                       {uploadResult.skippedNoPhone > 0 && <li>• Missing phone: {uploadResult.skippedNoPhone}</li>}
                       {uploadResult.skippedInvalidPhone > 0 && <li>• Invalid phone (not 10 digits): {uploadResult.skippedInvalidPhone}</li>}
                       {uploadResult.skippedNoName > 0 && <li>• Missing name: {uploadResult.skippedNoName}</li>}
-                      {uploadResult.skippedNoCompany > 0 && <li>• Missing company: {uploadResult.skippedNoCompany}</li>}
-                      {uploadResult.skippedNoTitle > 0 && <li>• Missing title/designation: {uploadResult.skippedNoTitle}</li>}
+                      {uploadResult.skippedNoEmail > 0 && <li>• Missing email: {uploadResult.skippedNoEmail}</li>}
+                      {uploadResult.skippedNoTitle > 0 && <li>• Missing title: {uploadResult.skippedNoTitle}</li>}
                     </ul>
                   </div>
 
@@ -525,7 +525,7 @@ export default function RawDataSelfDataPage() {
                       <Label className="text-slate-700 dark:text-slate-300">Upload File <span className="text-red-500">*</span></Label>
                       <Input type="file" accept=".csv,.txt,.xlsx,.xls" onChange={handleFileChange}
                         className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-orange-100 dark:file:bg-orange-900/30 file:text-orange-600 dark:file:text-orange-400" />
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Required columns: Name, Company, Phone, Title</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Required columns: Name, Phone, Email, Title</p>
                       {file && parsedData.length > 0 && (
                         <p className="text-sm text-emerald-600 dark:text-emerald-400">{parsedData.length} records found in {file.name}</p>
                       )}
