@@ -117,10 +117,13 @@ export default function IndividualISRDashboard() {
 
     setIsLoading(true);
     try {
-      // Fetch user info and dashboard stats
+      // Fetch user info and dashboard stats. Use the same endpoint the ISR
+      // hits when they log in (/campaigns/dashboard/stats), with ?userId=
+      // so the master sees exactly what the ISR sees instead of the
+      // separate /users/:id/dashboard view that drifted out of sync.
       const [userRes, statsRes] = await Promise.all([
         api.get(`/users/${userId}`),
-        api.get(`/users/${userId}/dashboard?period=${dateRange}`)
+        api.get(`/campaigns/dashboard/stats?userId=${userId}&period=${dateRange}`)
       ]);
 
       setIsrUser(userRes.data.user);

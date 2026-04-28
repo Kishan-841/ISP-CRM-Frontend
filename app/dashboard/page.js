@@ -252,11 +252,14 @@ export default function DashboardPage() {
             setSelectedUserInfo(selectedUser);
           }
         } else {
-          // Admin viewing an ISR's dashboard
+          // Admin viewing an ISR's dashboard. The endpoint behind this is
+          // the same one the ISR hits on their own login, so it doesn't
+          // echo back a `user` object — fall back to the row we already
+          // have from the user dropdown.
           const result = await fetchUserDashboardStats(selectedUserId, selectedPeriod);
           if (result.success) {
             setDashboardData(result.data);
-            setSelectedUserInfo(result.data.user);
+            setSelectedUserInfo(selectedUser);
           }
         }
       } else if (!isAdmin && !isBDM && !isFeasibilityTeam) {
