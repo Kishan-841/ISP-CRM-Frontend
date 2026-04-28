@@ -368,11 +368,15 @@ export default function BDMOverallDashboard() {
             {[
               { label: 'Total Leads', value: summary.totalLeads || 0, icon: Users, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400' },
               { label: 'Meetings Done', value: summary.meetingsDone || 0, icon: Calendar, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-900/40', iconText: 'text-cyan-600 dark:text-cyan-400' },
-              { label: 'Funnel Value', value: formatCurrency(summary.funnelValue), icon: Send, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400' },
+              // Funnel Value drills into the Pipeline ARC tracker filtered to
+              // the funnel stage — shows every lead with a tentativePrice
+              // along with company / BDM / amount / status / industry / city.
+              { label: 'Funnel Value', value: formatCurrency(summary.funnelValue), icon: Send, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400', stage: 'funnel' },
             ].map((stat, i) => (
               <Card
                 key={i}
-                className={`rounded-xl md:rounded-2xl bg-white dark:bg-card border border-l-4 ${stat.borderColor} shadow-sm hover:shadow-lg transition-all duration-200`}
+                onClick={stat.stage ? () => router.push(`/dashboard/pipeline-arc?stage=${stat.stage}`) : undefined}
+                className={`rounded-xl md:rounded-2xl bg-white dark:bg-card border border-l-4 ${stat.borderColor} shadow-sm hover:shadow-lg transition-all duration-200 ${stat.stage ? 'cursor-pointer' : ''}`}
               >
                 <CardContent className="p-3 md:p-4">
                   <div className="flex items-center justify-between">

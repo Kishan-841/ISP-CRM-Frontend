@@ -25,6 +25,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { formatCurrency } from '@/lib/formatters';
 
 const STAGE_CONFIG = {
+  funnel: { label: 'Funnel', dateField: null, color: 'bg-orange-600' },
   login: { label: 'Login', dateField: 'loginCompletedAt', color: 'bg-cyan-600' },
   po: { label: 'PO Received', dateField: 'accountsVerifiedAt', color: 'bg-emerald-600' },
   install: { label: 'Installation Done', dateField: 'installationCompletedAt', color: 'bg-amber-600' },
@@ -94,12 +95,21 @@ export default function PipelineARCPage() {
 
   const dashStats = bdmDashboardStats?.dashboardStats || {};
   const pipelineLeads = dashStats.pipelineLeads || [];
+  const funnelLeads = dashStats.funnelLeads || [];
 
-  const filteredLeads = pipelineLeads.filter((lead) => {
-    // Stage filter: only show leads that have the selected milestone
-    if (stageFilter && STAGE_CONFIG[stageFilter]) {
+  // Funnel mode draws from a separate slice — every lead with a
+  // tentativePrice (funnel-eligible). Milestone modes still draw from
+  // pipelineLeads (rows that have at least one milestone date set).
+  const isFunnelView = stageFilter === 'funnel';
+  const sourceLeads = isFunnelView ? funnelLeads : pipelineLeads;
+
+  const filteredLeads = sourceLeads.filter((lead) => {
+    // Milestone stage filter: require the row to have that milestone date.
+    // Funnel stage doesn't need a date check — every funnelLeads row already
+    // has a positive funnelAmount.
+    if (!isFunnelView && stageFilter && STAGE_CONFIG[stageFilter]) {
       const dateField = STAGE_CONFIG[stageFilter].dateField;
-      if (!lead[dateField]) return false;
+      if (dateField && !lead[dateField]) return false;
     }
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -114,6 +124,7 @@ export default function PipelineARCPage() {
   const totals = filteredLeads.reduce(
     (acc, lead) => {
       acc.arc += lead.arcAmount || 0;
+      acc.funnel += lead.funnelAmount || 0;
       if (lead.loginCompletedAt) acc.login += lead.arcAmount || 0;
       if (lead.accountsVerifiedAt) acc.po += lead.arcAmount || 0;
       if (lead.installationCompletedAt) acc.install += lead.arcAmount || 0;
@@ -121,7 +132,7 @@ export default function PipelineARCPage() {
       acc.ftb += lead.ftbAmount || 0;
       return acc;
     },
-    { arc: 0, login: 0, po: 0, install: 0, accept: 0, ftb: 0 }
+    { arc: 0, funnel: 0, login: 0, po: 0, install: 0, accept: 0, ftb: 0 }
   );
 
   // Sliced view for the current page. Empty when filteredLeads is empty.
@@ -251,24 +262,37 @@ export default function PipelineARCPage() {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {[
-          { label: 'Total ARC', value: totals.arc, borderClass: 'border-l-orange-500', stage: '' },
-          { label: 'Login', value: totals.login, borderClass: 'border-l-cyan-500', stage: 'login' },
-          { label: 'PO Received', value: totals.po, borderClass: 'border-l-emerald-500', stage: 'po' },
-          { label: 'Installation', value: totals.install, borderClass: 'border-l-amber-500', stage: 'install' },
-          { label: 'Cust. Accept', value: totals.accept, borderClass: 'border-l-blue-500', stage: 'accept' },
-          { label: 'FTB Received', value: totals.ftb, borderClass: 'border-l-green-500', stage: 'ftb' },
-        ].map((s) => (
+      {/* Summary Cards. In funnel view we surface the funnel-specific
+          totals; in milestone view we keep the existing ARC + per-stage
+          breakdown. Cards are clickable in milestone mode (toggling the
+          stage filter); funnel mode's cards are static since the only
+          stage there is the implicit "funnel" filter we're already in. */}
+      <div className={`grid grid-cols-2 ${isFunnelView ? 'sm:grid-cols-3' : 'sm:grid-cols-3 lg:grid-cols-6'} gap-3`}>
+        {(isFunnelView
+          ? [
+              { label: 'Total Funnel Value', value: totals.funnel, borderClass: 'border-l-orange-500' },
+              { label: 'Total ARC (booked)', value: totals.arc, borderClass: 'border-l-cyan-500' },
+              { label: 'Leads in Funnel', value: filteredLeads.length, borderClass: 'border-l-emerald-500', isCount: true },
+            ]
+          : [
+              { label: 'Total ARC', value: totals.arc, borderClass: 'border-l-orange-500', stage: '' },
+              { label: 'Login', value: totals.login, borderClass: 'border-l-cyan-500', stage: 'login' },
+              { label: 'PO Received', value: totals.po, borderClass: 'border-l-emerald-500', stage: 'po' },
+              { label: 'Installation', value: totals.install, borderClass: 'border-l-amber-500', stage: 'install' },
+              { label: 'Cust. Accept', value: totals.accept, borderClass: 'border-l-blue-500', stage: 'accept' },
+              { label: 'FTB Received', value: totals.ftb, borderClass: 'border-l-green-500', stage: 'ftb' },
+            ]
+        ).map((s) => (
           <Card
             key={s.label}
-            onClick={() => setStageFilter(stageFilter === s.stage ? '' : s.stage)}
-            className={`border-l-4 ${s.borderClass} bg-white dark:bg-card cursor-pointer hover:shadow-md transition-all ${stageFilter === s.stage ? 'ring-2 ring-orange-500 shadow-md' : ''}`}
+            onClick={s.stage === undefined ? undefined : () => setStageFilter(stageFilter === s.stage ? '' : s.stage)}
+            className={`border-l-4 ${s.borderClass} bg-white dark:bg-card transition-all ${s.stage !== undefined ? 'cursor-pointer hover:shadow-md' : ''} ${s.stage !== undefined && stageFilter === s.stage ? 'ring-2 ring-orange-500 shadow-md' : ''}`}
           >
             <CardContent className="p-3">
               <p className="text-[10px] font-medium text-muted-foreground uppercase">{s.label}</p>
-              <p className="text-lg font-bold mt-0.5">{formatCurrency(s.value)}</p>
+              <p className="text-lg font-bold mt-0.5">
+                {s.isCount ? s.value.toLocaleString('en-IN') : formatCurrency(s.value)}
+              </p>
             </CardContent>
           </Card>
         ))}
@@ -300,6 +324,89 @@ export default function PipelineARCPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
+              {isFunnelView ? (
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider sticky left-0 bg-slate-50 dark:bg-slate-800 z-10">Company / Contact</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        <Users size={12} />
+                        BDM
+                      </div>
+                    </th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1">
+                        <IndianRupee size={12} />
+                        Funnel Value
+                      </div>
+                    </th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
+                      ARC
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Status</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Industry</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">City</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {pageLeads.map((lead) => (
+                    <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 z-10">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                            <Building2 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">{lead.company}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{lead.contactName} {lead.phone !== '-' ? `· ${lead.phone}` : ''}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                        {lead.assignedToName || <span className="text-slate-400">—</span>}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="font-semibold text-sm text-orange-700 dark:text-orange-400">
+                          {formatCurrency(lead.funnelAmount)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right text-sm text-slate-700 dark:text-slate-300">
+                        {lead.arcAmount > 0 ? formatCurrency(lead.arcAmount) : <span className="text-slate-400">—</span>}
+                      </td>
+                      <td className="py-3 px-4 text-xs">
+                        <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-0 whitespace-nowrap">
+                          {(lead.status || '').replace(/_/g, ' ') || '—'}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                        {lead.industry || <span className="text-slate-400">—</span>}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                        {lead.city || <span className="text-slate-400">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Funnel totals row — grand total over the full filtered
+                      set, not the page slice. */}
+                  <tr className="bg-slate-50 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600 font-semibold">
+                    <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-800 z-10">
+                      Total ({totalRows} {totalRows === 1 ? 'lead' : 'leads'})
+                    </td>
+                    <td className="py-3 px-4" />
+                    <td className="py-3 px-4 text-right text-sm text-orange-700 dark:text-orange-400">
+                      {formatCurrency(totals.funnel)}
+                    </td>
+                    <td className="py-3 px-4 text-right text-sm text-slate-900 dark:text-slate-100">
+                      {totals.arc > 0 ? formatCurrency(totals.arc) : '—'}
+                    </td>
+                    <td className="py-3 px-4" />
+                    <td className="py-3 px-4" />
+                    <td className="py-3 px-4" />
+                  </tr>
+                </tbody>
+              </table>
+              ) : (
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
@@ -396,6 +503,7 @@ export default function PipelineARCPage() {
                   </tr>
                 </tbody>
               </table>
+              )}
             </div>
           )}
 
