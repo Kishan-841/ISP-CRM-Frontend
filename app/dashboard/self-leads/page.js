@@ -57,6 +57,8 @@ export default function SelfLeadsPage() {
     fetchAssignedCampaigns,
     campaignData,
     fetchCampaignData,
+    fetchSelfLeadsStats,
+    fetchSelfLeadsQueue,
     startCall,
     endCall,
     createSelfCampaign,
@@ -73,7 +75,10 @@ export default function SelfLeadsPage() {
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
   const [selfCampaigns, setSelfCampaigns] = useState([]);
 
-  // Queue data
+  // Queue data — pending and called are paginated server-side (one page at
+  // a time), and `stats` holds the aggregated counts that drive the stat
+  // cards + the called-tab filter chip badges. byStatus maps each
+  // CampaignData status to its row count under the active campaign filter.
   const [selectedData, setSelectedData] = useState(null);
   const [pendingQueue, setPendingQueue] = useState([]);
   const [calledData, setCalledData] = useState([]);
@@ -84,8 +89,14 @@ export default function SelfLeadsPage() {
     called: 0,
     interested: 0,
     notInterested: 0,
-    leadsGenerated: 0
+    leadsGenerated: 0,
+    byStatus: {}
   });
+  const [pageSize, setPageSize] = useState(25);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [calledPage, setCalledPage] = useState(1);
+  const [pendingPagination, setPendingPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0 });
+  const [calledPagination, setCalledPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0 });
 
   // Add data form state
   const [inputMode, setInputMode] = useState('single');
@@ -172,92 +183,94 @@ export default function SelfLeadsPage() {
     }
   }, [assignedCampaigns, selectedCampaignId]);
 
-  // Fetch campaign data when campaign changes
+  // Self Leads now hits two dedicated, paginated endpoints instead of
+  // pulling every BDM Self campaign's data with limit=500 and bucketing it
+  // in the browser. Stats come from /campaigns/self-leads/stats; the active
+  // tab's rows come from /campaigns/self-leads/queue with proper page/limit.
+  const refreshStats = useCallback(async () => {
+    if (!selectedCampaignId) return;
+    const result = await fetchSelfLeadsStats({ campaignId: selectedCampaignId });
+    if (result?.success) {
+      setStats({
+        total: result.stats.total || 0,
+        pending: result.stats.pending || 0,
+        called: result.stats.called || 0,
+        interested: result.stats.interested || 0,
+        notInterested: result.stats.notInterested || 0,
+        leadsGenerated: result.stats.leadsGenerated || 0,
+        byStatus: result.stats.byStatus || {},
+      });
+    }
+  }, [selectedCampaignId, fetchSelfLeadsStats]);
+
+  const loadCampaignData = useCallback(async () => {
+    if (!selectedCampaignId) return;
+    setIsLoading(true);
+    try {
+      // Refresh stats and the active tab's page in parallel — most actions
+      // (call disposition, delete, convert) shift counts AND the queue.
+      const queuePromise =
+        activeTab === 'called'
+          ? fetchSelfLeadsQueue({
+              campaignId: selectedCampaignId,
+              tab: 'called',
+              status: calledStatusFilter,
+              page: calledPage,
+              limit: pageSize,
+            })
+          : fetchSelfLeadsQueue({
+              campaignId: selectedCampaignId,
+              tab: 'pending',
+              page: pendingPage,
+              limit: pageSize,
+            });
+      const [queueResult] = await Promise.all([queuePromise, refreshStats()]);
+      if (queueResult?.success) {
+        if (activeTab === 'called') {
+          setCalledData(queueResult.data);
+          setCalledPagination(queueResult.pagination);
+        } else {
+          setPendingQueue(queueResult.data);
+          setPendingPagination(queueResult.pagination);
+          // Keep the calling-queue selector pinned to the first row when the
+          // current selection isn't on the visible page anymore.
+          setSelectedData((prev) => {
+            if (prev && queueResult.data.some((row) => row.id === prev.id)) return prev;
+            return queueResult.data[0] || null;
+          });
+        }
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [
+    selectedCampaignId,
+    activeTab,
+    calledStatusFilter,
+    calledPage,
+    pendingPage,
+    pageSize,
+    fetchSelfLeadsQueue,
+    refreshStats,
+  ]);
+
   useEffect(() => {
     if (selectedCampaignId && selfCampaigns.length > 0) {
       loadCampaignData();
     }
-  }, [selectedCampaignId, selfCampaigns]);
+  }, [selectedCampaignId, selfCampaigns.length, loadCampaignData]);
 
-  const loadCampaignData = async () => {
-    setIsLoading(true);
-    if (selectedCampaignId === 'all') {
-      // Fetch data from all self campaigns and combine
-      try {
-        const allDataPromises = selfCampaigns.map(async (campaign) => {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/campaigns/${campaign.id}/data?page=1&limit=500`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          const result = await response.json();
-          return result.data || [];
-        });
-        const results = await Promise.all(allDataPromises);
-        const combinedData = results.flat();
-        // Update local state directly since we're combining multiple campaigns
-        const pending = combinedData.filter(d => d.status === 'NEW');
-        const called = combinedData.filter(d => d.status !== 'NEW');
-        setPendingQueue(pending);
-        setCalledData(called);
-        const interested = combinedData.filter(d => d.status === 'INTERESTED').length;
-        const notInterested = combinedData.filter(d => d.status === 'NOT_INTERESTED').length;
-        const leadsGenerated = combinedData.filter(d => d.isConverted).length;
-        setStats({
-          total: combinedData.length,
-          pending: pending.length,
-          called: called.length,
-          interested,
-          notInterested,
-          leadsGenerated
-        });
-        if (pending.length > 0 && activeTab === 'queue') {
-          setSelectedData(pending[0]);
-        }
-      } catch (error) {
-        console.error('Error fetching all campaign data:', error);
-        toast.error('Failed to load data');
-      }
-    } else {
-      await fetchCampaignData(selectedCampaignId, 1, 500);
-    }
-    setIsLoading(false);
-  };
-
-  // Process queue data when campaignData changes (only for single campaign selection)
+  // Reset pagination when the campaign filter changes so the new context
+  // doesn't inherit a stale page index.
   useEffect(() => {
-    // Skip processing if 'all' is selected - data is set directly in loadCampaignData
-    if (selectedCampaignId === 'all') return;
+    setPendingPage(1);
+    setCalledPage(1);
+  }, [selectedCampaignId]);
 
-    if (campaignData && campaignData.length > 0) {
-      const pending = campaignData.filter(d => d.status === 'NEW');
-      const called = campaignData.filter(d => d.status !== 'NEW');
-
-      setPendingQueue(pending);
-      setCalledData(called);
-
-      const interested = campaignData.filter(d => d.status === 'INTERESTED').length;
-      const notInterested = campaignData.filter(d => d.status === 'NOT_INTERESTED').length;
-      const leadsGenerated = campaignData.filter(d => d.isConverted).length;
-
-      setStats({
-        total: campaignData.length,
-        pending: pending.length,
-        called: called.length,
-        interested,
-        notInterested,
-        leadsGenerated
-      });
-
-      if (pending.length > 0 && activeTab === 'queue') {
-        setSelectedData(prev => prev ? prev : pending[0]);
-      }
-    } else if (selectedCampaignId !== 'all') {
-      setPendingQueue([]);
-      setCalledData([]);
-      setStats({ total: 0, pending: 0, called: 0, interested: 0, notInterested: 0, leadsGenerated: 0 });
-    }
-  }, [campaignData, activeTab, selectedCampaignId]);
+  // Reset called-tab page when the status chip changes.
+  useEffect(() => {
+    setCalledPage(1);
+  }, [calledStatusFilter]);
 
   // Timer effect
   useEffect(() => {
@@ -1074,7 +1087,7 @@ export default function SelfLeadsPage() {
             <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
               <div className="p-4 border-b border-slate-200 dark:border-slate-800">
                 <h2 className="font-semibold text-slate-900 dark:text-slate-100">
-                  Pending <span className="text-orange-600">({pendingQueue.length})</span>
+                  Pending <span className="text-orange-600">({stats.pending || 0})</span>
                 </h2>
               </div>
               <div className="p-3 space-y-2 max-h-[300px] sm:max-h-[500px] overflow-y-auto">
@@ -1109,6 +1122,18 @@ export default function SelfLeadsPage() {
                   ))
                 )}
               </div>
+              {/* Pagination footer for the Pending calling queue. */}
+              <SelfLeadsPagination
+                page={pendingPage}
+                pageSize={pageSize}
+                pagination={pendingPagination}
+                onPageChange={setPendingPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPendingPage(1);
+                  setCalledPage(1);
+                }}
+              />
             </Card>
           </div>
 
@@ -1257,11 +1282,11 @@ export default function SelfLeadsPage() {
                   {filter.label}
                   {filter.value !== 'all' && (
                     <span className="ml-1.5 opacity-75">
-                      ({calledData.filter(d => d.status === filter.value).length})
+                      ({stats.byStatus?.[filter.value] || 0})
                     </span>
                   )}
                   {filter.value === 'all' && (
-                    <span className="ml-1.5 opacity-75">({calledData.length})</span>
+                    <span className="ml-1.5 opacity-75">({stats.called || 0})</span>
                   )}
                 </button>
               ))}
@@ -1280,22 +1305,17 @@ export default function SelfLeadsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {(() => {
-                    const filteredData = calledStatusFilter === 'all'
-                      ? calledData
-                      : calledData.filter(d => d.status === calledStatusFilter);
-
-                    if (filteredData.length === 0) {
-                      return (
-                        <tr>
-                          <td colSpan={5} className="py-12 text-center text-slate-500 dark:text-slate-400">
-                            {calledStatusFilter === 'all' ? 'No called data yet' : `No ${calledStatusFilter.replace(/_/g, ' ').toLowerCase()} data`}
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    return filteredData.map((item) => (
+                  {/* Status filter is applied server-side now — calledData
+                      already contains only the rows for the active filter
+                      and active page. */}
+                  {calledData.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-500 dark:text-slate-400">
+                        {calledStatusFilter === 'all' ? 'No called data yet' : `No ${calledStatusFilter.replace(/_/g, ' ').toLowerCase()} data`}
+                      </td>
+                    </tr>
+                  ) : (
+                    calledData.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100 font-medium">
                           {item.company || '-'}
@@ -1322,12 +1342,25 @@ export default function SelfLeadsPage() {
                           )}
                         </td>
                       </tr>
-                    ));
-                  })()}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           </CardContent>
+          {/* Pagination footer for the Called tab. Tracks `calledPage` and
+              triggers loadCampaignData via the useEffect chain. */}
+          <SelfLeadsPagination
+            page={calledPage}
+            pageSize={pageSize}
+            pagination={calledPagination}
+            onPageChange={setCalledPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPendingPage(1);
+              setCalledPage(1);
+            }}
+          />
         </Card>
       )}
 
@@ -1861,6 +1894,81 @@ export default function SelfLeadsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Compact pagination footer reused by both the Pending and Called tabs.
+// Hidden when there's nothing to page through so empty states stay clean.
+function SelfLeadsPagination({ page, pageSize, pagination, onPageChange, onPageSizeChange }) {
+  const totalPages = pagination?.totalPages || 0;
+  const total = pagination?.total || 0;
+  if (total === 0 || totalPages <= 1 && total <= pageSize) {
+    return null;
+  }
+  const fromRow = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const toRow = Math.min(page * pageSize, total);
+  const goTo = (next) => {
+    const clamped = Math.max(1, Math.min(totalPages || 1, next));
+    if (clamped !== page) onPageChange(clamped);
+  };
+  return (
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40">
+      <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+        <span>
+          Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{fromRow}–{toRow}</span> of <span className="font-semibold text-slate-900 dark:text-slate-100">{total}</span>
+        </span>
+        <span className="text-slate-300 dark:text-slate-700">|</span>
+        <label className="flex items-center gap-1.5">
+          <span>Per page</span>
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(parseInt(e.target.value, 10) || 25)}
+            className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-orange-500"
+          >
+            {[10, 25, 50, 100].map((size) => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => goTo(1)}
+          disabled={page <= 1}
+          className="h-8 px-2 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          « First
+        </button>
+        <button
+          type="button"
+          onClick={() => goTo(page - 1)}
+          disabled={page <= 1}
+          className="h-8 px-2 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          ‹ Prev
+        </button>
+        <span className="text-xs text-slate-700 dark:text-slate-300 px-2">
+          Page <span className="font-semibold">{page}</span> of <span className="font-semibold">{totalPages || 1}</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => goTo(page + 1)}
+          disabled={page >= (totalPages || 1)}
+          className="h-8 px-2 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Next ›
+        </button>
+        <button
+          type="button"
+          onClick={() => goTo(totalPages || 1)}
+          disabled={page >= (totalPages || 1)}
+          className="h-8 px-2 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Last »
+        </button>
+      </div>
     </div>
   );
 }
