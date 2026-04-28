@@ -20,8 +20,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/PageHeader';
 import { formatCurrency } from '@/lib/formatters';
 
@@ -35,6 +34,7 @@ const STAGE_CONFIG = {
 
 export default function PipelineARCPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { fetchBDMDashboardStats, bdmDashboardStats, bdmDashboardLoading, fetchBDMUsers, bdmUsers } = useLeadStore();
   const isBDM = user?.role === 'BDM';
@@ -150,9 +150,24 @@ export default function PipelineARCPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        {/* Back navigation: bounce to wherever the user came from (Team
+            Dashboard → BDM overall, Admin home, deep link, etc.) instead
+            of a hard-coded /dashboard. Falls back to the BDM overall page
+            on a fresh tab where there's no history to walk back through. */}
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/dashboard/admin-dashboards/bdm');
+            }
+          }}
+          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          aria-label="Go back"
+        >
           <ArrowLeft size={20} className="text-slate-600 dark:text-slate-400" />
-        </Link>
+        </button>
         <PageHeader
           title="Pipeline ARC Tracker"
           description={selectedBDMName ? `Viewing ${selectedBDMName}'s pipeline` : 'Track ARC across all pipeline milestones per lead'}
