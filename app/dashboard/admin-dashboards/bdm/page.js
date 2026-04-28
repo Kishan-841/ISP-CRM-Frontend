@@ -107,11 +107,6 @@ export default function BDMOverallDashboard() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Get BDM users - API already filters for active users only
-      const usersRes = await api.get('/users/by-role?role=BDM');
-      const bdmUsers = (usersRes.data.users || []).filter(u => u.role === 'BDM');
-      setBdmList(bdmUsers);
-
       // Map period to API format. 'alltime' omits the period param entirely —
       // the backend returns unbounded stats when no period is supplied.
       const periodMap = {
@@ -123,18 +118,40 @@ export default function BDMOverallDashboard() {
       const apiPeriod = dateRange in periodMap ? periodMap[dateRange] : 'last7days';
       const periodQuery = apiPeriod ? `&period=${apiPeriod}` : '';
 
-      // Fetch BDM dashboard stats for each BDM using the correct endpoint
-      const dashboardPromises = bdmUsers.map(bdm =>
-        api.get(`/leads/bdm/dashboard-stats?userId=${bdm.id}${periodQuery}`).catch(() => ({ data: null }))
-      );
+      // For TL the backend's "userId=<tl>" path returns TL+team's stats; for
+      // every other allowed role we want the platform-wide BDM aggregation
+      // that mirrors the Pipeline ARC tracker (?userId=all expands to
+      // BDM ∪ BDM_CP ∪ BDM_TEAM_LEADER on the server).
+      //
+      // Previously the page fetched `?role=BDM` and summed N per-BDM calls.
+      // That dropped any lead assigned to a BDM_CP or BDM_TEAM_LEADER, which
+      // is why the overall card values were 1L lower than the pipeline-arc
+      // detail view people clicked into.
+      const isTl = user?.role === 'BDM_TEAM_LEADER';
 
-      const dashboardResults = await Promise.all(dashboardPromises);
+      // dashboard-stats accepts ?userId=all and expands to BDM ∪ BDM_CP ∪
+      // BDM_TEAM_LEADER on the server.
+      const dashboardQuery = isTl
+        ? `userId=${user.id}${periodQuery}`
+        : `userId=all${periodQuery}`;
 
-      // Fetch meetings for all BDMs
-      const meetingPromises = bdmUsers.map(bdm =>
-        api.get(`/leads/bdm/meetings?userId=${bdm.id}`).catch(() => ({ data: null }))
-      );
-      const meetingResults = await Promise.all(meetingPromises);
+      // meetings has different semantics: admin/OPS without userId returns
+      // ALL meetings (showAll); passing userId=all would 400 on a missing
+      // user lookup. So omit userId for admins and pass the TL id for TLs.
+      const meetingsUrl = isTl
+        ? `/leads/bdm/meetings?userId=${user.id}`
+        : `/leads/bdm/meetings`;
+
+      // Fetch BDM directory + the unified dashboard + meetings in parallel.
+      // The directory is only used to render the "{N} BDMs" subtitle; the
+      // numbers all come from the single dashboard call.
+      const [usersRes, dashboardRes, meetingsRes] = await Promise.all([
+        api.get('/users/by-role?role=BDM').catch(() => ({ data: null })),
+        api.get(`/leads/bdm/dashboard-stats?${dashboardQuery}`).catch(() => ({ data: null })),
+        api.get(meetingsUrl).catch(() => ({ data: null })),
+      ]);
+      const bdmUsers = (usersRes?.data?.users || []).filter(u => u.role === 'BDM');
+      setBdmList(bdmUsers);
 
       // Combine all meetings and sort by date
       const combinedMeetings = [];
@@ -145,154 +162,94 @@ export default function BDMOverallDashboard() {
       const tomorrowStart = new Date(todayStart);
       tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-      meetingResults.forEach(result => {
-        if (result.data) {
-          const meetings = Array.isArray(result.data) ? result.data : (result.data.meetings || []);
-          meetings.forEach(m => {
-            combinedMeetings.push(m);
-            const mDate = new Date(m.meetingDate);
-            if (mDate >= todayStart) upcomingCount++;
-            if (mDate >= todayStart && mDate < tomorrowStart) todayCount++;
-          });
-        }
+      const meetingPayload = meetingsRes?.data
+        ? (Array.isArray(meetingsRes.data) ? meetingsRes.data : (meetingsRes.data.meetings || []))
+        : [];
+      meetingPayload.forEach((m) => {
+        combinedMeetings.push(m);
+        const mDate = new Date(m.meetingDate);
+        if (mDate >= todayStart) upcomingCount++;
+        if (mDate >= todayStart && mDate < tomorrowStart) todayCount++;
       });
 
       combinedMeetings.sort((a, b) => new Date(a.meetingDate) - new Date(b.meetingDate));
       setAllMeetings(combinedMeetings);
       setMeetingStats({ upcoming: upcomingCount, today: todayCount });
 
-      // Aggregate data from all BDMs
-      const aggregated = {
-        summary: {
-          totalLeads: 0,
-          meetingsDone: 0,
-          funnelValue: 0,
-          quotationSent: 0,
-          quotationValue: 0,
-          poReceived: 0,
-          poValue: 0,
-          pendingInstall: 0,
-          pendingInstallValue: 0,
-          delivered: 0,
-          deliveredValue: 0,
-          newLeads: 0,
-          qualified: 0,
-          feasible: 0,
-          notFeasible: 0,
-          followUp: 0,
-          dropped: 0
-        },
-        pipelineStats: {
-          loginCount: 0,
-          loginAmount: 0,
-          poReceivedCount: 0,
-          poReceivedAmount: 0,
-          installDoneCount: 0,
-          installDoneAmount: 0,
-          custAcceptCount: 0,
-          custAcceptAmount: 0,
-          ftbCount: 0,
-          ftbAmount: 0,
-        },
-        todayStats: {
-          dispositions: 0,
-          qualified: 0,
-          feasible: 0,
-          followUp: 0,
-          dropped: 0
-        },
-        followUpSchedule: {
-          overdue: 0,
-          upcoming: []
-        }
-      };
+      // The backend's userId=all (or userId=<tl> for a TL) path already
+      // returns the aggregate across BDM ∪ BDM_CP ∪ BDM_TEAM_LEADER (or
+      // TL+team), so we map the response shape directly to the page's
+      // {summary, pipelineStats, todayStats, followUpSchedule} model.
+      const dashboardData = dashboardRes?.data || {};
+      const summary = dashboardData.summary || {};
+      const dashboardStats = dashboardData.dashboardStats || {};
+      const todayStats = dashboardData.todayStats || {};
+      const followUpSchedule = dashboardData.followUpSchedule || {};
 
-      dashboardResults.forEach(result => {
-        if (result.data) {
-          const data = result.data;
-          const summary = data.summary || {};
-          const dashboardStats = data.dashboardStats || {};
-          const todayStats = data.todayStats || {};
-          const followUpSchedule = data.followUpSchedule || {};
-
-          // Aggregate summary stats from both summary and dashboardStats
-          aggregated.summary.totalLeads += summary.totalLeads || dashboardStats.totalLeads || 0;
-          aggregated.summary.meetingsDone += dashboardStats.meetingsDone || 0;
-          aggregated.summary.funnelValue += dashboardStats.totalFunnelValue || 0;
-          aggregated.summary.quotationSent += dashboardStats.quotationCount || summary.quotationsSent || 0;
-          aggregated.summary.quotationValue += dashboardStats.totalQuotationAmount || 0;
-          aggregated.summary.poReceived += dashboardStats.poReceived || 0;
-          aggregated.summary.poValue += dashboardStats.totalPOAmount || 0;
-          aggregated.summary.pendingInstall += dashboardStats.pendingInstallation || 0;
-          aggregated.summary.pendingInstallValue += dashboardStats.pendingInstallationAmount || 0;
-          aggregated.summary.delivered += dashboardStats.totalDelivered || 0;
-          aggregated.summary.deliveredValue += dashboardStats.totalDeliveredAmount || 0;
-          aggregated.summary.newLeads += summary.newLeads || 0;
-          aggregated.summary.qualified += summary.qualified || 0;
-          aggregated.summary.feasible += summary.feasible || 0;
-          aggregated.summary.notFeasible += summary.notFeasible || 0;
-          aggregated.summary.followUp += summary.followUp || 0;
-          aggregated.summary.dropped += summary.dropped || 0;
-
-          // Aggregate pipeline stats
-          aggregated.pipelineStats.loginCount += dashboardStats.loginCount || 0;
-          aggregated.pipelineStats.loginAmount += dashboardStats.loginAmount || 0;
-          aggregated.pipelineStats.poReceivedCount += dashboardStats.poReceivedCount || dashboardStats.poReceived || 0;
-          aggregated.pipelineStats.poReceivedAmount += dashboardStats.poReceivedAmount || dashboardStats.totalPOAmount || 0;
-          aggregated.pipelineStats.installDoneCount += dashboardStats.installDoneCount || 0;
-          aggregated.pipelineStats.installDoneAmount += dashboardStats.installDoneAmount || 0;
-          aggregated.pipelineStats.custAcceptCount += dashboardStats.custAcceptCount || 0;
-          aggregated.pipelineStats.custAcceptAmount += dashboardStats.custAcceptAmount || 0;
-          aggregated.pipelineStats.ftbCount += dashboardStats.ftbCount || 0;
-          aggregated.pipelineStats.ftbAmount += dashboardStats.ftbAmount || 0;
-
-          // Aggregate today stats
-          aggregated.todayStats.dispositions += todayStats.dispositions || 0;
-          aggregated.todayStats.qualified += todayStats.qualified || 0;
-          aggregated.todayStats.feasible += todayStats.feasible || 0;
-          aggregated.todayStats.followUp += todayStats.followUp || 0;
-          aggregated.todayStats.dropped += todayStats.dropped || 0;
-
-          // Aggregate follow-up schedule
-          aggregated.followUpSchedule.overdue += followUpSchedule.overdue || 0;
-        }
-      });
-
-      // Aggregate upcoming follow-up schedule from all BDMs
-      const upcomingByDay = {};
-      dashboardResults.forEach(result => {
-        if (result.data?.followUpSchedule?.upcoming) {
-          result.data.followUpSchedule.upcoming.forEach(item => {
-            const dayKey = item.day;
-            if (!upcomingByDay[dayKey]) {
-              upcomingByDay[dayKey] = { day: dayKey, count: 0 };
-            }
-            upcomingByDay[dayKey].count += item.count || 0;
-          });
-        }
-      });
-
-      // If no data, generate default days
-      if (Object.keys(upcomingByDay).length === 0) {
+      const upcoming = (followUpSchedule.upcoming || []).map((item) => ({
+        day: item.day,
+        count: item.count || 0,
+      }));
+      if (upcoming.length === 0) {
         const days = ['Today', 'Tomorrow'];
         for (let i = 2; i < 7; i++) {
           const date = new Date();
           date.setDate(date.getDate() + i);
           days.push(date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }));
         }
-        days.forEach(day => {
-          upcomingByDay[day] = { day, count: 0 };
-        });
+        days.forEach((day) => upcoming.push({ day, count: 0 }));
       }
-      aggregated.followUpSchedule.upcoming = Object.values(upcomingByDay);
 
-      setAggregatedData(aggregated);
+      setAggregatedData({
+        summary: {
+          totalLeads: summary.totalLeads || dashboardStats.totalLeads || 0,
+          meetingsDone: dashboardStats.meetingsDone || 0,
+          funnelValue: dashboardStats.totalFunnelValue || 0,
+          quotationSent: dashboardStats.quotationCount || summary.quotationsSent || 0,
+          quotationValue: dashboardStats.totalQuotationAmount || 0,
+          poReceived: dashboardStats.poReceived || dashboardStats.poReceivedCount || 0,
+          poValue: dashboardStats.totalPOAmount || dashboardStats.poReceivedAmount || 0,
+          pendingInstall: dashboardStats.pendingInstallation || 0,
+          pendingInstallValue: dashboardStats.pendingInstallationAmount || 0,
+          delivered: dashboardStats.totalDelivered || 0,
+          deliveredValue: dashboardStats.totalDeliveredAmount || 0,
+          newLeads: summary.newLeads || 0,
+          qualified: summary.qualified || 0,
+          feasible: summary.feasible || 0,
+          notFeasible: summary.notFeasible || 0,
+          followUp: summary.followUp || 0,
+          dropped: summary.dropped || 0,
+        },
+        pipelineStats: {
+          loginCount: dashboardStats.loginCount || 0,
+          loginAmount: dashboardStats.loginAmount || 0,
+          poReceivedCount: dashboardStats.poReceivedCount || dashboardStats.poReceived || 0,
+          poReceivedAmount: dashboardStats.poReceivedAmount || dashboardStats.totalPOAmount || 0,
+          installDoneCount: dashboardStats.installDoneCount || 0,
+          installDoneAmount: dashboardStats.installDoneAmount || 0,
+          custAcceptCount: dashboardStats.custAcceptCount || 0,
+          custAcceptAmount: dashboardStats.custAcceptAmount || 0,
+          ftbCount: dashboardStats.ftbCount || 0,
+          ftbAmount: dashboardStats.ftbAmount || 0,
+        },
+        todayStats: {
+          dispositions: todayStats.dispositions || 0,
+          qualified: todayStats.qualified || 0,
+          feasible: todayStats.feasible || 0,
+          followUp: todayStats.followUp || 0,
+          dropped: todayStats.dropped || 0,
+        },
+        followUpSchedule: {
+          overdue: followUpSchedule.overdue || 0,
+          upcoming,
+        },
+      });
     } catch (error) {
       console.error('Error fetching BDM dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, user?.id, user?.role]);
 
   useEffect(() => {
     if (isAllowed) {
