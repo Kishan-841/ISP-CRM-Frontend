@@ -267,11 +267,16 @@ export default function PipelineARCPage() {
           breakdown. Cards are clickable in milestone mode (toggling the
           stage filter); funnel mode's cards are static since the only
           stage there is the implicit "funnel" filter we're already in. */}
-      <div className={`grid grid-cols-2 ${isFunnelView ? 'sm:grid-cols-3' : 'sm:grid-cols-3 lg:grid-cols-6'} gap-3`}>
+      <div className={`grid grid-cols-2 ${isFunnelView ? 'sm:grid-cols-2' : 'sm:grid-cols-3 lg:grid-cols-6'} gap-3`}>
         {(isFunnelView
           ? [
+              // ARC card intentionally omitted here. arcAmount lives on a
+              // wider lead universe (every quoted lead, including ones
+              // upstream of login), so the same label sums to a different
+              // number than the milestone view's Total ARC. Funnel Value
+              // (tentativePrice) is the canonical headline metric for this
+              // mode; per-row ARC is still visible in the table column.
               { label: 'Total Funnel Value', value: totals.funnel, borderClass: 'border-l-orange-500' },
-              { label: 'Total ARC (booked)', value: totals.arc, borderClass: 'border-l-cyan-500' },
               { label: 'Leads in Funnel', value: filteredLeads.length, borderClass: 'border-l-emerald-500', isCount: true },
             ]
           : [
