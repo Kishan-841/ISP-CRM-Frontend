@@ -56,6 +56,18 @@ export default function PipelineARCPage() {
   const [customFromDate, setCustomFromDate] = useState('');
   const [customToDate, setCustomToDate] = useState('');
 
+  // Pagination — only affects which rows render. Totals stay computed from
+  // the full filtered set so the footer always shows the grand total.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Reset to page 1 whenever a filter/search/scope change shrinks or
+  // shifts the result set — otherwise an out-of-range page would render
+  // an empty body even though there are matching leads.
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, stageFilter, selectedBDM, selectedPeriod, customFromDate, customToDate, pageSize]);
+
   // Fetch BDM users list for TL/Admin (Master/Super-Admin)
   useEffect(() => {
     if (isTL || isAdmin) {
@@ -96,7 +108,9 @@ export default function PipelineARCPage() {
       .some(f => f.toLowerCase().includes(q));
   });
 
-  // Totals
+  // Totals — computed from the FULL filtered set, not the visible page.
+  // The footer's "Total (N leads)" line is the grand total even when a
+  // small page size is selected.
   const totals = filteredLeads.reduce(
     (acc, lead) => {
       acc.arc += lead.arcAmount || 0;
@@ -109,6 +123,14 @@ export default function PipelineARCPage() {
     },
     { arc: 0, login: 0, po: 0, install: 0, accept: 0, ftb: 0 }
   );
+
+  // Sliced view for the current page. Empty when filteredLeads is empty.
+  const totalRows = filteredLeads.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * pageSize;
+  const pageEnd = Math.min(pageStart + pageSize, totalRows);
+  const pageLeads = filteredLeads.slice(pageStart, pageEnd);
 
   const milestoneColumns = [
     { key: 'login', label: 'Login', icon: LogIn, badgeClass: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400', dateField: 'loginCompletedAt' },
@@ -267,6 +289,12 @@ export default function PipelineARCPage() {
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider sticky left-0 bg-slate-50 dark:bg-slate-800 z-10">Company / Contact</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        <Users size={12} />
+                        BDM
+                      </div>
+                    </th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       <div className="flex items-center justify-end gap-1">
                         <IndianRupee size={12} />
@@ -284,7 +312,7 @@ export default function PipelineARCPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredLeads.map((lead) => (
+                  {pageLeads.map((lead) => (
                     <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                       {/* Company */}
                       <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 z-10">
@@ -297,6 +325,10 @@ export default function PipelineARCPage() {
                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{lead.contactName} {lead.phone !== '-' ? `· ${lead.phone}` : ''}</p>
                           </div>
                         </div>
+                      </td>
+                      {/* BDM */}
+                      <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                        {lead.assignedToName || <span className="text-slate-400">—</span>}
                       </td>
                       {/* ARC */}
                       <td className="py-3 px-4 text-right">
@@ -330,11 +362,14 @@ export default function PipelineARCPage() {
                       })}
                     </tr>
                   ))}
-                  {/* Totals row */}
+                  {/* Totals row — sums across the full filtered set, never
+                      just the current page slice. */}
                   <tr className="bg-slate-50 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600 font-semibold">
                     <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-800 z-10">
-                      Total ({filteredLeads.length} leads)
+                      Total ({totalRows} {totalRows === 1 ? 'lead' : 'leads'})
                     </td>
+                    {/* Empty cell under the BDM column to keep alignment. */}
+                    <td className="py-3 px-4" />
                     <td className="py-3 px-4 text-right text-sm text-slate-900 dark:text-slate-100">
                       {formatCurrency(totals.arc)}
                     </td>
@@ -346,6 +381,70 @@ export default function PipelineARCPage() {
                   </tr>
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Pagination footer. Hidden when there's nothing to page through.
+              Selecting a smaller page size only shrinks the rendered slice
+              — the totals row and per-stage cards both keep showing the
+              grand total computed from the full filtered set. */}
+          {!bdmDashboardLoading && totalRows > 0 && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40">
+              <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+                <span>
+                  Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{pageStart + 1}–{pageEnd}</span> of <span className="font-semibold text-slate-900 dark:text-slate-100">{totalRows}</span>
+                </span>
+                <span className="text-slate-300 dark:text-slate-700">|</span>
+                <label className="flex items-center gap-1.5">
+                  <span>Per page</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(parseInt(e.target.value, 10) || 25)}
+                    className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  >
+                    {[10, 15, 25, 50, 100].map((size) => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPage(1)}
+                  disabled={safePage <= 1}
+                  className="h-8 px-2 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  « First
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                  className="h-8 px-2 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ‹ Prev
+                </button>
+                <span className="text-xs text-slate-700 dark:text-slate-300 px-2">
+                  Page <span className="font-semibold">{safePage}</span> of <span className="font-semibold">{totalPages}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                  className="h-8 px-2 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next ›
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage(totalPages)}
+                  disabled={safePage >= totalPages}
+                  className="h-8 px-2 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Last »
+                </button>
+              </div>
             </div>
           )}
         </CardContent>
