@@ -165,8 +165,10 @@ export default function QuotationManagementPage() {
   const canAccessBDM = isBDM || isBDMCP || isBDMTeamLeader || isAdmin;
   const {
     leads,
+    leadsPagination,
     isLoading,
     fetchLeads,
+    fetchOpportunityPipelineStats,
     updateLead,
     uploadDocument,
     removeDocument,
@@ -188,6 +190,14 @@ export default function QuotationManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeStage, setActiveStage] = useState('create_quote');
   const [selectedLead, setSelectedLead] = useState(null);
+
+  // Opportunity Pipeline pagination — kept per-stage so flipping tabs
+  // doesn't reset another tab's page. Tab badge counts come from the
+  // dedicated stats endpoint instead of bucketing in memory.
+  const [pageByStage, setPageByStage] = useState({});
+  const [pageSize, setPageSize] = useState(25);
+  const [stageStats, setStageStats] = useState({});
+  const currentPage = pageByStage[activeStage] || 1;
 
   // Modal states
   const [showQuoteModal, setShowQuoteModal] = useState(false);
@@ -296,15 +306,25 @@ export default function QuotationManagementPage() {
     }
   }, [user, isAdmin, canAccessBDM, router]);
 
-  // Opportunity Pipeline only shows leads whose status is FEASIBLE. Bare
-  // fetchLeads() pulls the 25 newest regardless of status, so if recent
-  // activity created a lot of NEW / QUALIFIED / FOLLOW_UP leads, the
-  // FEASIBLE ones get pushed off page 1 and the UI looks empty even when
-  // the sidebar badge says otherwise. Filter server-side and ask for a
-  // big-enough page to cover realistic quotation-pipeline volume.
+  // Tab badge counts (per-stage) — separate lightweight endpoint so we don't
+  // need the actual lead rows to render the tab strip.
+  const refreshStageStats = useCallback(async () => {
+    const result = await fetchOpportunityPipelineStats();
+    if (result?.success) setStageStats(result.stats || {});
+  }, [fetchOpportunityPipelineStats]);
+
+  // Opportunity Pipeline only shows leads whose status is FEASIBLE. Each
+  // stage now fetches its own page server-side instead of pulling all
+  // FEASIBLE leads up-front and bucketing in memory — so a stage with 200+
+  // leads doesn't drag the page or pin the DB. We always refresh the badge
+  // stats alongside the rows because most actions (approve, push, share)
+  // move the lead from one stage to another.
   const refreshOpportunityLeads = useCallback(
-    () => fetchLeads(1, 500, { status: 'FEASIBLE' }),
-    [fetchLeads]
+    async () => {
+      await fetchLeads(currentPage, pageSize, { status: 'FEASIBLE', pipelineStage: activeStage });
+      refreshStageStats();
+    },
+    [fetchLeads, currentPage, pageSize, activeStage, refreshStageStats]
   );
 
   useSocketRefresh(() => { refreshOpportunityLeads(); }, { enabled: isAdmin || canAccessBDM });
@@ -312,6 +332,13 @@ export default function QuotationManagementPage() {
   useEffect(() => {
     refreshOpportunityLeads();
   }, [refreshOpportunityLeads]);
+
+  // Reset to page 1 whenever the user flips to a stage they haven't visited
+  // yet — keeps the existing page intact for stages they have visited so
+  // tab-flipping doesn't blow away pagination state.
+  useEffect(() => {
+    setPageByStage((prev) => (prev[activeStage] ? prev : { ...prev, [activeStage]: 1 }));
+  }, [activeStage]);
 
   useEffect(() => {
     fetchProducts();
@@ -389,61 +416,15 @@ export default function QuotationManagementPage() {
     return !!lead.pushedToInstallationAt;
   };
 
-  // === CATEGORIZE LEADS BY STAGE ===
-
-  const feasibleLeads = leads.filter(lead => lead.status === 'FEASIBLE');
-
-  // Check if docs have been pushed for verification
+  // Stage bucketing now happens server-side via the `pipelineStage` filter
+  // on /leads — see OPPORTUNITY_STAGE_FILTERS in the backend controller.
+  // The per-stage row helpers above (getOpsStatus, getDocsStatus, …) are
+  // still used by individual cards / action gates within a row.
   const isPushedForDocsVerification = (lead) => {
     return lead.sharedVia?.includes('docs_verification');
   };
 
-  const categorizedLeads = {
-    // Stage 1: Create Quote - No OPS status yet
-    create_quote: feasibleLeads.filter(lead => !getOpsStatus(lead)),
-
-    // Stage 2: Approval - OPS Review + Admin Review combined
-    approval: feasibleLeads.filter(lead =>
-      (getOpsStatus(lead) === 'pending' || getOpsStatus(lead) === 'rejected') ||
-      (getOpsStatus(lead) === 'approved' && (getSA2Status(lead) === 'pending' || getSA2Status(lead) === 'rejected'))
-    ),
-
-    // Stage 4: Share with Customer - OPS approved + SA2 approved (or null for pre-existing leads) but not shared yet
-    share_customer: feasibleLeads.filter(lead =>
-      getOpsStatus(lead) === 'approved' &&
-      (getSA2Status(lead) === 'approved' || getSA2Status(lead) === null) &&
-      !hasSharedWithCustomer(lead)
-    ),
-
-    // Stage 5: Login - Shared with customer, customer accepted quotation, awaiting login completion
-    login: feasibleLeads.filter(lead =>
-      hasSharedWithCustomer(lead) && !lead.loginCompletedAt && !isPushedForDocsVerification(lead)
-    ),
-
-    // Stage 6: Docs Upload - Login completed, but not pushed for verification yet
-    docs_upload: feasibleLeads.filter(lead =>
-      hasSharedWithCustomer(lead) && lead.loginCompletedAt && !isPushedForDocsVerification(lead)
-    ),
-
-    // Stage 5: Docs Verification - Pushed for verification, pending or rejected docs
-    docs_review: feasibleLeads.filter(lead =>
-      isPushedForDocsVerification(lead) &&
-      (getDocsStatus(lead) === 'pending' || getDocsStatus(lead) === 'rejected')
-    ),
-
-    // Stage 6: Accounts Review - Docs approved, pending accounts only (rejected goes to docs team)
-    accounts_review: feasibleLeads.filter(lead =>
-      getDocsStatus(lead) === 'approved' &&
-      getAccountsStatus(lead) === 'pending'
-    ),
-
-    // Stage 7: Installation - Accounts approved
-    installation: feasibleLeads.filter(lead =>
-      getAccountsStatus(lead) === 'approved'
-    )
-  };
-
-  const currentLeads = categorizedLeads[activeStage] || [];
+  const currentLeads = leads;
 
   // Apply search filter
   const filteredLeads = currentLeads.filter((lead) => {
@@ -1345,7 +1326,7 @@ export default function QuotationManagementPage() {
           <div className="flex items-center justify-between overflow-x-auto gap-1">
             {STAGES.map((stage, index) => {
               const Icon = stage.icon;
-              const count = categorizedLeads[stage.id]?.length || 0;
+              const count = stageStats[stage.id] || 0;
               const isActive = activeStage === stage.id;
               const isPast = STAGES.findIndex(s => s.id === activeStage) > index;
 
@@ -1588,6 +1569,92 @@ export default function QuotationManagementPage() {
               </table>
             </div>
           )}
+
+          {/* Pagination — server-side per stage. Uses leadsPagination from
+              the store, which reflects the most recent fetchLeads() call. */}
+          {!isLoading && currentLeads.length > 0 && (() => {
+            const pagination = leadsPagination || { page: currentPage, totalPages: 1, total: currentLeads.length, limit: pageSize };
+            const totalPages = pagination.totalPages || 1;
+            const total = pagination.total ?? currentLeads.length;
+            const limit = pagination.limit || pageSize;
+            const fromRow = total === 0 ? 0 : (currentPage - 1) * limit + 1;
+            const toRow = Math.min(currentPage * limit, total);
+            const goTo = (nextPage) => {
+              const clamped = Math.max(1, Math.min(totalPages, nextPage));
+              if (clamped === currentPage) return;
+              setPageByStage((prev) => ({ ...prev, [activeStage]: clamped }));
+            };
+            return (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40">
+                <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+                  <span>
+                    Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{fromRow}–{toRow}</span> of <span className="font-semibold text-slate-900 dark:text-slate-100">{total}</span>
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-700">|</span>
+                  <label className="flex items-center gap-1.5">
+                    <span>Per page</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        const next = parseInt(e.target.value, 10) || 25;
+                        setPageSize(next);
+                        // Reset every stage's page so the new size kicks in
+                        // immediately on the active tab and isn't stale on
+                        // tabs the user has already visited.
+                        setPageByStage({});
+                      }}
+                      className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    >
+                      {[10, 25, 50, 100].map((size) => (
+                        <option key={size} value={size}>{size}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goTo(1)}
+                    disabled={currentPage <= 1}
+                    className="h-8 px-2 text-xs"
+                  >
+                    « First
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goTo(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                    className="h-8 px-2 text-xs"
+                  >
+                    ‹ Prev
+                  </Button>
+                  <span className="text-xs text-slate-700 dark:text-slate-300 px-2">
+                    Page <span className="font-semibold">{currentPage}</span> of <span className="font-semibold">{totalPages}</span>
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goTo(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                    className="h-8 px-2 text-xs"
+                  >
+                    Next ›
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goTo(totalPages)}
+                    disabled={currentPage >= totalPages}
+                    className="h-8 px-2 text-xs"
+                  >
+                    Last »
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
