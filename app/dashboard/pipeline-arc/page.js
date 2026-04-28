@@ -346,9 +346,6 @@ export default function PipelineARCPage() {
                         Funnel Value
                       </div>
                     </th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
-                      ARC
-                    </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">City</th>
                   </tr>
                 </thead>
@@ -374,9 +371,6 @@ export default function PipelineARCPage() {
                           {formatCurrency(lead.funnelAmount)}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right text-sm text-slate-700 dark:text-slate-300">
-                        {lead.arcAmount > 0 ? formatCurrency(lead.arcAmount) : <span className="text-slate-400">—</span>}
-                      </td>
                       <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         {lead.city || <span className="text-slate-400">—</span>}
                       </td>
@@ -391,9 +385,6 @@ export default function PipelineARCPage() {
                     <td className="py-3 px-4" />
                     <td className="py-3 px-4 text-right text-sm text-orange-700 dark:text-orange-400">
                       {formatCurrency(totals.funnel)}
-                    </td>
-                    <td className="py-3 px-4 text-right text-sm text-slate-900 dark:text-slate-100">
-                      {totals.arc > 0 ? formatCurrency(totals.arc) : '—'}
                     </td>
                     <td className="py-3 px-4" />
                   </tr>
