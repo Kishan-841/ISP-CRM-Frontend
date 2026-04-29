@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
-import { Search } from 'lucide-react';
+import { Search, Eye, EyeOff, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModal } from '@/lib/useModal';
 import { formatDate } from '@/lib/formatters';
@@ -18,7 +18,7 @@ import { formatDate } from '@/lib/formatters';
 export default function EmployeesPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { users, isLoading, usersPagination, fetchUsers, createUser, updateUser, deleteUser } = useUserStore();
+  const { users, isLoading, usersPagination, fetchUsers, createUser, updateUser, deleteUser, viewUserPassword } = useUserStore();
 
   // Server-driven pagination state. Search is debounced (300ms) so typing
   // doesn't hammer the API; role filter + page fire immediately.
@@ -50,9 +50,63 @@ export default function EmployeesPage() {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, userId: null, userName: '' });
   const [isFormDirty, setIsFormDirty] = useState(false);
 
+  // Password reveal state. Map of userId -> { value, timer }.
+  const [revealedPasswords, setRevealedPasswords] = useState({});
+  const [warnedAboutAudit, setWarnedAboutAudit] = useState(false);
+
   useUnsavedChanges(isFormDirty);
 
   const isTL = user?.role === 'BDM_TEAM_LEADER';
+  const canViewPasswords = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER';
+
+  const hidePassword = useCallback((userId) => {
+    setRevealedPasswords((prev) => {
+      const next = { ...prev };
+      if (next[userId]?.timer) clearTimeout(next[userId].timer);
+      delete next[userId];
+      return next;
+    });
+  }, []);
+
+  const revealPassword = useCallback(async (userId) => {
+    if (!warnedAboutAudit) {
+      toast('Password reveals are audit-logged.', { icon: 'ℹ️' });
+      setWarnedAboutAudit(true);
+    }
+    const result = await viewUserPassword(userId);
+    if (!result.success) {
+      toast.error(result.error || 'Failed to view password');
+      return;
+    }
+    if (result.data.migrated === false) {
+      toast(result.data.message || 'Not yet captured.', { icon: '⏳' });
+      return;
+    }
+    const timer = setTimeout(() => hidePassword(userId), 30000);
+    setRevealedPasswords((prev) => ({
+      ...prev,
+      [userId]: { value: result.data.password, timer }
+    }));
+  }, [viewUserPassword, warnedAboutAudit, hidePassword]);
+
+  const copyPassword = useCallback(async (value) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success('Password copied');
+    } catch {
+      toast.error('Could not copy to clipboard');
+    }
+  }, []);
+
+  // Clear all reveal timers on unmount.
+  useEffect(() => {
+    return () => {
+      setRevealedPasswords((prev) => {
+        Object.values(prev).forEach((entry) => entry?.timer && clearTimeout(entry.timer));
+        return prev;
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'SALES_DIRECTOR' && user?.role !== 'BDM_TEAM_LEADER' && user?.role !== 'MASTER') {
@@ -282,6 +336,9 @@ export default function EmployeesPage() {
                     <th className="text-left py-3 px-6 text-xs font-medium text-slate-700 dark:text-slate-200 uppercase tracking-wider border-r border-slate-200 dark:border-slate-700">Email</th>
                     <th className="text-left py-3 px-6 text-xs font-medium text-slate-700 dark:text-slate-200 uppercase tracking-wider border-r border-slate-200 dark:border-slate-700">Role</th>
                     <th className="text-left py-3 px-6 text-xs font-medium text-slate-700 dark:text-slate-200 uppercase tracking-wider border-r border-slate-200 dark:border-slate-700">Status</th>
+                    {canViewPasswords && (
+                      <th className="text-left py-3 px-6 text-xs font-medium text-slate-700 dark:text-slate-200 uppercase tracking-wider border-r border-slate-200 dark:border-slate-700">Password</th>
+                    )}
                     <th className="text-left py-3 px-6 text-xs font-medium text-slate-700 dark:text-slate-200 uppercase tracking-wider border-r border-slate-200 dark:border-slate-700">Created</th>
                     <th className="text-left py-3 px-6 text-xs font-medium text-slate-700 dark:text-slate-200 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -362,6 +419,43 @@ export default function EmployeesPage() {
                           {u.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </td>
+                      {canViewPasswords && (
+                        <td className="py-4 px-6 border-r border-slate-200 dark:border-slate-700">
+                          {revealedPasswords[u.id] ? (
+                            <div className="flex items-center gap-2">
+                              <code className="text-sm font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-900 dark:text-slate-100">
+                                {revealedPasswords[u.id].value}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={() => copyPassword(revealedPasswords[u.id].value)}
+                                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
+                                title="Copy"
+                              >
+                                <Copy className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => hidePassword(u.id)}
+                                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
+                                title="Hide"
+                              >
+                                <EyeOff className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => revealPassword(u.id)}
+                              className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                              title="Reveal password"
+                            >
+                              <span className="font-mono">••••••••</span>
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          )}
+                        </td>
+                      )}
                       <td className="py-4 px-6 text-slate-600 dark:text-slate-400 text-sm border-r border-slate-200 dark:border-slate-700">{formatDate(u.createdAt)}</td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
