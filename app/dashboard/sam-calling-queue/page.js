@@ -968,17 +968,17 @@ export default function SAMCallingQueuePage() {
                   {followUpAction === 'meeting' && (
                     <div>
                       <label className="block text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-2">
-                        Assign to Team Leader <span className="text-red-500">*</span>
+                        Assign to Team Leader / BDM <span className="text-red-500">*</span>
                       </label>
                       <select
                         value={selectedBDM}
                         onChange={(e) => setSelectedBDM(e.target.value)}
                         className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       >
-                        <option value="">Select Team Leader (Required)</option>
+                        <option value="">Select Team Leader / BDM (Required)</option>
                         {teamLeaders.map((tl) => (
                           <option key={tl.id} value={tl.id}>
-                            {tl.name}
+                            {tl.name}{tl.kind === 'BDM' ? ' (BDM)' : ''}
                           </option>
                         ))}
                       </select>

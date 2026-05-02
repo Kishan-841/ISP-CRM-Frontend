@@ -931,9 +931,9 @@ export default function FollowUpsPage() {
                         onChange={(e) => setSelectedBDM(e.target.value)}
                         className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       >
-                        <option value="">Select Team Leader...</option>
+                        <option value="">Select Team Leader / BDM...</option>
                         {teamLeaders.map((tl) => (
-                          <option key={tl.id} value={tl.id}>{tl.name}</option>
+                          <option key={tl.id} value={tl.id}>{tl.name}{tl.kind === 'BDM' ? ' (BDM)' : ''}</option>
                         ))}
                       </select>
                     )
