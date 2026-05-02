@@ -388,8 +388,9 @@ export default function AccountsVerificationPage() {
         toast.error('Valid 15-character GST number is required for approval');
         return;
       }
-      // Validate PAN
-      if (!panCardNo || panCardNo.trim().length !== 10) {
+      // PAN follows the same GST applicability gate — non-GST customers
+      // typically don't have a PAN available at this stage.
+      if (gstApplicable && (!panCardNo || panCardNo.trim().length !== 10)) {
         toast.error('Valid 10-character PAN card number is required for approval');
         return;
       }
@@ -2341,7 +2342,7 @@ export default function AccountsVerificationPage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">PAN Card No *</Label>
+                          <Label className="text-xs text-orange-600/80 dark:text-orange-400/80 mb-1 block">PAN Card No {selectedLead?.hasGst === false ? <span className="text-slate-400 font-normal">(optional)</span> : '*'}</Label>
                           <Input
                             type="text"
                             value={panCardNo}
