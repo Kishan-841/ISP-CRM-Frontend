@@ -226,7 +226,11 @@ export default function QuotationManagementPage() {
     bandwidth: '',
     numberOfIPs: '',
     arcAmount: '',
-    otcAmount: ''
+    otcAmount: '',
+    // Locked at quote creation. true = customer owes a One Time Charge,
+    // false = no OTC (skips OTC field, ADVANCE_OTC doc, accounts OTC checks,
+    // and OTC invoice generation downstream).
+    hasOtc: true
   });
 
   // Share with customer form (enhanced for server-side email)
@@ -446,7 +450,8 @@ export default function QuotationManagementPage() {
       bandwidth: lead.bandwidthRequirement || '',
       numberOfIPs: lead.numberOfIPs || '',
       arcAmount: lead.arcAmount || lead.tentativePrice || '',
-      otcAmount: lead.otcAmount || ''
+      otcAmount: lead.otcAmount || '',
+      hasOtc: lead.hasOtc !== false
     });
     setQuotationAttachments(lead.quotationAttachments || []);
     setShowQuoteModal(true);
@@ -782,17 +787,20 @@ export default function QuotationManagementPage() {
       return;
     }
 
-    const grandTotal = (parseFloat(quoteDetails.arcAmount) || 0) + (parseFloat(quoteDetails.otcAmount) || 0);
+    const grandTotal = (parseFloat(quoteDetails.arcAmount) || 0) + (quoteDetails.hasOtc ? (parseFloat(quoteDetails.otcAmount) || 0) : 0);
 
     setIsSaving(true);
     try {
-      // Update lead with quote details and set OPS status to PENDING
+      // Update lead with quote details and set OPS status to PENDING.
+      // hasOtc is the gate for downstream OTC handling — see backend
+      // updateLead(): when false, otcAmount/advanceAmount are forced null.
       const result = await updateLead(selectedLead.id, {
         productIds: selectedProducts,
         bandwidthRequirement: quoteDetails.bandwidth,
         numberOfIPs: quoteDetails.numberOfIPs ? parseInt(quoteDetails.numberOfIPs) : null,
         arcAmount: parseFloat(quoteDetails.arcAmount) || 0,
-        otcAmount: parseFloat(quoteDetails.otcAmount) || 0,
+        hasOtc: quoteDetails.hasOtc,
+        otcAmount: quoteDetails.hasOtc ? (parseFloat(quoteDetails.otcAmount) || 0) : null,
         quotationAttachments: quotationAttachments.length > 0 ? quotationAttachments : null,
         opsApprovalStatus: 'PENDING'
       });
@@ -1920,21 +1928,50 @@ export default function QuotationManagementPage() {
                     </div>
                   </div>
 
-                  {/* OTC */}
+                  {/* OTC — Yes/No toggle locks OTC applicability for the rest
+                      of the lifecycle. "No" hides the amount input, clears
+                      otcAmount, and tells downstream stages (docs upload,
+                      accounts approval, invoice generation) to skip OTC. */}
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
                       OTC (One Time)
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">₹</span>
-                      <Input
-                        type="number"
-                        value={quoteDetails.otcAmount}
-                        onChange={(e) => setQuoteDetails(prev => ({ ...prev, otcAmount: e.target.value }))}
-                        placeholder="Enter amount"
-                        className="pl-8 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 h-11"
-                      />
+                    <div className="flex gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setQuoteDetails(prev => ({ ...prev, hasOtc: true }))}
+                        className={`flex-1 h-9 rounded-md text-xs font-medium border transition-colors ${quoteDetails.hasOtc
+                          ? 'bg-orange-600 text-white border-orange-600'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQuoteDetails(prev => ({ ...prev, hasOtc: false, otcAmount: '' }))}
+                        className={`flex-1 h-9 rounded-md text-xs font-medium border transition-colors ${!quoteDetails.hasOtc
+                          ? 'bg-orange-600 text-white border-orange-600'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                      >
+                        No
+                      </button>
                     </div>
+                    {quoteDetails.hasOtc ? (
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">₹</span>
+                        <Input
+                          type="number"
+                          value={quoteDetails.otcAmount}
+                          onChange={(e) => setQuoteDetails(prev => ({ ...prev, otcAmount: e.target.value }))}
+                          placeholder="Enter amount"
+                          className="pl-8 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 h-11"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 italic px-1">
+                        OTC not applicable — Advance OTC doc and OTC invoice will be skipped downstream.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1988,11 +2025,12 @@ export default function QuotationManagementPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-orange-700 dark:text-orange-300">Grand Total</span>
                     <span className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                      ₹{((parseFloat(quoteDetails.arcAmount) || 0) + (parseFloat(quoteDetails.otcAmount) || 0)).toLocaleString('en-IN')}
+                      ₹{((parseFloat(quoteDetails.arcAmount) || 0) + (quoteDetails.hasOtc ? (parseFloat(quoteDetails.otcAmount) || 0) : 0)).toLocaleString('en-IN')}
                     </span>
                   </div>
                   <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                    ARC: ₹{(parseFloat(quoteDetails.arcAmount) || 0).toLocaleString('en-IN')} + OTC: ₹{(parseFloat(quoteDetails.otcAmount) || 0).toLocaleString('en-IN')}
+                    ARC: ₹{(parseFloat(quoteDetails.arcAmount) || 0).toLocaleString('en-IN')}
+                    {quoteDetails.hasOtc && <> + OTC: ₹{(parseFloat(quoteDetails.otcAmount) || 0).toLocaleString('en-IN')}</>}
                   </p>
                 </div>
               </div>
@@ -2859,10 +2897,13 @@ export default function QuotationManagementPage() {
         // modal — progress count, BDM grid, customer-link selector — flows
         // off this single list so toggling "GST: No" cleanly removes the
         // GST_DETAILS row everywhere.
-        const allDocTypes = getVisibleDocumentTypes({ hasGst });
+        // hasOtc is set at quote creation; non-OTC leads also drop ADVANCE_OTC
+        // from the docs grid, customer-link selector and progress count.
+        const hasOtcForLead = selectedLead?.hasOtc !== false;
+        const allDocTypes = getVisibleDocumentTypes({ hasGst, hasOtc: hasOtcForLead });
         const bdmDocTypes = allDocTypes.filter(d => !customerDocIds.includes(d.id));
         const customerDocTypes = allDocTypes.filter(d => customerDocIds.includes(d.id));
-        const requiredDocsCount = getRequiredCount(testMode, { hasGst });
+        const requiredDocsCount = getRequiredCount(testMode, { hasGst, hasOtc: hasOtcForLead });
 
         return (
           <div data-modal className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -3295,7 +3336,7 @@ export default function QuotationManagementPage() {
                         <IndianRupee size={14} />
                         Pricing Details
                       </h3>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className={selectedLead?.hasOtc !== false ? "grid grid-cols-2 gap-3" : ""}>
                         <div>
                           <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">ARC (Monthly)</label>
                           <Input
@@ -3306,16 +3347,18 @@ export default function QuotationManagementPage() {
                             className="text-sm h-9"
                           />
                         </div>
-                        <div>
-                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">OTC (One-time)</label>
-                          <Input
-                            type="number"
-                            value={editableOtc}
-                            onChange={(e) => setEditableOtc(e.target.value)}
-                            placeholder="Enter OTC"
-                            className="text-sm h-9"
-                          />
-                        </div>
+                        {selectedLead?.hasOtc !== false && (
+                          <div>
+                            <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">OTC (One-time)</label>
+                            <Input
+                              type="number"
+                              value={editableOtc}
+                              onChange={(e) => setEditableOtc(e.target.value)}
+                              placeholder="Enter OTC"
+                              className="text-sm h-9"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -3693,7 +3736,7 @@ export default function QuotationManagementPage() {
                           <IndianRupee size={14} />
                           Pricing Details
                         </h3>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className={selectedLead?.hasOtc !== false ? "grid grid-cols-2 gap-3" : ""}>
                           <div>
                             <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">ARC (Monthly)</label>
                             <Input
@@ -3704,16 +3747,18 @@ export default function QuotationManagementPage() {
                               className="text-sm h-9"
                             />
                           </div>
-                          <div>
-                            <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">OTC (One-time)</label>
-                            <Input
-                              type="number"
-                              value={editableOtc}
-                              onChange={(e) => setEditableOtc(e.target.value)}
-                              placeholder="Enter OTC"
-                              className="text-sm h-9"
-                            />
-                          </div>
+                          {selectedLead?.hasOtc !== false && (
+                            <div>
+                              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">OTC (One-time)</label>
+                              <Input
+                                type="number"
+                                value={editableOtc}
+                                onChange={(e) => setEditableOtc(e.target.value)}
+                                placeholder="Enter OTC"
+                                className="text-sm h-9"
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -3729,7 +3774,7 @@ export default function QuotationManagementPage() {
                 <Button
                   onClick={async () => {
                     const docCount = Object.keys(leadDocuments).length;
-                    const requiredCount = getRequiredCount(testMode, { hasGst });
+                    const requiredCount = getRequiredCount(testMode, { hasGst, hasOtc: selectedLead?.hasOtc !== false });
 
                     if (!testMode && docCount < requiredCount) {
                       toast.error(`Please upload all ${requiredCount} documents before submitting`);

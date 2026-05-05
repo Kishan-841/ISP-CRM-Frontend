@@ -422,12 +422,14 @@ export default function AccountsVerificationPage() {
         toast.error('PO number is required for approval');
         return;
       }
-      // Validate ARC/OTC
+      // Validate ARC/OTC. OTC is only required when BDM declared this customer
+      // owes one at quote creation (selectedLead.hasOtc !== false).
       if (!arcAmount || parseFloat(arcAmount) <= 0) {
         toast.error('Valid ARC amount is required for approval');
         return;
       }
-      if (!otcAmount || parseFloat(otcAmount) < 0) {
+      const otcApplicable = selectedLead?.hasOtc !== false;
+      if (otcApplicable && (!otcAmount || parseFloat(otcAmount) < 0)) {
         toast.error('Valid OTC amount is required for approval');
         return;
       }
@@ -1633,25 +1635,36 @@ export default function AccountsVerificationPage() {
                             className="h-9 text-sm mt-1 bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
                           />
                         </div>
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">OTC Amount</Label>
-                          <Input
-                            type="number"
-                            value={otcAmount}
-                            disabled
-                            className="h-9 text-sm mt-1 bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-green-700 dark:text-green-400">Advance Amount</Label>
-                          <Input
-                            type="number"
-                            value={advanceAmount}
-                            onChange={(e) => setAdvanceAmount(e.target.value)}
-                            className="h-9 text-sm mt-1"
-                            placeholder="₹"
-                          />
-                        </div>
+                        {selectedLead?.hasOtc !== false ? (
+                          <>
+                            <div>
+                              <Label className="text-xs text-green-700 dark:text-green-400">OTC Amount</Label>
+                              <Input
+                                type="number"
+                                value={otcAmount}
+                                disabled
+                                className="h-9 text-sm mt-1 bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-green-700 dark:text-green-400">Advance Amount</Label>
+                              <Input
+                                type="number"
+                                value={advanceAmount}
+                                onChange={(e) => setAdvanceAmount(e.target.value)}
+                                className="h-9 text-sm mt-1"
+                                placeholder="₹"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="col-span-2">
+                            <Label className="text-xs text-slate-500 dark:text-slate-400">OTC / Advance</Label>
+                            <p className="h-9 mt-1 px-3 flex items-center text-xs text-slate-500 dark:text-slate-400 italic bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-md">
+                              Not applicable — BDM marked OTC = No at quote creation.
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <Label className="text-xs text-green-700 dark:text-green-400">Payment Terms</Label>
                           <Input
