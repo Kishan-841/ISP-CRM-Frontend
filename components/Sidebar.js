@@ -479,14 +479,6 @@ export default function Sidebar() {
           { name: 'Leads', path: '/dashboard/leads' },
         ]
       },
-      { name: 'Feasibility Queue', path: '/dashboard/feasibility-queue', icon: FileText, badge: counts.feasibilityPending > 0 ? counts.feasibilityPending : null },
-      { name: 'OPS Approval', path: '/dashboard/ops-approval', icon: FileText },
-      { name: 'Docs Verification', path: '/dashboard/docs-verification', icon: FileText },
-      { name: 'Accounts Verification', path: '/dashboard/accounts-verification', icon: DollarSign },
-      { name: 'Delivery Queue', path: '/dashboard/delivery-queue', icon: Package },
-      { name: 'NOC Queue', path: '/dashboard/noc-queue', icon: Network },
-      { name: 'My BDMs', path: '/dashboard/employees', icon: UserCircle },
-      { name: 'CP Leads', path: '/dashboard/cp-leads', icon: Handshake },
     ] : []),
     // BDM CP items (Channel Partner BDM)
     ...(isBDMCP ? [
