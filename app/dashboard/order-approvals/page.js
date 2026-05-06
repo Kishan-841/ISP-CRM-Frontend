@@ -51,7 +51,10 @@ export default function OrderApprovals() {
       if (filterStatus) params.append('status', filterStatus);
       if (search) params.append('search', search);
 
-      params.append('orderType', 'DISCONNECTION');
+      // All order types now go through the admin approval gate (UPGRADE,
+      // DOWNGRADE, RATE_REVISION, DISCONNECTION). The list page no longer
+      // filters by orderType — the API returns every PENDING_APPROVAL row
+      // and the row-level UI still routes per-type for the CTA labels.
       const response = await api.get(`/service-orders?${params}`);
       setOrders(response.data.orders);
       setPagination(prev => ({ ...prev, ...response.data.pagination }));
@@ -237,7 +240,7 @@ export default function OrderApprovals() {
   return (
     <div className="p-6">
       <DataTable
-        title="Disconnection Approvals"
+        title="Order Approvals"
         totalCount={pagination.total}
         columns={columns}
         data={orders}
