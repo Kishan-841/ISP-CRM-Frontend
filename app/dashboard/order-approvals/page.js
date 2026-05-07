@@ -165,12 +165,28 @@ export default function OrderApprovals() {
       }
     },
     {
-      key: 'attachments', label: 'Attachments',
+      key: 'attachments', label: 'Documents',
       render: (row) => {
         const files = Array.isArray(row.attachments) ? row.attachments : [];
-        if (files.length === 0) return <span className="text-slate-400 text-sm">-</span>;
+        const hasAnything = row.approvalFileUrl || row.poFileUrl || files.length > 0;
+        if (!hasAnything) return <span className="text-slate-400 text-sm">-</span>;
+        const labelledLink = (url, label) => (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-orange-50 dark:bg-orange-900/20 text-xs text-orange-700 hover:text-orange-900 hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors whitespace-nowrap"
+            title={label}
+          >
+            <Paperclip className="w-3 h-3" />
+            <span>{label}</span>
+            <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+          </a>
+        );
         return (
-          <div className="flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-wrap items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            {row.approvalFileUrl && labelledLink(row.approvalFileUrl, 'View customer approval')}
+            {row.poFileUrl && labelledLink(row.poFileUrl, 'View Purchase Order')}
             {files.map((att, idx) => (
               <a
                 key={idx}
