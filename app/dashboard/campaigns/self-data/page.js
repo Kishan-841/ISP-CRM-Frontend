@@ -378,7 +378,7 @@ export default function AddSelfDataPage() {
                   <ul className="space-y-0.5 text-xs">
                     {uploadResultData.duplicateCount > 0 && <li>• Duplicate phone: {uploadResultData.duplicateCount}</li>}
                     {uploadResultData.skippedNoPhone > 0 && <li>• Missing phone: {uploadResultData.skippedNoPhone}</li>}
-                    {uploadResultData.skippedInvalidPhone > 0 && <li>• Invalid phone (not 10 digits): {uploadResultData.skippedInvalidPhone}</li>}
+                    {uploadResultData.skippedInvalidPhone > 0 && <li>• Invalid phone (need 6-15 digits): {uploadResultData.skippedInvalidPhone}</li>}
                     {uploadResultData.skippedNoName > 0 && <li>• Missing name: {uploadResultData.skippedNoName}</li>}
                     {uploadResultData.skippedNoCompany > 0 && <li>• Missing company: {uploadResultData.skippedNoCompany}</li>}
                     {uploadResultData.skippedNoTitle > 0 && <li>• Missing title/designation: {uploadResultData.skippedNoTitle}</li>}

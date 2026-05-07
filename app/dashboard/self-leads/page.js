@@ -374,8 +374,11 @@ export default function SelfLeadsPage() {
       return false;
     }
     const phoneDigits = singleData.phone.replace(/\D/g, '');
-    if (phoneDigits.length !== 10) {
-      setFormError(`Phone must have exactly 10 digits. Got ${phoneDigits.length}.`);
+    // Range covers Indian local landlines (6-8), STD landlines (10-11),
+    // mobile (10), and international with country code (up to 15 — E.164
+    // ceiling). Same range as the backend validators.
+    if (phoneDigits.length < 6 || phoneDigits.length > 15) {
+      setFormError(`Phone must be 6-15 digits. Got ${phoneDigits.length}.`);
       return false;
     }
     if (!singleData.title?.trim()) {

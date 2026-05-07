@@ -389,7 +389,7 @@ export default function RawDataSelfDataPage() {
                     <ul className="space-y-0.5 text-xs">
                       {uploadResult.duplicateCount > 0 && <li>• Duplicate phone: {uploadResult.duplicateCount}</li>}
                       {uploadResult.skippedNoPhone > 0 && <li>• Missing phone: {uploadResult.skippedNoPhone}</li>}
-                      {uploadResult.skippedInvalidPhone > 0 && <li>• Invalid phone (not 10 digits): {uploadResult.skippedInvalidPhone}</li>}
+                      {uploadResult.skippedInvalidPhone > 0 && <li>• Invalid phone (need 6-15 digits): {uploadResult.skippedInvalidPhone}</li>}
                       {uploadResult.skippedNoName > 0 && <li>• Missing name: {uploadResult.skippedNoName}</li>}
                       {uploadResult.skippedNoCompany > 0 && <li>• Missing company: {uploadResult.skippedNoCompany}</li>}
                       {uploadResult.skippedNoEmail > 0 && <li>• Missing email: {uploadResult.skippedNoEmail}</li>}

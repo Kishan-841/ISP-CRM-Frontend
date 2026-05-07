@@ -560,7 +560,7 @@ export default function CreateCampaignPage() {
                     )}
                     {uploadResult.skippedInvalidPhone > 0 && (
                       <p className="text-red-600 dark:text-red-400">
-                        {uploadResult.skippedInvalidPhone} record(s) - Invalid phone number (must have exactly 10 digits)
+                        {uploadResult.skippedInvalidPhone} record(s) - Invalid phone number (need 6-15 digits)
                       </p>
                     )}
                     {uploadResult.skippedNoName > 0 && (
