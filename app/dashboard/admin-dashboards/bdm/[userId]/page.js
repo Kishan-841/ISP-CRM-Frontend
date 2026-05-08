@@ -278,11 +278,14 @@ export default function IndividualBDMDashboard() {
       </div>
 
       {/* ── Other Stats (Row 2) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mt-3 md:mt-4">
         {[
           { label: 'Total Leads', value: dashStats.totalLeads || 0, icon: Users, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400' },
           { label: 'Meetings Done', value: dashStats.meetingsDone || 0, icon: CalendarCheck, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-900/40', iconText: 'text-cyan-600 dark:text-cyan-400' },
           { label: 'Funnel Value', value: formatCurrency(dashStats.totalFunnelValue), icon: DollarSign, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400' },
+          // Total OTC drills into the Pipeline ARC tracker (OTC slice),
+          // scoped to this same BDM via the userId query param.
+          { label: 'Total OTC', value: formatCurrency(dashStats.totalOtcAmount), icon: DollarSign, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconText: 'text-emerald-600 dark:text-emerald-400', stage: 'otc' },
         ].map((stat, i) => (
           <Card
             key={i}

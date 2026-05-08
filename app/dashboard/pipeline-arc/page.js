@@ -26,6 +26,7 @@ import { formatCurrency } from '@/lib/formatters';
 
 const STAGE_CONFIG = {
   funnel: { label: 'Funnel', dateField: null, color: 'bg-orange-600' },
+  otc: { label: 'OTC', dateField: null, color: 'bg-emerald-600' },
   login: { label: 'Login', dateField: 'loginCompletedAt', color: 'bg-cyan-600' },
   po: { label: 'PO Received', dateField: 'accountsVerifiedAt', color: 'bg-emerald-600' },
   install: { label: 'Installation Done', dateField: 'installationCompletedAt', color: 'bg-amber-600' },
@@ -96,18 +97,21 @@ export default function PipelineARCPage() {
   const dashStats = bdmDashboardStats?.dashboardStats || {};
   const pipelineLeads = dashStats.pipelineLeads || [];
   const funnelLeads = dashStats.funnelLeads || [];
+  const otcLeads = dashStats.otcLeads || [];
 
-  // Funnel mode draws from a separate slice — every lead with a
-  // tentativePrice (funnel-eligible). Milestone modes still draw from
-  // pipelineLeads (rows that have at least one milestone date set).
+  // Funnel/OTC modes each draw from their own backend slice (rows with a
+  // positive tentativePrice / otcAmount respectively). Milestone modes
+  // still draw from pipelineLeads (rows that have at least one milestone
+  // date set).
   const isFunnelView = stageFilter === 'funnel';
-  const sourceLeads = isFunnelView ? funnelLeads : pipelineLeads;
+  const isOtcView = stageFilter === 'otc';
+  const sourceLeads = isFunnelView ? funnelLeads : isOtcView ? otcLeads : pipelineLeads;
 
   const filteredLeads = sourceLeads.filter((lead) => {
     // Milestone stage filter: require the row to have that milestone date.
-    // Funnel stage doesn't need a date check — every funnelLeads row already
-    // has a positive funnelAmount.
-    if (!isFunnelView && stageFilter && STAGE_CONFIG[stageFilter]) {
+    // Funnel and OTC stages don't need a date check — backend already
+    // pre-filters those slices to rows with a positive amount.
+    if (!isFunnelView && !isOtcView && stageFilter && STAGE_CONFIG[stageFilter]) {
       const dateField = STAGE_CONFIG[stageFilter].dateField;
       if (dateField && !lead[dateField]) return false;
     }
@@ -125,6 +129,7 @@ export default function PipelineARCPage() {
     (acc, lead) => {
       acc.arc += lead.arcAmount || 0;
       acc.funnel += lead.funnelAmount || 0;
+      acc.otc += lead.otcAmount || 0;
       if (lead.loginCompletedAt) acc.login += lead.arcAmount || 0;
       if (lead.accountsVerifiedAt) acc.po += lead.arcAmount || 0;
       if (lead.installationCompletedAt) acc.install += lead.arcAmount || 0;
@@ -132,7 +137,7 @@ export default function PipelineARCPage() {
       acc.ftb += lead.ftbAmount || 0;
       return acc;
     },
-    { arc: 0, funnel: 0, login: 0, po: 0, install: 0, accept: 0, ftb: 0 }
+    { arc: 0, funnel: 0, otc: 0, login: 0, po: 0, install: 0, accept: 0, ftb: 0 }
   );
 
   // Sliced view for the current page. Empty when filteredLeads is empty.
@@ -267,7 +272,7 @@ export default function PipelineARCPage() {
           breakdown. Cards are clickable in milestone mode (toggling the
           stage filter); funnel mode's cards are static since the only
           stage there is the implicit "funnel" filter we're already in. */}
-      <div className={`grid grid-cols-2 ${isFunnelView ? 'sm:grid-cols-2' : 'sm:grid-cols-3 lg:grid-cols-6'} gap-3`}>
+      <div className={`grid grid-cols-2 ${(isFunnelView || isOtcView) ? 'sm:grid-cols-2' : 'sm:grid-cols-3 lg:grid-cols-6'} gap-3`}>
         {(isFunnelView
           ? [
               // ARC card intentionally omitted here. arcAmount lives on a
@@ -278,6 +283,14 @@ export default function PipelineARCPage() {
               // mode; per-row ARC is still visible in the table column.
               { label: 'Total Funnel Value', value: totals.funnel, borderClass: 'border-l-orange-500' },
               { label: 'Leads in Funnel', value: filteredLeads.length, borderClass: 'border-l-emerald-500', isCount: true },
+            ]
+          : isOtcView
+          ? [
+              // Total OTC across the period-scoped slice — sums every
+              // lead's otcAmount. Mirrors the Funnel mode's two-card
+              // layout (headline + count) so the page feels consistent.
+              { label: 'Total OTC', value: totals.otc, borderClass: 'border-l-emerald-500' },
+              { label: 'Leads with OTC', value: filteredLeads.length, borderClass: 'border-l-orange-500', isCount: true },
             ]
           : [
               { label: 'Total ARC', value: totals.arc, borderClass: 'border-l-orange-500', stage: '' },
@@ -329,7 +342,7 @@ export default function PipelineARCPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              {isFunnelView ? (
+              {(isFunnelView || isOtcView) ? (
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
@@ -343,7 +356,7 @@ export default function PipelineARCPage() {
                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1">
                         <IndianRupee size={12} />
-                        Funnel Value
+                        {isOtcView ? 'OTC' : 'Funnel Value'}
                       </div>
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">City</th>
@@ -354,8 +367,8 @@ export default function PipelineARCPage() {
                     <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                       <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 z-10">
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
-                            <Building2 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                          <div className={`h-9 w-9 rounded-lg ${isOtcView ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-orange-100 dark:bg-orange-900/30'} flex items-center justify-center flex-shrink-0`}>
+                            <Building2 className={`h-4 w-4 ${isOtcView ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}`} />
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">{lead.company}</p>
@@ -367,8 +380,8 @@ export default function PipelineARCPage() {
                         {lead.assignedToName || <span className="text-slate-400">—</span>}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <span className="font-semibold text-sm text-orange-700 dark:text-orange-400">
-                          {formatCurrency(lead.funnelAmount)}
+                        <span className={`font-semibold text-sm ${isOtcView ? 'text-emerald-700 dark:text-emerald-400' : 'text-orange-700 dark:text-orange-400'}`}>
+                          {formatCurrency(isOtcView ? lead.otcAmount : lead.funnelAmount)}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap">
@@ -376,15 +389,15 @@ export default function PipelineARCPage() {
                       </td>
                     </tr>
                   ))}
-                  {/* Funnel totals row — grand total over the full filtered
-                      set, not the page slice. */}
+                  {/* Totals row — grand total over the full filtered set,
+                      not the page slice. */}
                   <tr className="bg-slate-50 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600 font-semibold">
                     <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-800 z-10">
                       Total ({totalRows} {totalRows === 1 ? 'lead' : 'leads'})
                     </td>
                     <td className="py-3 px-4" />
-                    <td className="py-3 px-4 text-right text-sm text-orange-700 dark:text-orange-400">
-                      {formatCurrency(totals.funnel)}
+                    <td className={`py-3 px-4 text-right text-sm ${isOtcView ? 'text-emerald-700 dark:text-emerald-400' : 'text-orange-700 dark:text-orange-400'}`}>
+                      {formatCurrency(isOtcView ? totals.otc : totals.funnel)}
                     </td>
                     <td className="py-3 px-4" />
                   </tr>

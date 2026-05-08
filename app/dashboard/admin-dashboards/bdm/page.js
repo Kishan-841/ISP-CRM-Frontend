@@ -54,6 +54,7 @@ export default function BDMOverallDashboard() {
       totalLeads: 0,
       meetingsDone: 0,
       funnelValue: 0,
+      totalOtcAmount: 0,
       quotationSent: 0,
       quotationValue: 0,
       poReceived: 0,
@@ -205,6 +206,7 @@ export default function BDMOverallDashboard() {
           totalLeads: summary.totalLeads || dashboardStats.totalLeads || 0,
           meetingsDone: dashboardStats.meetingsDone || 0,
           funnelValue: dashboardStats.totalFunnelValue || 0,
+          totalOtcAmount: dashboardStats.totalOtcAmount || 0,
           quotationSent: dashboardStats.quotationCount || summary.quotationsSent || 0,
           quotationValue: dashboardStats.totalQuotationAmount || 0,
           poReceived: dashboardStats.poReceived || dashboardStats.poReceivedCount || 0,
@@ -364,7 +366,7 @@ export default function BDMOverallDashboard() {
           </div>
 
           {/* ── Other Stats (Row 2) ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
               { label: 'Total Leads', value: summary.totalLeads || 0, icon: Users, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400' },
               { label: 'Meetings Done', value: summary.meetingsDone || 0, icon: Calendar, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-900/40', iconText: 'text-cyan-600 dark:text-cyan-400' },
@@ -372,6 +374,9 @@ export default function BDMOverallDashboard() {
               // the funnel stage — shows every lead with a tentativePrice
               // along with company / BDM / amount / status / industry / city.
               { label: 'Funnel Value', value: formatCurrency(summary.funnelValue), icon: Send, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400', stage: 'funnel' },
+              // Total OTC drills into the Pipeline ARC tracker filtered
+              // to the OTC slice — same drill-down pattern as Funnel Value.
+              { label: 'Total OTC', value: formatCurrency(summary.totalOtcAmount), icon: Banknote, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconText: 'text-emerald-600 dark:text-emerald-400', stage: 'otc' },
             ].map((stat, i) => (
               <Card
                 key={i}
