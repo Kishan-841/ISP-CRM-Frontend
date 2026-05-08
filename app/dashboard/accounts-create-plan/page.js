@@ -262,9 +262,13 @@ export default function AccountsCreatePlanPage() {
     notes: ''
   });
 
-  // Rate revision form
+  // Rate revision form. Semantic: bandwidth increases while ARC stays
+  // exactly the same. (Price drops live in the Degrade flow, price hikes
+  // in Upgrade.) newArc is held in state purely so we can display the
+  // confirmation "₹X → ₹X" — it's never edited by the user here.
   const [rateRevisionForm, setRateRevisionForm] = useState({
     planName: '',
+    newBandwidth: '',
     newArc: '',
     revisionDate: new Date().toISOString().split('T')[0],
     notes: ''
@@ -802,30 +806,35 @@ export default function AccountsCreatePlanPage() {
     }
   };
 
-  // Rate revision - ARC reduces, bandwidth stays the same
+  // Rate revision - bandwidth increases while ARC stays the same.
+  // Implemented on top of the upgrade endpoint with `additional ARC = 0`
+  // so we get the proper history row and lead update without inventing a
+  // new endpoint. The pro-rata upgrade invoice naturally comes out to 0
+  // since the additional ARC is 0.
   const handleRateRevision = async () => {
-    if (!selectedLead || !rateRevisionForm.newArc) {
-      toast.error('New ARC is required');
+    if (!selectedLead) return;
+    if (!rateRevisionForm.newBandwidth) {
+      toast.error('New bandwidth is required');
       return;
     }
 
-    const newArc = parseFloat(rateRevisionForm.newArc);
-    const currentArc = selectedLead.arcAmount || selectedLead.actualPlanPrice || 0;
-    if (newArc >= currentArc) {
-      toast.error('New ARC must be less than current ARC');
+    const newBandwidth = parseInt(rateRevisionForm.newBandwidth);
+    const currentBandwidth = selectedLead.actualPlanBandwidth || 0;
+    if (!Number.isFinite(newBandwidth) || newBandwidth <= currentBandwidth) {
+      toast.error('New bandwidth must be greater than current bandwidth');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const degradeArc = currentArc - newArc;
-      const response = await api.post(`/leads/accounts-team/${selectedLead.id}/actual-plan/degrade`, {
+      const currentArc = selectedLead.arcAmount || selectedLead.actualPlanPrice || 0;
+      const response = await api.post(`/leads/accounts-team/${selectedLead.id}/actual-plan/upgrade`, {
         planName: rateRevisionForm.planName || selectedLead.actualPlanName,
-        bandwidth: selectedLead.actualPlanBandwidth,
+        bandwidth: newBandwidth,
         uploadBandwidth: selectedLead.actualPlanUploadBandwidth || null,
-        degradeArc,
-        degradeDate: rateRevisionForm.revisionDate,
-        notes: rateRevisionForm.notes || `Rate revision - ARC reduced from ${formatCurrency(currentArc)} to ${formatCurrency(newArc)}, bandwidth unchanged`,
+        newArc: 0, // additional ARC — zero because price stays the same
+        upgradeDate: rateRevisionForm.revisionDate,
+        notes: rateRevisionForm.notes || `Rate revision - bandwidth increased from ${formatBandwidth(currentBandwidth)} to ${formatBandwidth(newBandwidth)}, ARC unchanged at ${formatCurrency(currentArc)}`,
         isRateRevision: true
       });
 
@@ -1058,7 +1067,8 @@ export default function AccountsCreatePlanPage() {
                     setModalMode('rate_revision');
                     setRateRevisionForm({
                       planName: lead.actualPlanName || '',
-                      newArc: order.newArc || '',
+                      newBandwidth: order.newBandwidth || '',
+                      newArc: order.newArc || lead.arcAmount || '',
                       revisionDate: effectiveDateStr,
                       notes: order.notes || ''
                     });
@@ -1994,7 +2004,7 @@ export default function AccountsCreatePlanPage() {
               <div className="min-w-0">
                 <h2 className="text-base sm:text-lg font-semibold text-white">Rate Revision</h2>
                 <p className="text-xs sm:text-sm text-teal-100 truncate">
-                  {selectedLead.company || selectedLead.campaignData?.company || 'Unknown Company'} — ARC reduction, bandwidth unchanged
+                  {selectedLead.company || selectedLead.campaignData?.company || 'Unknown Company'} — Bandwidth increase, ARC unchanged
                 </p>
               </div>
               <button onClick={handleCloseModal} className="text-white/80 hover:text-white transition-colors shrink-0 p-2">
@@ -2029,11 +2039,11 @@ export default function AccountsCreatePlanPage() {
                 </div>
               </div>
 
-              {/* New ARC Configuration */}
+              {/* New Bandwidth Configuration */}
               <div className="p-4 bg-teal-50 dark:bg-teal-900/20 rounded-lg border border-teal-200 dark:border-teal-800">
                 <h3 className="text-sm font-semibold text-teal-700 dark:text-teal-300 mb-4 flex items-center gap-2">
                   <TrendingUp size={16} />
-                  New ARC Configuration
+                  New Bandwidth Configuration
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
@@ -2047,25 +2057,26 @@ export default function AccountsCreatePlanPage() {
                     <p className="text-xs text-slate-500 mt-1">Leave as-is if plan name unchanged</p>
                   </div>
                   <div>
-                    <Label htmlFor="revisionNewArc">New ARC (INR) *</Label>
+                    <Label htmlFor="revisionNewBandwidth">New Bandwidth (Mbps) *</Label>
                     <Input
-                      id="revisionNewArc"
+                      id="revisionNewBandwidth"
                       type="number"
-                      value={rateRevisionForm.newArc}
-                      onChange={(e) => handleRateRevisionFormChange('newArc', e.target.value)}
-                      placeholder="e.g. 40000"
+                      value={rateRevisionForm.newBandwidth}
+                      onChange={(e) => handleRateRevisionFormChange('newBandwidth', e.target.value)}
+                      placeholder="e.g. 200"
+                      readOnly={!!activeServiceOrderId}
                     />
-                    {rateRevisionForm.newArc && selectedLead.arcAmount && (
-                      <p className={`text-xs mt-1 ${parseFloat(rateRevisionForm.newArc) < selectedLead.arcAmount ? 'text-teal-600' : 'text-red-500'}`}>
-                        {formatCurrency(selectedLead.arcAmount)} → {formatCurrency(parseFloat(rateRevisionForm.newArc))}
-                        {parseFloat(rateRevisionForm.newArc) >= selectedLead.arcAmount && ' (must be less than current ARC)'}
+                    {rateRevisionForm.newBandwidth && selectedLead.actualPlanBandwidth != null && (
+                      <p className={`text-xs mt-1 ${parseInt(rateRevisionForm.newBandwidth) > selectedLead.actualPlanBandwidth ? 'text-teal-600' : 'text-red-500'}`}>
+                        {formatBandwidth(selectedLead.actualPlanBandwidth)} → {formatBandwidth(parseInt(rateRevisionForm.newBandwidth))}
+                        {parseInt(rateRevisionForm.newBandwidth) <= selectedLead.actualPlanBandwidth && ' (must be greater than current bandwidth)'}
                       </p>
                     )}
                   </div>
                   <div>
-                    <Label className="text-slate-500">Bandwidth</Label>
+                    <Label className="text-slate-500">ARC (INR)</Label>
                     <div className="px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-teal-600">
-                      {formatBandwidth(selectedLead.actualPlanBandwidth)} <span className="text-xs text-slate-400 font-normal">(no change)</span>
+                      {formatCurrency(selectedLead.arcAmount)} <span className="text-xs text-slate-400 font-normal">(no change)</span>
                     </div>
                   </div>
                   <div>
@@ -2102,7 +2113,7 @@ export default function AccountsCreatePlanPage() {
               <div className="p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg border border-teal-200 dark:border-teal-800">
                 <p className="text-xs text-teal-700 dark:text-teal-300 flex items-center gap-2">
                   <Info size={14} />
-                  ARC will be reduced while bandwidth remains at {formatBandwidth(selectedLead.actualPlanBandwidth)}.
+                  Bandwidth will be increased while ARC remains at {formatCurrency(selectedLead.arcAmount)}.
                 </p>
               </div>
             </div>
@@ -2118,7 +2129,7 @@ export default function AccountsCreatePlanPage() {
                 </Button>
                 <Button
                   onClick={handleRateRevision}
-                  disabled={isSubmitting || !rateRevisionForm.planName || !rateRevisionForm.newArc || (selectedLead.arcAmount && parseFloat(rateRevisionForm.newArc) >= selectedLead.arcAmount)}
+                  disabled={isSubmitting || !rateRevisionForm.planName || !rateRevisionForm.newBandwidth || (selectedLead.actualPlanBandwidth != null && parseInt(rateRevisionForm.newBandwidth) <= selectedLead.actualPlanBandwidth)}
                   className="bg-teal-600 hover:bg-teal-700 text-white"
                   size="sm"
                 >
