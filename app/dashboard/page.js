@@ -679,15 +679,18 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Other Stats (Row 2) ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mt-3 md:mt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mt-3 md:mt-4">
           {[
             { label: 'Total Leads', value: dashStats.totalLeads || 0, icon: Users, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400' },
             { label: 'Meetings Done', value: dashStats.meetingsDone || 0, icon: CalendarCheck, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-900/40', iconText: 'text-cyan-600 dark:text-cyan-400', link: '/dashboard/bdm-meetings' },
             { label: 'Funnel Value', value: formatCurrency(dashStats.totalFunnelValue), icon: DollarSign, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400' },
-            // Total OTC — one-time charges across leads in the period.
-            // Drills into the Pipeline ARC tracker filtered to the OTC
-            // slice (every lead with a positive otcAmount).
+            // OTC across all period leads + per-stage OTC: how much OTC is
+            // attached to the leads that have already reached Login or PO.
+            // Each card drills into the Pipeline ARC tracker scoped to the
+            // matching slice (otc / login-otc / po-otc).
             { label: 'Total OTC', value: formatCurrency(dashStats.totalOtcAmount), icon: DollarSign, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconText: 'text-emerald-600 dark:text-emerald-400', link: '/dashboard/pipeline-arc?stage=otc' },
+            { label: 'Login OTC', value: formatCurrency(dashStats.loginOtcAmount), icon: DollarSign, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-900/40', iconText: 'text-cyan-600 dark:text-cyan-400', link: '/dashboard/pipeline-arc?stage=login-otc' },
+            { label: 'PO Received OTC', value: formatCurrency(dashStats.poReceivedOtcAmount), icon: DollarSign, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconText: 'text-emerald-600 dark:text-emerald-400', link: '/dashboard/pipeline-arc?stage=po-otc' },
           ].map((stat, i) => (
             <Card
               key={i}

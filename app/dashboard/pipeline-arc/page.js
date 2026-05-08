@@ -27,6 +27,12 @@ import { formatCurrency } from '@/lib/formatters';
 const STAGE_CONFIG = {
   funnel: { label: 'Funnel', dateField: null, color: 'bg-orange-600' },
   otc: { label: 'OTC', dateField: null, color: 'bg-emerald-600' },
+  // login-otc / po-otc — focused single-metric views: leads at the Login
+  // (or PO) milestone, with their otcAmount as the headline column.
+  // Different from `login` / `po` (which are the milestone-grid views
+  // showing all stages of a lead at once).
+  'login-otc': { label: 'Login OTC', dateField: 'loginCompletedAt', color: 'bg-cyan-600' },
+  'po-otc': { label: 'PO Received OTC', dateField: 'accountsVerifiedAt', color: 'bg-emerald-600' },
   login: { label: 'Login', dateField: 'loginCompletedAt', color: 'bg-cyan-600' },
   po: { label: 'PO Received', dateField: 'accountsVerifiedAt', color: 'bg-emerald-600' },
   install: { label: 'Installation Done', dateField: 'installationCompletedAt', color: 'bg-amber-600' },
@@ -102,16 +108,33 @@ export default function PipelineARCPage() {
   // Funnel/OTC modes each draw from their own backend slice (rows with a
   // positive tentativePrice / otcAmount respectively). Milestone modes
   // still draw from pipelineLeads (rows that have at least one milestone
-  // date set).
+  // date set). login-otc / po-otc are focused OTC-by-stage views — they
+  // ride on pipelineLeads but render the OTC focused-table layout.
   const isFunnelView = stageFilter === 'funnel';
   const isOtcView = stageFilter === 'otc';
-  const sourceLeads = isFunnelView ? funnelLeads : isOtcView ? otcLeads : pipelineLeads;
+  const isLoginOtcView = stageFilter === 'login-otc';
+  const isPoOtcView = stageFilter === 'po-otc';
+  const isStageOtcView = isLoginOtcView || isPoOtcView;
+  // Combined flag — any of the OTC-themed focused views renders the same
+  // emerald/single-amount-column table.
+  const isAnyOtcView = isOtcView || isStageOtcView;
+  const sourceLeads = isFunnelView
+    ? funnelLeads
+    : isOtcView
+    ? otcLeads
+    : pipelineLeads;
 
   const filteredLeads = sourceLeads.filter((lead) => {
+    // login-otc / po-otc: filter pipelineLeads down to rows where the
+    // milestone date is set (loginCompletedAt or accountsVerifiedAt).
+    if (isStageOtcView) {
+      const dateField = STAGE_CONFIG[stageFilter].dateField;
+      if (!lead[dateField]) return false;
+    }
     // Milestone stage filter: require the row to have that milestone date.
     // Funnel and OTC stages don't need a date check — backend already
     // pre-filters those slices to rows with a positive amount.
-    if (!isFunnelView && !isOtcView && stageFilter && STAGE_CONFIG[stageFilter]) {
+    if (!isFunnelView && !isOtcView && !isStageOtcView && stageFilter && STAGE_CONFIG[stageFilter]) {
       const dateField = STAGE_CONFIG[stageFilter].dateField;
       if (dateField && !lead[dateField]) return false;
     }
@@ -272,7 +295,7 @@ export default function PipelineARCPage() {
           breakdown. Cards are clickable in milestone mode (toggling the
           stage filter); funnel mode's cards are static since the only
           stage there is the implicit "funnel" filter we're already in. */}
-      <div className={`grid grid-cols-2 ${(isFunnelView || isOtcView) ? 'sm:grid-cols-2' : 'sm:grid-cols-3 lg:grid-cols-6'} gap-3`}>
+      <div className={`grid grid-cols-2 ${(isFunnelView || isAnyOtcView) ? 'sm:grid-cols-2' : 'sm:grid-cols-3 lg:grid-cols-6'} gap-3`}>
         {(isFunnelView
           ? [
               // ARC card intentionally omitted here. arcAmount lives on a
@@ -284,13 +307,21 @@ export default function PipelineARCPage() {
               { label: 'Total Funnel Value', value: totals.funnel, borderClass: 'border-l-orange-500' },
               { label: 'Leads in Funnel', value: filteredLeads.length, borderClass: 'border-l-emerald-500', isCount: true },
             ]
-          : isOtcView
+          : isAnyOtcView
           ? [
-              // Total OTC across the period-scoped slice — sums every
-              // lead's otcAmount. Mirrors the Funnel mode's two-card
-              // layout (headline + count) so the page feels consistent.
-              { label: 'Total OTC', value: totals.otc, borderClass: 'border-l-emerald-500' },
-              { label: 'Leads with OTC', value: filteredLeads.length, borderClass: 'border-l-orange-500', isCount: true },
+              // Headline OTC + matching count. Label adapts to which OTC
+              // sub-view is active (period-wide, login-stage, or PO-stage).
+              {
+                label: isLoginOtcView ? 'Total Login OTC' : isPoOtcView ? 'Total PO Received OTC' : 'Total OTC',
+                value: totals.otc,
+                borderClass: 'border-l-emerald-500',
+              },
+              {
+                label: isLoginOtcView ? 'Leads at Login' : isPoOtcView ? 'Leads with PO' : 'Leads with OTC',
+                value: filteredLeads.length,
+                borderClass: 'border-l-orange-500',
+                isCount: true,
+              },
             ]
           : [
               { label: 'Total ARC', value: totals.arc, borderClass: 'border-l-orange-500', stage: '' },
@@ -342,7 +373,7 @@ export default function PipelineARCPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              {(isFunnelView || isOtcView) ? (
+              {(isFunnelView || isAnyOtcView) ? (
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
@@ -356,7 +387,7 @@ export default function PipelineARCPage() {
                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1">
                         <IndianRupee size={12} />
-                        {isOtcView ? 'OTC' : 'Funnel Value'}
+                        {isAnyOtcView ? 'OTC' : 'Funnel Value'}
                       </div>
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">City</th>
@@ -367,8 +398,8 @@ export default function PipelineARCPage() {
                     <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                       <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 z-10">
                         <div className="flex items-center gap-3">
-                          <div className={`h-9 w-9 rounded-lg ${isOtcView ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-orange-100 dark:bg-orange-900/30'} flex items-center justify-center flex-shrink-0`}>
-                            <Building2 className={`h-4 w-4 ${isOtcView ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}`} />
+                          <div className={`h-9 w-9 rounded-lg ${isAnyOtcView ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-orange-100 dark:bg-orange-900/30'} flex items-center justify-center flex-shrink-0`}>
+                            <Building2 className={`h-4 w-4 ${isAnyOtcView ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}`} />
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">{lead.company}</p>
@@ -380,8 +411,8 @@ export default function PipelineARCPage() {
                         {lead.assignedToName || <span className="text-slate-400">—</span>}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <span className={`font-semibold text-sm ${isOtcView ? 'text-emerald-700 dark:text-emerald-400' : 'text-orange-700 dark:text-orange-400'}`}>
-                          {formatCurrency(isOtcView ? lead.otcAmount : lead.funnelAmount)}
+                        <span className={`font-semibold text-sm ${isAnyOtcView ? 'text-emerald-700 dark:text-emerald-400' : 'text-orange-700 dark:text-orange-400'}`}>
+                          {formatCurrency(isAnyOtcView ? lead.otcAmount : lead.funnelAmount)}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap">
@@ -396,8 +427,8 @@ export default function PipelineARCPage() {
                       Total ({totalRows} {totalRows === 1 ? 'lead' : 'leads'})
                     </td>
                     <td className="py-3 px-4" />
-                    <td className={`py-3 px-4 text-right text-sm ${isOtcView ? 'text-emerald-700 dark:text-emerald-400' : 'text-orange-700 dark:text-orange-400'}`}>
-                      {formatCurrency(isOtcView ? totals.otc : totals.funnel)}
+                    <td className={`py-3 px-4 text-right text-sm ${isAnyOtcView ? 'text-emerald-700 dark:text-emerald-400' : 'text-orange-700 dark:text-orange-400'}`}>
+                      {formatCurrency(isAnyOtcView ? totals.otc : totals.funnel)}
                     </td>
                     <td className="py-3 px-4" />
                   </tr>

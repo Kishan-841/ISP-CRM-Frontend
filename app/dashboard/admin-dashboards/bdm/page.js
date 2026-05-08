@@ -55,6 +55,8 @@ export default function BDMOverallDashboard() {
       meetingsDone: 0,
       funnelValue: 0,
       totalOtcAmount: 0,
+      loginOtcAmount: 0,
+      poReceivedOtcAmount: 0,
       quotationSent: 0,
       quotationValue: 0,
       poReceived: 0,
@@ -207,6 +209,8 @@ export default function BDMOverallDashboard() {
           meetingsDone: dashboardStats.meetingsDone || 0,
           funnelValue: dashboardStats.totalFunnelValue || 0,
           totalOtcAmount: dashboardStats.totalOtcAmount || 0,
+          loginOtcAmount: dashboardStats.loginOtcAmount || 0,
+          poReceivedOtcAmount: dashboardStats.poReceivedOtcAmount || 0,
           quotationSent: dashboardStats.quotationCount || summary.quotationsSent || 0,
           quotationValue: dashboardStats.totalQuotationAmount || 0,
           poReceived: dashboardStats.poReceived || dashboardStats.poReceivedCount || 0,
@@ -366,7 +370,7 @@ export default function BDMOverallDashboard() {
           </div>
 
           {/* ── Other Stats (Row 2) ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
             {[
               { label: 'Total Leads', value: summary.totalLeads || 0, icon: Users, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400' },
               { label: 'Meetings Done', value: summary.meetingsDone || 0, icon: Calendar, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-900/40', iconText: 'text-cyan-600 dark:text-cyan-400' },
@@ -374,9 +378,12 @@ export default function BDMOverallDashboard() {
               // the funnel stage — shows every lead with a tentativePrice
               // along with company / BDM / amount / status / industry / city.
               { label: 'Funnel Value', value: formatCurrency(summary.funnelValue), icon: Send, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400', stage: 'funnel' },
-              // Total OTC drills into the Pipeline ARC tracker filtered
-              // to the OTC slice — same drill-down pattern as Funnel Value.
+              // OTC family: total OTC across all period leads + per-stage
+              // OTC for Login and PO Received. Each drills into the matching
+              // pipeline-arc slice (otc / login-otc / po-otc).
               { label: 'Total OTC', value: formatCurrency(summary.totalOtcAmount), icon: Banknote, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconText: 'text-emerald-600 dark:text-emerald-400', stage: 'otc' },
+              { label: 'Login OTC', value: formatCurrency(summary.loginOtcAmount), icon: Banknote, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-900/40', iconText: 'text-cyan-600 dark:text-cyan-400', stage: 'login-otc' },
+              { label: 'PO Received OTC', value: formatCurrency(summary.poReceivedOtcAmount), icon: Banknote, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconText: 'text-emerald-600 dark:text-emerald-400', stage: 'po-otc' },
             ].map((stat, i) => (
               <Card
                 key={i}
