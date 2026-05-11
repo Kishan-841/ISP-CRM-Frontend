@@ -51,7 +51,7 @@ import TabBar from '@/components/TabBar';
 
 export default function SelfLeadsPage() {
   const router = useRouter();
-  const { user, isBDM } = useRoleCheck();
+  const { user, isBDM, isAdmin } = useRoleCheck();
   const {
     assignedCampaigns,
     fetchAssignedCampaigns,
@@ -1406,7 +1406,14 @@ export default function SelfLeadsPage() {
                       ))}
                     </select>
                   </div>
-                  {manageCampaignId && (
+                  {/* Campaign-level delete is admin-only after the 22 Apr
+                      incident — a BDM deleted his self-campaign and silently
+                      cascade-wiped 2 in-progress leads (Beck & Pollitzer,
+                      ZEAL Education Society). BDMs who need a campaign gone
+                      must now ask a SUPER_ADMIN. Per-row contact deletion
+                      below stays available — that's the safe-by-default
+                      cleanup they actually need day-to-day. */}
+                  {manageCampaignId && isAdmin && (
                     <Button
                       onClick={() => {
                         const campaign = selfCampaigns.find(c => c.id === manageCampaignId);
