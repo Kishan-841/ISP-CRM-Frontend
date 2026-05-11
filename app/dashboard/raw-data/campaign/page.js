@@ -20,8 +20,12 @@ export default function RawDataCampaignPage() {
   const isAdmin = user?.role === 'SUPER_ADMIN';
   const isBDM = user?.role === 'BDM';
   const isISR = user?.role === 'ISR';
+  const isBDMCP = user?.role === 'BDM_CP';
   const isBDMTeamLeader = user?.role === 'BDM_TEAM_LEADER';
   const canManageCampaigns = isAdmin || isBDM || isBDMTeamLeader;
+  // Matches backend deleteSelfCampaign gate — BDM-tier can no longer
+  // trigger campaign deletion after the 22 Apr 2026 cascade incident.
+  const isBdmTier = isBDM || isBDMCP || isBDMTeamLeader;
 
   // Filters
   const [filters, setFilters] = useState({ code: '', name: '', assignedTo: '' });
@@ -416,7 +420,7 @@ export default function RawDataCampaignPage() {
             >
               <Users size={16} />
             </Button>
-            {(isAdmin || campaign.type === 'SELF') && (
+            {!isBdmTier && (isAdmin || campaign.type === 'SELF') && (
               <Button
                 size="sm"
                 variant="outline"

@@ -20,10 +20,14 @@ export default function RawDataSelfDataPage() {
   const { createSelfCampaign, fetchAllCampaignData, allCampaignData, allDataPagination, deleteSelfCampaign } = useCampaignStore();
   const { fetchUsersByRole } = useUserStore();
 
-  const isAdmin = user?.role === 'SUPER_ADMIN';
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER';
   const isBDM = user?.role === 'BDM';
   const isBDMCP = user?.role === 'BDM_CP';
   const isBDMTeamLeader = user?.role === 'BDM_TEAM_LEADER';
+  // Matches the backend gate in deleteSelfCampaign — BDM-tier can no
+  // longer delete self-campaigns after the 22 Apr 2026 cascade-delete
+  // incident. ISR / SAM / admins still see the button.
+  const canDeleteCampaign = !(isBDM || isBDMCP || isBDMTeamLeader);
   const canAssignToOthers = isBDM || isBDMTeamLeader;
   const showCPDropdown = isBDMCP || isBDMTeamLeader;
 
@@ -345,16 +349,22 @@ export default function RawDataSelfDataPage() {
             >
               <Phone size={14} />
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleDelete(campaign.id, campaign.name)}
-              disabled={deletingId === campaign.id}
-              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 border-red-200 dark:border-red-800"
-              title="Delete data set"
-            >
-              <Trash2 size={14} />
-            </Button>
+            {/* BDM-tier no longer sees the campaign-level delete button
+                after the 22 Apr 2026 cascade incident (Beck & Pollitzer +
+                ZEAL Education Society silently wiped). Backend gate in
+                deleteSelfCampaign mirrors this rule. */}
+            {canDeleteCampaign && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleDelete(campaign.id, campaign.name)}
+                disabled={deletingId === campaign.id}
+                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 border-red-200 dark:border-red-800"
+                title="Delete data set"
+              >
+                <Trash2 size={14} />
+              </Button>
+            )}
           </div>
         )}
       />
