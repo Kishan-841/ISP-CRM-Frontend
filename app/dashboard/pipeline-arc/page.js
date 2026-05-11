@@ -49,7 +49,13 @@ export default function PipelineARCPage() {
   const isTL = user?.role === 'BDM_TEAM_LEADER';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isMaster = user?.role === 'MASTER';
-  const isAdmin = isSuperAdmin || isMaster;
+  // SALES_DIRECTOR has view-level parity with SUPER_ADMIN per
+  // backend/src/utils/roleHelper.js — treat the same here so the
+  // platform-wide "All BDMs" default kicks in and fetchBDMDashboardStats
+  // is actually called (without this, canView returns false and the
+  // page renders zeros).
+  const isSalesDirector = user?.role === 'SALES_DIRECTOR';
+  const isAdmin = isSuperAdmin || isMaster || isSalesDirector;
   const canView = isBDM || isTL || isAdmin;
 
   // Default selection: Super-Admin / Master should see platform-wide ("all")
