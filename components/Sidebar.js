@@ -402,6 +402,11 @@ export default function Sidebar() {
         { name: 'Products', path: '/dashboard/products' },
         { name: 'Inventory', path: '/dashboard/inventory' },
         { name: 'VECTRA Knowledge', path: '/dashboard/admin/nexus-knowledge' },
+        // Single timeline of every create/edit/delete across leads,
+        // campaigns, and contacts. Built after the 22 Apr 2026 silent
+        // cascade-delete incident left two leads (Beck & Pollitzer,
+        // ZEAL Education Society) untraceable.
+        { name: 'Audit Log', path: '/dashboard/admin/audit-log' },
       ]
     },
     // Master-only: permanent lead deletion — promoted to a top-level tab
@@ -416,6 +421,9 @@ export default function Sidebar() {
     ...(isSuperAdmin ? [{ name: 'Delete Lead', path: '/dashboard/master/delete-lead', icon: Trash2 }] : []),
     // NEXUS Knowledge Base (SUPER_ADMIN only)
     ...(isSuperAdmin ? [{ name: 'VECTRA Knowledge', path: '/dashboard/admin/nexus-knowledge', icon: Sparkles }] : []),
+    // Audit Log — SUPER_ADMIN and SALES_DIRECTOR can read every CRM
+    // change. MASTER reaches the same page via masterNavItems above.
+    ...(isSuperAdmin || isSalesDirector ? [{ name: 'Audit Log', path: '/dashboard/admin/audit-log', icon: BarChart3 }] : []),
     ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager && !isSalesDirector && !isBDMCP ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
     // Raw Data - available for Admin, ISR, BDM, and BDM Team Leader
     ...(isAdmin || isSalesDirector || isISR || isBDM || isBDMCP || isBDMTeamLeader ? [
