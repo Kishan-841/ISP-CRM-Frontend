@@ -70,15 +70,20 @@ export default function NocOrderRequests() {
     setShowProcessModal(true);
   };
 
+  const isDisconnection = processOrder?.orderType === 'DISCONNECTION';
+
   const handleProcess = async () => {
-    if (!speedTestFile) {
+    if (!isDisconnection && !speedTestFile) {
       toast.error('Speed test file is required.');
       return;
     }
     setIsSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('speedTest', speedTestFile);
+      // Speed test only applies to bandwidth changes; disconnection skips it.
+      if (speedTestFile) {
+        formData.append('speedTest', speedTestFile);
+      }
       if (nocNotes.trim()) {
         formData.append('nocNotes', nocNotes);
       }
@@ -86,7 +91,7 @@ export default function NocOrderRequests() {
       await api.post(`/service-orders/${processOrder.id}/noc-process`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success('Order processed successfully!');
+      toast.success(isDisconnection ? 'Customer disconnected.' : 'Order processed successfully!');
       setShowProcessModal(false);
       setProcessOrder(null);
       fetchOrders();
@@ -166,18 +171,21 @@ export default function NocOrderRequests() {
     },
     {
       key: 'actions', label: 'Actions',
-      render: (row) => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <Button
-            size="sm"
-            onClick={(e) => openProcessModal(row, e)}
-            disabled={isSubmitting}
-            className="bg-blue-600 hover:bg-blue-700 text-white h-7 px-3 text-xs"
-          >
-            <Upload className="w-3 h-3 mr-1" /> Process
-          </Button>
-        </div>
-      )
+      render: (row) => {
+        const disconnect = row.orderType === 'DISCONNECTION';
+        return (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Button
+              size="sm"
+              onClick={(e) => openProcessModal(row, e)}
+              disabled={isSubmitting}
+              className={`${disconnect ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white h-7 px-3 text-xs`}
+            >
+              <Upload className="w-3 h-3 mr-1" /> {disconnect ? 'Disconnect' : 'Process'}
+            </Button>
+          </div>
+        );
+      }
     },
   ];
 
@@ -209,7 +217,9 @@ export default function NocOrderRequests() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-lg w-full p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Process Order - Upload Speed Test</h3>
+              <h3 className="text-lg font-semibold">
+                {isDisconnection ? 'Confirm Disconnection' : 'Process Order — Upload Speed Test'}
+              </h3>
               <button
                 onClick={() => setShowProcessModal(false)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
@@ -239,40 +249,67 @@ export default function NocOrderRequests() {
                   {processOrder.orderType.replace(/_/g, ' ')}
                 </Badge>
               </div>
-              {processOrder.orderType !== 'DISCONNECTION' && (
+              {!isDisconnection && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Bandwidth</span>
+                  <span className="flex items-center gap-1">
+                    {processOrder.currentBandwidth || '?'} Mbps
+                    <ArrowRight className="w-3 h-3 text-slate-400" />
+                    <span className="font-medium">{processOrder.newBandwidth || '?'} Mbps</span>
+                  </span>
+                </div>
+              )}
+              {isDisconnection && (
                 <>
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Bandwidth</span>
-                    <span className="flex items-center gap-1">
-                      {processOrder.currentBandwidth || '?'} Mbps
-                      <ArrowRight className="w-3 h-3 text-slate-400" />
-                      <span className="font-medium">{processOrder.newBandwidth || '?'} Mbps</span>
+                    <span className="text-slate-500">Reason</span>
+                    <span className="font-medium text-right">
+                      {processOrder.disconnectionCategory?.name || '-'}
+                      {processOrder.disconnectionSubCategory?.name && (
+                        <span className="text-slate-400"> · {processOrder.disconnectionSubCategory.name}</span>
+                      )}
                     </span>
                   </div>
+                  {processOrder.disconnectionReason && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Details</span>
+                      <span className="font-medium text-right max-w-[260px] break-words">
+                        {processOrder.disconnectionReason}
+                      </span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
 
-            {/* Speed Test Upload */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1.5">
-                Speed Test Screenshot <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(e) => setSpeedTestFile(e.target.files[0] || null)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-600 dark:file:bg-blue-900/30 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
-                />
+            {/* Speed Test Upload — only for commercial bandwidth changes */}
+            {!isDisconnection && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1.5">
+                  Speed Test Screenshot <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => setSpeedTestFile(e.target.files[0] || null)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-600 dark:file:bg-blue-900/30 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
+                  />
+                </div>
+                {speedTestFile && (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <Paperclip className="w-3 h-3" />
+                    {speedTestFile.name}
+                  </p>
+                )}
               </div>
-              {speedTestFile && (
-                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                  <Paperclip className="w-3 h-3" />
-                  {speedTestFile.name}
-                </p>
-              )}
-            </div>
+            )}
+
+            {isDisconnection && (
+              <div className="mb-4 rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+                Confirming will deactivate this customer's plan and mark the order completed. This action can't be undone from here.
+              </div>
+            )}
 
             {/* Notes */}
             <div className="mb-4">
@@ -296,10 +333,12 @@ export default function NocOrderRequests() {
               </Button>
               <Button
                 onClick={handleProcess}
-                disabled={isSubmitting || !speedTestFile}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={isSubmitting || (!isDisconnection && !speedTestFile)}
+                className={`flex-1 ${isDisconnection ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
               >
-                {isSubmitting ? 'Processing...' : 'Complete NOC Processing'}
+                {isSubmitting
+                  ? (isDisconnection ? 'Disconnecting…' : 'Processing…')
+                  : (isDisconnection ? 'Confirm Disconnection' : 'Complete NOC Processing')}
               </Button>
             </div>
           </div>
