@@ -321,7 +321,7 @@ export default function RawDataSelfDataPage() {
         ]}
         data={allCampaignData}
         searchable={true}
-        searchPlaceholder="Search by name..."
+        searchPlaceholder="Search by campaign, created by, or assigned to..."
         onSearch={(term) => setSearch(term)}
         loading={showLoading}
         emptyMessage="No self data sets yet. Click 'Create Self Data' to get started."

@@ -539,6 +539,7 @@ export default function CallingQueuePage() {
             campaigns={assignedCampaigns}
             value={selectedCampaignId}
             user={user}
+            showTabs
             onBeforeChange={() => {
               if (activeCall) {
                 toast.error('Please end the current call first');

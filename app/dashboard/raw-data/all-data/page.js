@@ -204,7 +204,7 @@ export default function AllDataPage() {
         columns={columns}
         data={allCampaignData}
         searchable={true}
-        searchPlaceholder="Search by campaign name..."
+        searchPlaceholder="Search by campaign, created by, or assigned to..."
         onSearch={(term) => setSearch(term)}
         loading={showLoading}
         emptyMessage="No campaigns found"
