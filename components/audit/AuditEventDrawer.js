@@ -93,6 +93,17 @@ export default function AuditEventDrawer({ eventId, onClose }) {
               </div>
             )}
 
+            {row.snapshot && typeof row.snapshot === 'object' && Object.keys(row.snapshot).length > 0 && (
+              <details className="border border-slate-200 dark:border-slate-700 rounded">
+                <summary className="cursor-pointer px-3 py-2 text-xs uppercase text-slate-500 select-none">
+                  Snapshot ({Object.keys(row.snapshot).length} fields)
+                </summary>
+                <pre className="p-2 text-xs overflow-x-auto whitespace-pre-wrap break-words bg-slate-50 dark:bg-slate-800">
+                  {JSON.stringify(row.snapshot, null, 2)}
+                </pre>
+              </details>
+            )}
+
             {row.description && (
               <div>
                 <span className="text-xs uppercase text-slate-500">Description</span>
