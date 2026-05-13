@@ -47,7 +47,11 @@ export default function AuditEventTable({ onRowClick }) {
               </td>
               <td className="px-4 py-2 font-mono text-xs">{r.action}</td>
               <td className="px-4 py-2">
-                {r.entityLabel || <span className="text-slate-400">—</span>}
+                {r.entityLabel
+                  ? <>{r.entityLabel}</>
+                  : r.entityType && r.entityId
+                    ? <span className="text-slate-500">{r.entityType} <span className="font-mono text-xs">{r.entityId.slice(0, 8)}…</span></span>
+                    : <span className="text-slate-400">—</span>}
                 {r.changeCount > 0 && <span className="text-xs text-slate-500"> ({r.changeCount})</span>}
               </td>
               <td className="px-4 py-2 font-mono text-xs text-slate-600 dark:text-slate-400">

@@ -39,11 +39,14 @@ export default function AuditEventDrawer({ eventId, onClose }) {
               </button>{' '}
               <span className="text-slate-500">({row.actorRole || row.actorType})</span>{' '}
               <span className="font-mono">{row.action}</span>{' '}
-              {row.entityLabel && (
+              {(row.entityLabel || (row.entityType && row.entityId)) && (
                 <button
                   onClick={() => { if (row.entityId) { setFilter('entityId', row.entityId); onClose(); } }}
                   className="hover:underline">
-                  {row.entityType} &ldquo;{row.entityLabel}&rdquo;
+                  {row.entityType}{' '}
+                  {row.entityLabel
+                    ? <>&ldquo;{row.entityLabel}&rdquo;</>
+                    : <span className="font-mono text-xs">{row.entityId.slice(0, 8)}…</span>}
                 </button>
               )}
             </div>
