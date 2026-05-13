@@ -52,6 +52,15 @@ export default function AuditFilterBar() {
           {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
 
+        <select value={filters.actorType}
+                onChange={e => setFilter('actorType', e.target.value)}
+                className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          <option value="">Staff + customers (default)</option>
+          <option value="STAFF">Staff only</option>
+          <option value="CUSTOMER">Customers only</option>
+          <option value="SYSTEM">System (cron, automated)</option>
+        </select>
+
         <button onClick={() => setShowMore(s => !s)}
                 className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 text-sm">
           {showMore ? '− Less' : '+ More'}
@@ -97,6 +106,7 @@ function ActiveChips({ filters, setFilter, clearFilters, filterMeta }) {
   }
   if (filters.entityTypes[0]) chips.push({ k: 'entityTypes', reset: [], label: `Entity: ${filters.entityTypes[0]}` });
   if (filters.actions[0])     chips.push({ k: 'actions',     reset: [], label: `Action: ${filters.actions[0]}` });
+  if (filters.actorType)      chips.push({ k: 'actorType', reset: '',   label: `Actor: ${filters.actorType}` });
   if (filters.ipAddress)      chips.push({ k: 'ipAddress', reset: '',   label: `IP: ${filters.ipAddress}` });
   if (filters.eventType)      chips.push({ k: 'eventType', reset: '',   label: `Event: ${filters.eventType}` });
   if (filters.entityId)       chips.push({ k: 'entityId',  reset: '',   label: `Entity ID: ${filters.entityId.slice(0,8)}…` });
