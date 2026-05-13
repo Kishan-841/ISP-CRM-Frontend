@@ -21,7 +21,7 @@ export default function AuditLogPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <PageHeader title="Audit Log" description="Who did what, when, from where." />
+      <PageHeader title="Event Log" description="Who did what, when, from where." />
       <AuditFilterBar />
       <AuditEventTable onRowClick={r => setDrawerId(r.id)} />
       <AuditEventDrawer eventId={drawerId} onClose={() => setDrawerId(null)} />
