@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { ArrowLeft, CheckCircle2, XCircle, FileText, ExternalLink, Clock, Check, Calendar } from 'lucide-react';
 import { SERVICE_ORDER_TYPE_CONFIG, SERVICE_ORDER_STATUS_CONFIG } from '@/lib/statusConfig';
+import EventTimeline from '@/components/audit/EventTimeline';
 
 const typeBadgeColors = Object.fromEntries(
   Object.entries(SERVICE_ORDER_TYPE_CONFIG).map(([k, v]) => [k, v.color])
@@ -544,6 +545,12 @@ export default function ServiceOrderDetail() {
             <Calendar className="w-4 h-4 mr-1" /> Set Activation Date
           </Button>
         )}
+      </div>
+
+      {/* History Section */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase mb-4">History</h2>
+        <EventTimeline entityType="ServiceOrder" entityId={order.id} />
       </div>
 
       {/* Reject Modal */}

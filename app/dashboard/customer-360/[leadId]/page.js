@@ -57,6 +57,7 @@ import {
   getStatusBadgeClass,
 } from '@/lib/statusConfig';
 import TabBar from '@/components/TabBar';
+import EventTimeline from '@/components/audit/EventTimeline';
 
 // ─── Formatters ───
 
@@ -222,6 +223,7 @@ const TABS = [
   { key: 'documents', label: 'Documents', icon: FileText },
   { key: 'complaints', label: 'Complaints', icon: AlertTriangle },
   { key: 'sam', label: 'SAM', icon: Users },
+  { key: 'history', label: 'History', icon: Clock },
 ];
 
 // ─── Skeleton loader ───
@@ -2331,12 +2333,15 @@ export default function Customer360DetailPage() {
 
   function handleTabClick(tabKey) {
     setActiveTab(tabKey);
+    // History tab fetches its own data via EventTimeline component
+    if (tabKey === 'history') return;
     fetchTabData(leadId, tabKey);
   }
 
   // ─── Retry handler for tab errors ───
 
   function handleRetry(tabKey) {
+    if (tabKey === 'history') return;
     fetchTabData(leadId, tabKey, { force: true });
   }
 
@@ -2421,6 +2426,10 @@ export default function Customer360DetailPage() {
             <SamTab data={tabData.sam} loading={tabLoading.sam} />
           ) : activeTab === 'feasibility' ? (
             <FeasibilityTab data={tabData.feasibility} loading={tabLoading.feasibility} />
+          ) : activeTab === 'history' ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5 mt-4">
+              <EventTimeline entityType="Lead" entityId={leadId} />
+            </div>
           ) : null}
         </>
       )}

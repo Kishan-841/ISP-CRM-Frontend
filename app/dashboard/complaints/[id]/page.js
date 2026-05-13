@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '@/lib/formatters';
 import { COMPLAINT_STATUS_CONFIG, PRIORITY_CONFIG, getStatusBadgeClass } from '@/lib/statusConfig';
+import EventTimeline from '@/components/audit/EventTimeline';
 
 // ─── Status badge configuration ───
 const STATUS_ICON_MAP = {
@@ -725,6 +726,16 @@ export default function ComplaintDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* ─── History Section ─── */}
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
+            History
+          </h3>
+          <EventTimeline entityType="Complaint" entityId={complaint.id} />
+        </CardContent>
+      </Card>
 
       {/* ═══════════════════════════════════════════════════════════════
           MODALS
