@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore, useThemeStore, useSidebarStore, useNotificationStore } from '@/lib/store';
+import { canViewAuditLog } from '@/lib/useRoleCheck';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -50,6 +51,7 @@ import {
   Sparkles,
   Trash2,
   Briefcase,
+  ShieldCheck,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -406,7 +408,7 @@ export default function Sidebar() {
         // campaigns, and contacts. Built after the 22 Apr 2026 silent
         // cascade-delete incident left two leads (Beck & Pollitzer,
         // ZEAL Education Society) untraceable.
-        { name: 'Audit Log', path: '/dashboard/admin/audit-log' },
+        { name: 'Audit Log', path: '/dashboard/audit-log' },
       ]
     },
     // Master-only: permanent lead deletion — promoted to a top-level tab
@@ -421,9 +423,9 @@ export default function Sidebar() {
     ...(isSuperAdmin ? [{ name: 'Delete Lead', path: '/dashboard/master/delete-lead', icon: Trash2 }] : []),
     // NEXUS Knowledge Base (SUPER_ADMIN only)
     ...(isSuperAdmin ? [{ name: 'VECTRA Knowledge', path: '/dashboard/admin/nexus-knowledge', icon: Sparkles }] : []),
-    // Audit Log — SUPER_ADMIN and SALES_DIRECTOR can read every CRM
-    // change. MASTER reaches the same page via masterNavItems above.
-    ...(isSuperAdmin || isSalesDirector ? [{ name: 'Audit Log', path: '/dashboard/admin/audit-log', icon: BarChart3 }] : []),
+    // Audit Log — SUPER_ADMIN (and MASTER via canViewAuditLog) can read
+    // every CRM change. MASTER reaches the same page via masterNavItems above.
+    ...(canViewAuditLog(user) ? [{ name: 'Audit Log', path: '/dashboard/audit-log', icon: ShieldCheck }] : []),
     ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager && !isSalesDirector && !isBDMCP ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
     // Raw Data - available for Admin, ISR, BDM, and BDM Team Leader
     ...(isAdmin || isSalesDirector || isISR || isBDM || isBDMCP || isBDMTeamLeader ? [
