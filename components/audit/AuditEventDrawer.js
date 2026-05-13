@@ -4,6 +4,21 @@ import api from '@/lib/api';
 import { useAuditStore } from '@/lib/store';
 import { X } from 'lucide-react';
 
+function DescriptionBody({ text }) {
+  // Backfilled rows store { snapshot, context } as a JSON string in description.
+  // Pretty-print if parseable as JSON; otherwise render as plain text.
+  let parsed = null;
+  try { parsed = JSON.parse(text); } catch { /* not JSON */ }
+  if (parsed && typeof parsed === 'object') {
+    return (
+      <pre className="mt-1 p-2 rounded bg-slate-50 dark:bg-slate-800 text-xs overflow-x-auto whitespace-pre-wrap break-words">
+        {JSON.stringify(parsed, null, 2)}
+      </pre>
+    );
+  }
+  return <div className="mt-1">{text}</div>;
+}
+
 export default function AuditEventDrawer({ eventId, onClose }) {
   const [row, setRow] = useState(null);
   const setFilter = useAuditStore(s => s.setFilter);
@@ -75,6 +90,13 @@ export default function AuditEventDrawer({ eventId, onClose }) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {row.description && (
+              <div>
+                <span className="text-xs uppercase text-slate-500">Description</span>
+                <DescriptionBody text={row.description} />
               </div>
             )}
 
