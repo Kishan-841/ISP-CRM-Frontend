@@ -30,6 +30,8 @@ export default function AccountsOrderRequests() {
   const [showBillingModal, setShowBillingModal] = useState(false);
   const [billingOrder, setBillingOrder] = useState(null);
   const [processNotes, setProcessNotes] = useState('');
+  const [effectiveDate, setEffectiveDate] = useState('');
+  const [originalEffectiveDate, setOriginalEffectiveDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -67,6 +69,14 @@ export default function AccountsOrderRequests() {
     e.stopPropagation();
     setBillingOrder(order);
     setProcessNotes('');
+    // Pre-fill the editable date input with the order's existing effectiveDate
+    // (formatted YYYY-MM-DD for <input type="date">). If absent, leave blank
+    // so the user knows they're proposing one.
+    const iso = order.effectiveDate
+      ? new Date(order.effectiveDate).toISOString().slice(0, 10)
+      : '';
+    setEffectiveDate(iso);
+    setOriginalEffectiveDate(iso);
     setShowBillingModal(true);
   };
 
@@ -77,15 +87,31 @@ export default function AccountsOrderRequests() {
       if (processNotes.trim()) {
         body.processNotes = processNotes;
       }
+      // If the user edited the date, send newEffectiveDate. The backend
+      // diffs against the existing value to decide whether to pause for
+      // admin approval — so sending the unchanged value is also safe (it
+      // just no-ops the comparison and proceeds to completion).
+      if (effectiveDate && effectiveDate !== originalEffectiveDate) {
+        body.newEffectiveDate = new Date(effectiveDate).toISOString();
+      }
 
-      await api.post(`/service-orders/${billingOrder.id}/accounts-process`, body);
-      // Same endpoint handles both flows: commercial-change billing vs.
-      // disconnection (which deactivates the plan + marks COMPLETED).
-      toast.success(
-        billingOrder.orderType === 'DISCONNECTION'
-          ? 'Customer disconnected and order completed.'
-          : 'Billing processed successfully!'
-      );
+      const res = await api.post(`/service-orders/${billingOrder.id}/accounts-process`, body);
+      const responseMessage = res?.data?.message || '';
+      // Backend signals the admin-approval pause via this exact substring
+      // in the response message. Anything else is a normal completion.
+      const wentToAdmin = /admin approval/i.test(responseMessage);
+      if (wentToAdmin) {
+        toast(responseMessage || 'Date change submitted for admin approval.', {
+          icon: 'i',
+          style: { background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' },
+        });
+      } else {
+        toast.success(
+          billingOrder.orderType === 'DISCONNECTION'
+            ? 'Customer disconnected and order completed.'
+            : 'Billing processed successfully!'
+        );
+      }
       setShowBillingModal(false);
       setBillingOrder(null);
       fetchOrders();
@@ -95,6 +121,8 @@ export default function AccountsOrderRequests() {
       setIsSubmitting(false);
     }
   };
+
+  const dateChanged = effectiveDate && effectiveDate !== originalEffectiveDate;
 
   const columns = [
     { key: 'orderNumber', label: 'Order #' },
@@ -280,6 +308,26 @@ export default function AccountsOrderRequests() {
                 Confirming will deactivate the customer's plan and mark the order completed. This can't be undone from here.
               </div>
             )}
+
+            {/* Effective Date — accounts can change it. If they do, the order
+                is paused for SUPER_ADMIN approval rather than completing. */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1.5">
+                Effective Date
+                <span className="text-slate-400 text-xs font-normal ml-1">(optional override)</span>
+              </label>
+              <input
+                type="date"
+                value={effectiveDate}
+                onChange={(e) => setEffectiveDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+              />
+              {dateChanged && (
+                <div className="mt-2 rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
+                  You've changed the effective date. Saving will send the order to admin for approval before it completes.
+                </div>
+              )}
+            </div>
 
             {/* Process Notes */}
             <div className="mb-4">

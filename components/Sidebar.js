@@ -378,8 +378,8 @@ export default function Sidebar() {
       name: 'Approvals',
       icon: CheckCircle2,
       menuKey: 'masterApprovals',
-      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) > 0
-        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0)
+      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) > 0
+        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0)
         : null,
       submenu: [
         { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
@@ -387,9 +387,11 @@ export default function Sidebar() {
         { name: 'Goods Receipt', path: '/dashboard/goods-receipt' },
         { name: 'Delivery Approval', path: '/dashboard/delivery-request-approval', badge: counts.deliveryRequestPending > 0 ? counts.deliveryRequestPending : null },
         // Service-order approval gates: Delivery first (UPGRADE/DOWNGRADE only),
-        // then Sales Director (all order types).
+        // then Sales Director (all order types). Combined badge also covers
+        // Accounts-proposed effectiveDate changes pending admin sign-off,
+        // which surface in the same Order Approvals page.
         { name: 'Delivery Approvals', path: '/dashboard/delivery-approvals', badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },
-        { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.salesDirectorPending > 0 ? counts.salesDirectorPending : null },
+        { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: (counts.salesDirectorPending || 0) + (counts.dateChangeApprovalPending || 0) > 0 ? (counts.salesDirectorPending || 0) + (counts.dateChangeApprovalPending || 0) : null },
         { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
         { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
         { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
@@ -661,8 +663,8 @@ export default function Sidebar() {
         name: 'Approvals',
         icon: CheckCircle2,
         menuKey: 'approvals',
-        badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) > 0
-          ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0)
+        badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) > 0
+          ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0)
           : null,
         submenu: [
           { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
@@ -670,9 +672,11 @@ export default function Sidebar() {
           { name: 'Goods Receipt', path: '/dashboard/goods-receipt' },
           { name: 'Delivery Approval', path: '/dashboard/delivery-request-approval', badge: counts.deliveryRequestPending > 0 ? counts.deliveryRequestPending : null },
           // Service-order approval gates: Delivery first (UPGRADE/DOWNGRADE only),
-          // then Sales Director (all order types).
+          // then Sales Director (all order types). Combined badge also covers
+          // Accounts-proposed effectiveDate changes pending admin sign-off,
+          // which surface in the same Order Approvals page.
           { name: 'Delivery Approvals', path: '/dashboard/delivery-approvals', badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },
-          { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.salesDirectorPending > 0 ? counts.salesDirectorPending : null },
+          { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: (counts.salesDirectorPending || 0) + (counts.dateChangeApprovalPending || 0) > 0 ? (counts.salesDirectorPending || 0) + (counts.dateChangeApprovalPending || 0) : null },
           { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
           { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
           { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },

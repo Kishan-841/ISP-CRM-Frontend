@@ -38,6 +38,12 @@ export default function OrderApprovals() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Date-change reject modal — separate path so the user sees the right
+  // "Reject date change" copy and the API call goes to the right endpoint.
+  const [showDateRejectModal, setShowDateRejectModal] = useState(false);
+  const [dateRejectOrderId, setDateRejectOrderId] = useState(null);
+  const [dateRejectReason, setDateRejectReason] = useState('');
+
   useEffect(() => {
     if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER' && user.role !== 'SALES_DIRECTOR') {
       router.push('/dashboard');
@@ -113,6 +119,50 @@ export default function OrderApprovals() {
     }
   };
 
+  // Approve a date change proposed by Accounts. Different endpoint than the
+  // standard Sales-Director approval — this one applies the new effectiveDate
+  // and completes the order in one shot.
+  const handleApproveDateChange = async (orderId, e) => {
+    e.stopPropagation();
+    setIsSubmitting(true);
+    try {
+      await api.post(`/service-orders/${orderId}/approve-date-change`);
+      toast.success('Date change approved. Order completed.');
+      fetchOrders();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to approve date change');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openDateRejectModal = (orderId, e) => {
+    e.stopPropagation();
+    setDateRejectOrderId(orderId);
+    setDateRejectReason('');
+    setShowDateRejectModal(true);
+  };
+
+  const handleRejectDateChange = async () => {
+    if (!dateRejectReason.trim() || dateRejectReason.trim().length < 5) {
+      toast.error('Rejection reason is required (min 5 chars).');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await api.post(`/service-orders/${dateRejectOrderId}/reject-date-change`, {
+        rejectionReason: dateRejectReason,
+      });
+      toast.success('Date change rejected. Order returned to Accounts.');
+      setShowDateRejectModal(false);
+      fetchOrders();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to reject date change');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const columns = [
     { key: 'orderNumber', label: 'Order #' },
     {
@@ -133,9 +183,23 @@ export default function OrderApprovals() {
     },
     {
       key: 'effectiveDate', label: 'Effective Date',
-      render: (row) => row.effectiveDate
-        ? new Date(row.effectiveDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-        : '-'
+      render: (row) => {
+        const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+        // When Accounts has proposed a change, show the before → after diff
+        // so the admin can decide at a glance.
+        if (row.status === 'PENDING_ADMIN_DATE_APPROVAL' && row.proposedEffectiveDate) {
+          return (
+            <div className="text-sm space-y-0.5">
+              <p className="text-slate-500 line-through">{fmt(row.effectiveDate)}</p>
+              <p className="text-green-600 dark:text-green-400 font-medium">{fmt(row.proposedEffectiveDate)}</p>
+              {row.proposedEffectiveDateBy?.name && (
+                <p className="text-xs text-slate-400">proposed by {row.proposedEffectiveDateBy.name}</p>
+              )}
+            </div>
+          );
+        }
+        return fmt(row.effectiveDate);
+      }
     },
     {
       key: 'createdBy', label: 'Created By',
@@ -219,26 +283,55 @@ export default function OrderApprovals() {
     },
     {
       key: 'actions', label: 'Actions',
-      render: (row) => row.status === 'PENDING_SALES_DIRECTOR_APPROVAL' ? (
-        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button
-            size="sm"
-            onClick={(e) => handleApprove(row.id, e)}
-            disabled={isSubmitting}
-            className="bg-green-600 hover:bg-green-700 text-white h-7 px-2 text-xs"
-          >
-            <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => openRejectModal(row.id, e)}
-            className="border-red-300 text-red-600 hover:bg-red-50 h-7 px-2 text-xs"
-          >
-            <XCircle className="w-3 h-3 mr-1" /> Reject
-          </Button>
-        </div>
-      ) : null
+      render: (row) => {
+        if (row.status === 'PENDING_SALES_DIRECTOR_APPROVAL') {
+          return (
+            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+              <Button
+                size="sm"
+                onClick={(e) => handleApprove(row.id, e)}
+                disabled={isSubmitting}
+                className="bg-green-600 hover:bg-green-700 text-white h-7 px-2 text-xs"
+              >
+                <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => openRejectModal(row.id, e)}
+                className="border-red-300 text-red-600 hover:bg-red-50 h-7 px-2 text-xs"
+              >
+                <XCircle className="w-3 h-3 mr-1" /> Reject
+              </Button>
+            </div>
+          );
+        }
+        // Admin date-change approval — separate endpoints + reject reason.
+        // SUPER_ADMIN only (SALES_DIRECTOR shouldn't see action buttons here).
+        if (row.status === 'PENDING_ADMIN_DATE_APPROVAL' && (user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER')) {
+          return (
+            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+              <Button
+                size="sm"
+                onClick={(e) => handleApproveDateChange(row.id, e)}
+                disabled={isSubmitting}
+                className="bg-green-600 hover:bg-green-700 text-white h-7 px-2 text-xs"
+              >
+                <CheckCircle2 className="w-3 h-3 mr-1" /> Approve Date
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => openDateRejectModal(row.id, e)}
+                className="border-red-300 text-red-600 hover:bg-red-50 h-7 px-2 text-xs"
+              >
+                <XCircle className="w-3 h-3 mr-1" /> Reject Date
+              </Button>
+            </div>
+          );
+        }
+        return null;
+      }
     },
   ];
 
@@ -251,6 +344,7 @@ export default function OrderApprovals() {
       <option value="">All Statuses</option>
       <option value="PENDING_SALES_DIRECTOR_APPROVAL">Pending Sales Director</option>
       <option value="PENDING_DELIVERY_APPROVAL">Pending Delivery</option>
+      <option value="PENDING_ADMIN_DATE_APPROVAL">Pending Admin (Date Change)</option>
       <option value="APPROVED">Approved</option>
       <option value="REJECTED">Rejected</option>
       <option value="COMPLETED">Completed</option>
@@ -303,6 +397,36 @@ export default function OrderApprovals() {
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white"
               >
                 {isSubmitting ? 'Rejecting...' : 'Reject'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Date-Change Reject Modal */}
+      {showDateRejectModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-5">
+            <h3 className="text-lg font-semibold mb-3">Reject Effective-Date Change</h3>
+            <p className="text-sm text-slate-500 mb-3">
+              The order will be sent back to Accounts to retry processing.
+            </p>
+            <textarea
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 min-h-[100px]"
+              placeholder="Reason for rejection (min 5 chars)..."
+              value={dateRejectReason}
+              onChange={(e) => setDateRejectReason(e.target.value)}
+            />
+            <div className="flex gap-2 mt-3">
+              <Button variant="outline" onClick={() => setShowDateRejectModal(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRejectDateChange}
+                disabled={isSubmitting}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isSubmitting ? 'Rejecting...' : 'Reject Date Change'}
               </Button>
             </div>
           </div>

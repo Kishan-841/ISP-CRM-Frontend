@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
-import { ArrowLeft, CheckCircle2, XCircle, FileText, ExternalLink, Clock, Check } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, FileText, ExternalLink, Clock, Check, ArrowUp, ArrowDown, RefreshCw, PowerOff } from 'lucide-react';
 import { SERVICE_ORDER_TYPE_CONFIG, SERVICE_ORDER_STATUS_CONFIG } from '@/lib/statusConfig';
 import EventTimeline from '@/components/audit/EventTimeline';
 
@@ -531,6 +531,37 @@ export default function ServiceOrderDetail() {
         </div>
       )}
 
+      {/* Proposed Effective-Date Change — surfaces when Accounts has asked
+          for a date override and admin hasn't acted yet. Read-only here;
+          approve/reject lives on the Order Approvals page. */}
+      {order.status === 'PENDING_ADMIN_DATE_APPROVAL' && order.proposedEffectiveDate && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-amber-700 dark:text-amber-300 uppercase mb-3">
+            Effective-Date Change Pending Admin
+          </h2>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-xs text-slate-500 uppercase mb-1">Original</p>
+              <p className="line-through text-slate-500">
+                {order.effectiveDate ? formatDate(order.effectiveDate) : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 uppercase mb-1">Proposed</p>
+              <p className="font-semibold text-green-600 dark:text-green-400">
+                {formatDate(order.proposedEffectiveDate)}
+              </p>
+            </div>
+          </div>
+          {order.proposedEffectiveDateBy?.name && (
+            <p className="text-xs text-slate-500 mt-3">
+              Proposed by <strong>{order.proposedEffectiveDateBy.name}</strong>
+              {order.proposedEffectiveDateAt && <> on {formatDate(order.proposedEffectiveDateAt)}</>}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="flex gap-3">
         {/* Super Admin: Approve / Reject (Disconnection flow) */}
@@ -557,9 +588,23 @@ export default function ServiceOrderDetail() {
         {isAccountsOrNOC && order.status === 'APPROVED' && (
           <Button
             onClick={() => setShowProcessModal(true)}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
+            className={
+              order.orderType === 'DISCONNECTION'
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : 'bg-orange-600 hover:bg-orange-700 text-white'
+            }
           >
-            <CheckCircle2 className="w-4 h-4 mr-1" /> Process Order
+            {order.orderType === 'UPGRADE' ? (
+              <><ArrowUp className="w-4 h-4 mr-1" /> Upgrade</>
+            ) : order.orderType === 'DOWNGRADE' ? (
+              <><ArrowDown className="w-4 h-4 mr-1" /> Downgrade</>
+            ) : order.orderType === 'RATE_REVISION' ? (
+              <><RefreshCw className="w-4 h-4 mr-1" /> Apply Rate Revision</>
+            ) : order.orderType === 'DISCONNECTION' ? (
+              <><PowerOff className="w-4 h-4 mr-1" /> Mark Disconnected</>
+            ) : (
+              <><CheckCircle2 className="w-4 h-4 mr-1" /> Process Order</>
+            )}
           </Button>
         )}
 
