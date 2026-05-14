@@ -219,6 +219,7 @@ export default function AccountsCreatePlanPage() {
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   // Track which service order is being acted on
   const [activeServiceOrderId, setActiveServiceOrderId] = useState(null);
+  const [activeServiceOrderOriginalDate, setActiveServiceOrderOriginalDate] = useState(null);
 
   // Modal states
   const [selectedLead, setSelectedLead] = useState(null);
@@ -600,6 +601,7 @@ export default function AccountsCreatePlanPage() {
     setSelectedLead(null);
     setModalMode('view');
     setActiveServiceOrderId(null);
+    setActiveServiceOrderOriginalDate(null);
     setPlanForm({
       planName: '',
       bandwidth: '',
@@ -731,6 +733,33 @@ export default function AccountsCreatePlanPage() {
       return;
     }
 
+    // If processing a service order and the user changed the effective date,
+    // skip the legacy plan swap. Send the new date to accounts-process —
+    // backend pauses for admin approval; full pipeline runs when admin approves.
+    if (
+      activeServiceOrderId &&
+      activeServiceOrderOriginalDate &&
+      upgradeForm.upgradeDate !== activeServiceOrderOriginalDate
+    ) {
+      setIsSubmitting(true);
+      try {
+        await api.post(`/service-orders/${activeServiceOrderId}/accounts-process`, {
+          newEffectiveDate: upgradeForm.upgradeDate,
+          processNotes: upgradeForm.notes || null,
+        });
+        toast.success('Date change submitted for admin approval. The order is now locked.', { duration: 4500, icon: '⏸️' });
+        setActiveServiceOrderId(null);
+        setActiveServiceOrderOriginalDate(null);
+        handleCloseModal();
+        fetchServiceOrders();
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to submit date change.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await api.post(`/leads/accounts-team/${selectedLead.id}/actual-plan/upgrade`, {
@@ -753,6 +782,7 @@ export default function AccountsCreatePlanPage() {
         if (activeServiceOrderId) {
           await processServiceOrder(activeServiceOrderId);
           setActiveServiceOrderId(null);
+          setActiveServiceOrderOriginalDate(null);
           fetchServiceOrders();
         }
         handleCloseModal();
@@ -777,6 +807,33 @@ export default function AccountsCreatePlanPage() {
       return;
     }
 
+    // If processing a service order and the user changed the effective date,
+    // skip the legacy plan swap. Send the new date to accounts-process —
+    // backend pauses for admin approval; full pipeline runs when admin approves.
+    if (
+      activeServiceOrderId &&
+      activeServiceOrderOriginalDate &&
+      degradeForm.degradeDate !== activeServiceOrderOriginalDate
+    ) {
+      setIsSubmitting(true);
+      try {
+        await api.post(`/service-orders/${activeServiceOrderId}/accounts-process`, {
+          newEffectiveDate: degradeForm.degradeDate,
+          processNotes: degradeForm.notes || null,
+        });
+        toast.success('Date change submitted for admin approval. The order is now locked.', { duration: 4500, icon: '⏸️' });
+        setActiveServiceOrderId(null);
+        setActiveServiceOrderOriginalDate(null);
+        handleCloseModal();
+        fetchServiceOrders();
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to submit date change.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await api.post(`/leads/accounts-team/${selectedLead.id}/actual-plan/degrade`, {
@@ -794,6 +851,7 @@ export default function AccountsCreatePlanPage() {
         if (activeServiceOrderId) {
           await processServiceOrder(activeServiceOrderId);
           setActiveServiceOrderId(null);
+          setActiveServiceOrderOriginalDate(null);
           fetchServiceOrders();
         }
         handleCloseModal();
@@ -825,6 +883,33 @@ export default function AccountsCreatePlanPage() {
       return;
     }
 
+    // If processing a service order and the user changed the effective date,
+    // skip the legacy plan swap. Send the new date to accounts-process —
+    // backend pauses for admin approval; full pipeline runs when admin approves.
+    if (
+      activeServiceOrderId &&
+      activeServiceOrderOriginalDate &&
+      rateRevisionForm.revisionDate !== activeServiceOrderOriginalDate
+    ) {
+      setIsSubmitting(true);
+      try {
+        await api.post(`/service-orders/${activeServiceOrderId}/accounts-process`, {
+          newEffectiveDate: rateRevisionForm.revisionDate,
+          processNotes: rateRevisionForm.notes || null,
+        });
+        toast.success('Date change submitted for admin approval. The order is now locked.', { duration: 4500, icon: '⏸️' });
+        setActiveServiceOrderId(null);
+        setActiveServiceOrderOriginalDate(null);
+        handleCloseModal();
+        fetchServiceOrders();
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to submit date change.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const currentArc = selectedLead.arcAmount || selectedLead.actualPlanPrice || 0;
@@ -843,6 +928,7 @@ export default function AccountsCreatePlanPage() {
         if (activeServiceOrderId) {
           await processServiceOrder(activeServiceOrderId);
           setActiveServiceOrderId(null);
+          setActiveServiceOrderOriginalDate(null);
           fetchServiceOrders();
         }
         handleCloseModal();
@@ -1062,6 +1148,7 @@ export default function AccountsCreatePlanPage() {
                   };
                   const effectiveDateStr = order.activationDate ? new Date(order.activationDate).toISOString().split('T')[0] : (order.effectiveDate ? new Date(order.effectiveDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
                   setActiveServiceOrderId(order.id);
+                  setActiveServiceOrderOriginalDate(effectiveDateStr);
                   setSelectedLead(lead);
                   if (mode === 'rate_revision') {
                     setModalMode('rate_revision');
@@ -1822,10 +1909,11 @@ export default function AccountsCreatePlanPage() {
                       min={selectedLead.actualPlanStartDate?.split('T')[0]}
                       max={selectedLead.actualPlanEndDate?.split('T')[0]}
                       className="max-w-xs"
-                      readOnly={!!activeServiceOrderId}
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      {activeServiceOrderId ? 'Effective date set by SAM team' : 'Select the date from which the new plan should be effective'}
+                      {activeServiceOrderId
+                        ? 'Pre-filled from the service order. Changing this will pause the order for admin approval.'
+                        : 'Select the date from which the new plan should be effective'}
                     </p>
                   </div>
                   <div className="sm:col-span-2">
@@ -2089,10 +2177,11 @@ export default function AccountsCreatePlanPage() {
                       type="date"
                       value={rateRevisionForm.revisionDate}
                       onChange={(e) => handleRateRevisionFormChange('revisionDate', e.target.value)}
-                      readOnly={!!activeServiceOrderId}
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      {activeServiceOrderId ? 'Effective date set by SAM team' : 'Select the date from which the revised rate should be effective'}
+                      {activeServiceOrderId
+                        ? 'Pre-filled from the service order. Changing this will pause the order for admin approval.'
+                        : 'Select the date from which the revised rate should be effective'}
                     </p>
                   </div>
                   <div className="sm:col-span-2">
@@ -2278,10 +2367,11 @@ export default function AccountsCreatePlanPage() {
                       min={selectedLead.actualPlanStartDate?.split('T')[0]}
                       max={selectedLead.actualPlanEndDate?.split('T')[0]}
                       className="max-w-xs"
-                      readOnly={!!activeServiceOrderId}
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      {activeServiceOrderId ? 'Effective date set by SAM team' : 'Select the date from which the downgraded plan should be effective'}
+                      {activeServiceOrderId
+                        ? 'Pre-filled from the service order. Changing this will pause the order for admin approval.'
+                        : 'Select the date from which the downgraded plan should be effective'}
                     </p>
                   </div>
                   <div className="sm:col-span-2">
