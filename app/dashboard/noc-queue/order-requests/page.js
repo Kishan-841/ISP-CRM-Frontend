@@ -91,7 +91,9 @@ export default function NocOrderRequests() {
       await api.post(`/service-orders/${processOrder.id}/noc-process`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success(isDisconnection ? 'Customer disconnected.' : 'Order processed successfully!');
+      // Disconnection no longer short-circuits — NOC marks it physically
+      // disconnected and Accounts handles the final billing + completion.
+      toast.success(isDisconnection ? 'Disconnection sent to accounts for final billing.' : 'Order processed successfully!');
       setShowProcessModal(false);
       setProcessOrder(null);
       fetchOrders();
@@ -181,7 +183,7 @@ export default function NocOrderRequests() {
               disabled={isSubmitting}
               className={`${disconnect ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white h-7 px-3 text-xs`}
             >
-              <Upload className="w-3 h-3 mr-1" /> {disconnect ? 'Disconnect' : 'Process'}
+              <Upload className="w-3 h-3 mr-1" /> {disconnect ? 'Send to Accounts' : 'Process'}
             </Button>
           </div>
         );
@@ -218,7 +220,7 @@ export default function NocOrderRequests() {
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-lg w-full p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">
-                {isDisconnection ? 'Confirm Disconnection' : 'Process Order — Upload Speed Test'}
+                {isDisconnection ? 'Mark Disconnected — Send to Accounts' : 'Process Order — Upload Speed Test'}
               </h3>
               <button
                 onClick={() => setShowProcessModal(false)}
@@ -307,7 +309,7 @@ export default function NocOrderRequests() {
 
             {isDisconnection && (
               <div className="mb-4 rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
-                Confirming will deactivate this customer's plan and mark the order completed. This action can't be undone from here.
+                Confirming records that you've physically disconnected the customer. The order moves to the Accounts queue, where they'll deactivate the plan and complete the order.
               </div>
             )}
 
@@ -337,8 +339,8 @@ export default function NocOrderRequests() {
                 className={`flex-1 ${isDisconnection ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
               >
                 {isSubmitting
-                  ? (isDisconnection ? 'Disconnecting…' : 'Processing…')
-                  : (isDisconnection ? 'Confirm Disconnection' : 'Complete NOC Processing')}
+                  ? (isDisconnection ? 'Sending…' : 'Processing…')
+                  : (isDisconnection ? 'Send to Accounts' : 'Complete NOC Processing')}
               </Button>
             </div>
           </div>

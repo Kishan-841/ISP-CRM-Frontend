@@ -79,7 +79,13 @@ export default function AccountsOrderRequests() {
       }
 
       await api.post(`/service-orders/${billingOrder.id}/accounts-process`, body);
-      toast.success('Billing processed successfully!');
+      // Same endpoint handles both flows: commercial-change billing vs.
+      // disconnection (which deactivates the plan + marks COMPLETED).
+      toast.success(
+        billingOrder.orderType === 'DISCONNECTION'
+          ? 'Customer disconnected and order completed.'
+          : 'Billing processed successfully!'
+      );
       setShowBillingModal(false);
       setBillingOrder(null);
       fetchOrders();
@@ -157,24 +163,30 @@ export default function AccountsOrderRequests() {
     },
     {
       key: 'actions', label: 'Actions',
-      render: (row) => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <Button
-            size="sm"
-            onClick={(e) => openBillingModal(row, e)}
-            disabled={isSubmitting}
-            className="bg-blue-600 hover:bg-blue-700 text-white h-7 px-3 text-xs"
-          >
-            <DollarSign className="w-3 h-3 mr-1" /> Start Billing
-          </Button>
-        </div>
-      )
+      render: (row) => {
+        const disconnect = row.orderType === 'DISCONNECTION';
+        return (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Button
+              size="sm"
+              onClick={(e) => openBillingModal(row, e)}
+              disabled={isSubmitting}
+              className={`${disconnect ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white h-7 px-3 text-xs`}
+            >
+              <DollarSign className="w-3 h-3 mr-1" /> {disconnect ? 'Disconnect & Close' : 'Start Billing'}
+            </Button>
+          </div>
+        );
+      }
     },
   ];
 
   return (
     <div className="p-6">
-      <PageHeader title="Accounts Order Requests" description="Service orders pending billing processing" />
+      <PageHeader
+        title="Accounts Order Requests"
+        description="Service orders pending billing — commercial changes (UPGRADE/DOWNGRADE/RATE_REVISION) and disconnections."
+      />
       <DataTable
         totalCount={pagination.total}
         columns={columns}
@@ -200,7 +212,9 @@ export default function AccountsOrderRequests() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-lg w-full p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Start Billing</h3>
+              <h3 className="text-lg font-semibold">
+                {billingOrder.orderType === 'DISCONNECTION' ? 'Disconnect & Close Order' : 'Start Billing'}
+              </h3>
               <button
                 onClick={() => setShowBillingModal(false)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
@@ -260,6 +274,13 @@ export default function AccountsOrderRequests() {
               )}
             </div>
 
+            {/* Disconnection warning — same red call-out we use elsewhere. */}
+            {billingOrder.orderType === 'DISCONNECTION' && (
+              <div className="mb-4 rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+                Confirming will deactivate the customer's plan and mark the order completed. This can't be undone from here.
+              </div>
+            )}
+
             {/* Process Notes */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1.5">Process Notes (Optional)</label>
@@ -283,9 +304,11 @@ export default function AccountsOrderRequests() {
               <Button
                 onClick={handleStartBilling}
                 disabled={isSubmitting}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                className={`flex-1 ${billingOrder.orderType === 'DISCONNECTION' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
               >
-                {isSubmitting ? 'Processing...' : 'Complete Billing'}
+                {isSubmitting
+                  ? 'Processing...'
+                  : (billingOrder.orderType === 'DISCONNECTION' ? 'Disconnect & Close' : 'Complete Billing')}
               </Button>
             </div>
           </div>
