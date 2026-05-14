@@ -3159,8 +3159,18 @@ export default function CustomerInvoiceDetailPage() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">ARC (current plan)</span>
+                  <span className="text-slate-500">ARC (annual)</span>
                   <span className="font-medium font-mono text-slate-900 dark:text-white">
+                    {typeof customer?.arcAmount === 'number'
+                      ? `₹${customer.arcAmount.toLocaleString('en-IN')}`
+                      : typeof customer?.actualPlanPrice === 'number'
+                        ? `₹${customer.actualPlanPrice.toLocaleString('en-IN')}`
+                        : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Cycle price ({customer?.actualPlanBillingCycle?.toLowerCase().replace('_', '-') || 'monthly'})</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
                     {typeof customer?.actualPlanPrice === 'number'
                       ? `₹${customer.actualPlanPrice.toLocaleString('en-IN')}`
                       : '-'}
