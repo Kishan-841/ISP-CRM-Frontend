@@ -52,6 +52,7 @@ import {
   Trash2,
   Briefcase,
   ShieldCheck,
+  Truck,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -333,7 +334,7 @@ export default function Sidebar() {
         { name: 'SAM Executives', path: '/dashboard/sam-head/executives' },
         { name: 'Customer Referrals', path: '/dashboard/sam-head/customer-referrals', badge: counts.pendingEnquiries > 0 ? counts.pendingEnquiries : null },
         { name: 'All MOMs', path: '/dashboard/sam-head/meetings' },
-        { name: 'Order Mgmt', path: '/dashboard/sam-head/orders', badge: (counts.allOrdersPending || 0) + (counts.samActivationPending || 0) > 0 ? (counts.allOrdersPending || 0) + (counts.samActivationPending || 0) : null },
+        { name: 'Order Mgmt', path: '/dashboard/sam-head/orders', badge: counts.allOrdersPending > 0 ? counts.allOrdersPending : null },
         { name: 'Business Impact', path: '/dashboard/sam-head/business-impact' },
         { name: 'SAM Leads', path: '/dashboard/sam-leads' },
       ]
@@ -346,7 +347,7 @@ export default function Sidebar() {
         { name: 'SAM Dashboard', path: '/dashboard/sam-executive' },
         { name: 'My Customers', path: '/dashboard/sam-executive/customers' },
         { name: 'Meeting MOM', path: '/dashboard/sam-executive/meetings', badge: counts.pendingMomEmails > 0 ? counts.pendingMomEmails : null },
-        { name: 'Order Mgmt', path: '/dashboard/sam-executive/orders', badge: (counts.ordersPending || 0) + (counts.samActivationPending || 0) > 0 ? (counts.ordersPending || 0) + (counts.samActivationPending || 0) : null },
+        { name: 'Order Mgmt', path: '/dashboard/sam-executive/orders', badge: counts.ordersPending > 0 ? counts.ordersPending : null },
         { name: 'Business Impact', path: '/dashboard/sam-executive/business-impact' },
         { name: 'SAM Leads', path: '/dashboard/sam-leads' },
       ]
@@ -377,15 +378,18 @@ export default function Sidebar() {
       name: 'Approvals',
       icon: CheckCircle2,
       menuKey: 'masterApprovals',
-      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) > 0
-        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0)
+      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) > 0
+        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0)
         : null,
       submenu: [
         { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
         { name: 'PO Approval', path: '/dashboard/po-approval', badge: counts.poApprovalPending > 0 ? counts.poApprovalPending : null },
         { name: 'Goods Receipt', path: '/dashboard/goods-receipt' },
         { name: 'Delivery Approval', path: '/dashboard/delivery-request-approval', badge: counts.deliveryRequestPending > 0 ? counts.deliveryRequestPending : null },
-        { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.orderApprovalPending > 0 ? counts.orderApprovalPending : null },
+        // Service-order approval gates: Delivery first (UPGRADE/DOWNGRADE only),
+        // then Sales Director (all order types).
+        { name: 'Delivery Approvals', path: '/dashboard/delivery-approvals', badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },
+        { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.salesDirectorPending > 0 ? counts.salesDirectorPending : null },
         { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
         { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
         { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
@@ -565,6 +569,9 @@ export default function Sidebar() {
     // Delivery Team-only items
     ...(isDeliveryTeam ? [
       { name: 'Delivery Queue', path: '/dashboard/delivery-queue', icon: Package, badge: counts.deliveryPending > 0 ? counts.deliveryPending : null },
+      // First-gate approval queue for UPGRADE/DOWNGRADE service orders.
+      // RATE_REVISION and DISCONNECTION skip Delivery and go straight to Sales Director.
+      { name: 'Delivery Approvals', path: '/dashboard/delivery-approvals', icon: Truck, badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },
       { name: 'Delivery Report', path: '/dashboard/delivery-report', icon: ClipboardCheck },
     ] : []),
     // NOC Team-only items
@@ -599,7 +606,7 @@ export default function Sidebar() {
       { name: 'SAM Executives', path: '/dashboard/sam-head/executives', icon: UserPlus },
       { name: 'Customer Referrals', path: '/dashboard/sam-head/customer-referrals', icon: Inbox, badge: counts.pendingEnquiries > 0 ? counts.pendingEnquiries : null },
       { name: 'All MOMs', path: '/dashboard/sam-head/meetings', icon: CalendarCheck },
-      { name: 'Order Mgmt', path: '/dashboard/sam-head/orders', icon: ClipboardList, badge: (counts.allOrdersPending || 0) + (counts.samActivationPending || 0) > 0 ? (counts.allOrdersPending || 0) + (counts.samActivationPending || 0) : null },
+      { name: 'Order Mgmt', path: '/dashboard/sam-head/orders', icon: ClipboardList, badge: counts.allOrdersPending > 0 ? counts.allOrdersPending : null },
       { name: 'Business Impact', path: '/dashboard/sam-head/business-impact', icon: TrendingDown },
       { name: 'SAM Leads', path: '/dashboard/sam-leads', icon: UserPlus },
     ] : []),
@@ -608,7 +615,7 @@ export default function Sidebar() {
       { name: 'SAM Dashboard', path: '/dashboard/sam-executive', icon: LayoutDashboard },
       { name: 'My Customers', path: '/dashboard/sam-executive/customers', icon: Users },
       { name: 'Meeting MOM', path: '/dashboard/sam-executive/meetings', icon: CalendarCheck, badge: counts.pendingMomEmails > 0 ? counts.pendingMomEmails : null },
-      { name: 'Order Mgmt', path: '/dashboard/sam-executive/orders', icon: ClipboardList, badge: (counts.ordersPending || 0) + (counts.samActivationPending || 0) > 0 ? (counts.ordersPending || 0) + (counts.samActivationPending || 0) : null },
+      { name: 'Order Mgmt', path: '/dashboard/sam-executive/orders', icon: ClipboardList, badge: counts.ordersPending > 0 ? counts.ordersPending : null },
       { name: 'Business Impact', path: '/dashboard/sam-executive/business-impact', icon: TrendingDown },
       { name: 'SAM Leads', path: '/dashboard/sam-leads', icon: UserPlus },
     ] : []),
@@ -644,6 +651,8 @@ export default function Sidebar() {
     // Sales Director items
     ...(isSalesDirector ? [
       { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', icon: ClipboardCheck, badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
+      // Sales Director is the second approval gate for service orders (after Delivery).
+      { name: 'Order Approvals', path: '/dashboard/order-approvals', icon: CheckCircle2, badge: counts.salesDirectorPending > 0 ? counts.salesDirectorPending : null },
       { name: 'Employees', path: '/dashboard/employees', icon: UserCircle },
     ] : []),
     // Super Admin only items
@@ -652,15 +661,18 @@ export default function Sidebar() {
         name: 'Approvals',
         icon: CheckCircle2,
         menuKey: 'approvals',
-        badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) > 0
-          ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.orderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0)
+        badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) > 0
+          ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0)
           : null,
         submenu: [
           { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
           { name: 'PO Approval', path: '/dashboard/po-approval', badge: counts.poApprovalPending > 0 ? counts.poApprovalPending : null },
           { name: 'Goods Receipt', path: '/dashboard/goods-receipt' },
           { name: 'Delivery Approval', path: '/dashboard/delivery-request-approval', badge: counts.deliveryRequestPending > 0 ? counts.deliveryRequestPending : null },
-          { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.orderApprovalPending > 0 ? counts.orderApprovalPending : null },
+          // Service-order approval gates: Delivery first (UPGRADE/DOWNGRADE only),
+          // then Sales Director (all order types).
+          { name: 'Delivery Approvals', path: '/dashboard/delivery-approvals', badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },
+          { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.salesDirectorPending > 0 ? counts.salesDirectorPending : null },
           { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
           { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
           { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
