@@ -160,6 +160,11 @@ export default function CustomerInvoiceDetailPage() {
   // Advance Payment modal state
   const [showAdvancePaymentModal, setShowAdvancePaymentModal] = useState(false);
   const [isProcessingAdvancePayment, setIsProcessingAdvancePayment] = useState(false);
+  // Manual invoice generator
+  const [showGenerateInvoiceModal, setShowGenerateInvoiceModal] = useState(false);
+  const [generateDays, setGenerateDays] = useState('');
+  const [generateReason, setGenerateReason] = useState('');
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [advancePaymentForm, setAdvancePaymentForm] = useState({
     paymentMode: '',
     bankAccount: '',
@@ -395,6 +400,47 @@ export default function CustomerInvoiceDetailPage() {
       toast.error(error.response?.data?.message || 'Failed to record advance payment');
     } finally {
       setIsProcessingAdvancePayment(false);
+    }
+  };
+
+  // Manual invoice generator handlers
+  const handleOpenGenerateInvoiceModal = () => {
+    setGenerateDays('');
+    setGenerateReason('');
+    setShowGenerateInvoiceModal(true);
+  };
+
+  const handleCloseGenerateInvoiceModal = () => {
+    if (isGeneratingInvoice) return; // don't close mid-submit
+    setShowGenerateInvoiceModal(false);
+  };
+
+  const handleGenerateInvoiceSubmit = async () => {
+    const days = parseInt(generateDays);
+    if (!days || days <= 0 || days > 365) {
+      toast.error('Days must be between 1 and 365.');
+      return;
+    }
+    if (!generateReason.trim() || generateReason.trim().length < 5) {
+      toast.error('Reason is required (minimum 5 characters).');
+      return;
+    }
+
+    setIsGeneratingInvoice(true);
+    try {
+      const res = await api.post(`/invoices/generate-manual/${leadId}`, {
+        days,
+        reason: generateReason.trim()
+      });
+      toast.success(res.data?.message || 'Manual invoice generated.');
+      setShowGenerateInvoiceModal(false);
+      // Match the advance-payment refresh pattern
+      fetchCustomerDetail();
+      fetchAdvanceBalance();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to generate invoice.');
+    } finally {
+      setIsGeneratingInvoice(false);
     }
   };
 
@@ -976,6 +1022,15 @@ export default function CustomerInvoiceDetailPage() {
                   Select All
                 </Button>
               )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                onClick={handleOpenGenerateInvoiceModal}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">Generate </span>Invoice
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -3064,6 +3119,109 @@ export default function CustomerInvoiceDetailPage() {
                   <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
                 ) : (
                   <><Wallet className="h-4 w-4 mr-2" /> Record Advance</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Generate Invoice Modal */}
+      {showGenerateInvoiceModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={handleCloseGenerateInvoiceModal}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <FileText className="h-5 w-5 text-emerald-600" />
+                Generate Invoice
+              </h3>
+              <button
+                onClick={handleCloseGenerateInvoiceModal}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                disabled={isGeneratingInvoice}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Customer</span>
+                  <span className="font-medium text-slate-900 dark:text-white">
+                    {customer?.companyName || customer?.customerUsername || '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">ARC (current plan)</span>
+                  <span className="font-medium font-mono text-slate-900 dark:text-white">
+                    {typeof customer?.actualPlanPrice === 'number'
+                      ? `₹${customer.actualPlanPrice.toLocaleString('en-IN')}`
+                      : '-'}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-slate-700 dark:text-slate-300">
+                  Number of days <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={generateDays}
+                  onChange={(e) => setGenerateDays(e.target.value)}
+                  placeholder="e.g. 11"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-emerald-500"
+                  disabled={isGeneratingInvoice}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Bill is pro-rated: <span className="font-mono">days ÷ cycle days × ARC</span> + 18% GST.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-slate-700 dark:text-slate-300">
+                  Reason for generation <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 min-h-[80px] text-sm focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Explain why this manual bill is being generated…"
+                  value={generateReason}
+                  onChange={(e) => setGenerateReason(e.target.value)}
+                  disabled={isGeneratingInvoice}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Minimum 5 characters. Stored on the invoice for audit.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleCloseGenerateInvoiceModal}
+                className="flex-1"
+                disabled={isGeneratingInvoice}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleGenerateInvoiceSubmit}
+                disabled={isGeneratingInvoice}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {isGeneratingInvoice ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Generating…</>
+                ) : (
+                  'Generate'
                 )}
               </Button>
             </div>
