@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
-import { ArrowLeft, CheckCircle2, XCircle, FileText, ExternalLink, Clock, Check, ArrowUp, ArrowDown, RefreshCw, PowerOff } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, FileText, ExternalLink, Clock, Check, ArrowUp, ArrowDown, RefreshCw, PowerOff, Lock } from 'lucide-react';
 import { SERVICE_ORDER_TYPE_CONFIG, SERVICE_ORDER_STATUS_CONFIG } from '@/lib/statusConfig';
 import EventTimeline from '@/components/audit/EventTimeline';
 
@@ -270,6 +270,39 @@ export default function ServiceOrderDetail() {
         </Badge>
       </div>
 
+      {/* Lock banner — surfaces at the very top whenever Accounts has
+          proposed a date and admin hasn't acted yet. Mutating buttons
+          below are already status-gated and don't render in this state,
+          but the banner makes the lock unmissable. */}
+      {order?.status === 'PENDING_ADMIN_DATE_APPROVAL' && (
+        <div className="rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-4">
+          <div className="flex items-start gap-3">
+            <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-amber-900 dark:text-amber-200">
+                Locked — pending admin approval
+              </h4>
+              <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
+                Accounts proposed a new effective date for this order. No further actions can be taken until admin approves or rejects the change.
+              </p>
+              {order.proposedEffectiveDate && (
+                <p className="text-sm mt-2 text-amber-800 dark:text-amber-300">
+                  <span className="text-amber-600 dark:text-amber-500">Proposed date:</span>{' '}
+                  <span className="font-mono font-medium">
+                    {new Date(order.proposedEffectiveDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </span>
+                  {order.proposedEffectiveDateBy?.name && (
+                    <span className="ml-2 text-amber-600 dark:text-amber-500">
+                      by {order.proposedEffectiveDateBy.name}
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Pipeline Progress Bar */}
       <PipelineProgressBar pipeline={pipeline} currentStatus={order.status} />
 
@@ -531,13 +564,14 @@ export default function ServiceOrderDetail() {
         </div>
       )}
 
-      {/* Proposed Effective-Date Change — surfaces when Accounts has asked
-          for a date override and admin hasn't acted yet. Read-only here;
-          approve/reject lives on the Order Approvals page. */}
+      {/* Proposed Effective-Date Change — read-only details of the date
+          override Accounts has asked for. The prominent lock banner sits
+          at the top; this section just shows the before/after numbers.
+          Approve/reject lives on the Order Approvals page. */}
       {order.status === 'PENDING_ADMIN_DATE_APPROVAL' && order.proposedEffectiveDate && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-amber-700 dark:text-amber-300 uppercase mb-3">
-            Effective-Date Change Pending Admin
+            Date Change Details
           </h2>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
