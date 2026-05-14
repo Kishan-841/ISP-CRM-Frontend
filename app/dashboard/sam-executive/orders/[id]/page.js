@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
-import { ArrowLeft, CheckCircle2, XCircle, FileText, ExternalLink, Clock, Check, Calendar } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, FileText, ExternalLink, Clock, Check } from 'lucide-react';
 import { SERVICE_ORDER_TYPE_CONFIG, SERVICE_ORDER_STATUS_CONFIG } from '@/lib/statusConfig';
 import EventTimeline from '@/components/audit/EventTimeline';
 
@@ -19,25 +19,34 @@ const statusBadgeColors = Object.fromEntries(
   Object.entries(SERVICE_ORDER_STATUS_CONFIG).map(([k, v]) => [k, v.color])
 );
 
-// Pipeline stages for non-disconnection orders
+// Pipeline stages reflect the new state machine (delivery gate → sales
+// director → docs → NOC → accounts → completed). UPGRADE/DOWNGRADE pass
+// through every stage; RATE_REVISION and DISCONNECTION skip the delivery
+// gate and start at the sales director step.
 const UPGRADE_PIPELINE = [
+  { key: 'PENDING_DELIVERY_APPROVAL', label: 'Delivery Approval' },
+  { key: 'PENDING_SALES_DIRECTOR_APPROVAL', label: 'Sales Director' },
   { key: 'PENDING_DOCS_REVIEW', label: 'Docs Review' },
   { key: 'PENDING_NOC', label: 'NOC Processing' },
-  { key: 'PENDING_SAM_ACTIVATION', label: 'SAM Activation' },
   { key: 'PENDING_ACCOUNTS', label: 'Accounts Billing' },
   { key: 'COMPLETED', label: 'Completed' },
 ];
 
-// Pipeline stages for disconnection orders
+// Disconnection follows the same chain as the others now (no short-circuit).
+// It just skips the delivery gate.
 const DISCONNECTION_PIPELINE = [
-  { key: 'PENDING_APPROVAL', label: 'Admin Approval' },
-  { key: 'APPROVED', label: 'NOC/Accounts Processing' },
+  { key: 'PENDING_SALES_DIRECTOR_APPROVAL', label: 'Sales Director' },
+  { key: 'PENDING_DOCS_REVIEW', label: 'Docs Review' },
+  { key: 'PENDING_NOC', label: 'NOC Processing' },
+  { key: 'PENDING_ACCOUNTS', label: 'Accounts Billing' },
   { key: 'COMPLETED', label: 'Completed' },
 ];
 
 function getStageIndex(pipeline, status) {
-  // DOCS_REJECTED maps to the docs review stage
-  if (status === 'DOCS_REJECTED') return 0;
+  // DOCS_REJECTED visually parks the indicator at the Docs Review stage.
+  if (status === 'DOCS_REJECTED') {
+    return pipeline.findIndex((s) => s.key === 'PENDING_DOCS_REVIEW');
+  }
   const idx = pipeline.findIndex((s) => s.key === status);
   return idx >= 0 ? idx : -1;
 }
@@ -132,10 +141,6 @@ export default function ServiceOrderDetail() {
   const [processNotes, setProcessNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Activation date modal
-  const [showActivationModal, setShowActivationModal] = useState(false);
-  const [activationDate, setActivationDate] = useState('');
-
   // Speed test image viewer
   const [showSpeedTest, setShowSpeedTest] = useState(false);
 
@@ -206,25 +211,6 @@ export default function ServiceOrderDetail() {
       fetchOrder();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to process order');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSetActivationDate = async () => {
-    if (!activationDate) {
-      toast.error('Please select an activation date.');
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${params.id}/set-activation-date`, { activationDate });
-      toast.success('Activation date set successfully!');
-      setShowActivationModal(false);
-      setActivationDate('');
-      fetchOrder();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to set activation date');
     } finally {
       setIsSubmitting(false);
     }
@@ -318,11 +304,28 @@ export default function ServiceOrderDetail() {
         </div>
       </div>
 
-      {/* Effective Date */}
-      {order.effectiveDate && (
+      {/* Key Dates — mail received & effective date.
+          mailReceivedDate is what Delivery wants to see before approving
+          (when did the customer's mail actually arrive?). */}
+      {(order.effectiveDate || order.mailReceivedDate) && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase mb-2">Effective Date</h2>
-          <p className="text-lg font-semibold">{formatDate(order.effectiveDate)}</p>
+          <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Key Dates</h2>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Mail Received</span>
+              <span className="font-medium">
+                {order.mailReceivedDate
+                  ? new Date(order.mailReceivedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                  : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Effective Date</span>
+              <span className="font-medium">
+                {order.effectiveDate ? formatDate(order.effectiveDate) : '—'}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -476,19 +479,43 @@ export default function ServiceOrderDetail() {
         </div>
       )}
 
-      {/* Approval Info */}
-      {order.approvedBy && (
+      {/* Approval Info — covers the legacy combined approvedBy field plus the
+          new two-stage timeline (delivery first, then sales director). All
+          fields are conditionally rendered so legacy/old orders still show
+          whatever data they have. */}
+      {(order.approvedBy || order.deliveryApprovedAt || order.salesDirectorApprovedAt || order.rejectedFromStatus) && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
           <h2 className="text-sm font-semibold text-slate-500 uppercase mb-2">
             {order.status === 'REJECTED' ? 'Rejection Details' : 'Approval Details'}
           </h2>
-          <p className="text-sm">
-            {order.status === 'REJECTED' ? 'Rejected' : 'Approved'} by <strong>{order.approvedBy.name}</strong> on{' '}
-            {formatDate(order.approvedAt)}
-          </p>
+          {order.approvedBy && (
+            <p className="text-sm">
+              {order.status === 'REJECTED' ? 'Rejected' : 'Approved'} by <strong>{order.approvedBy.name}</strong> on{' '}
+              {formatDate(order.approvedAt)}
+            </p>
+          )}
           {order.rejectionReason && (
             <p className="text-sm text-red-600 dark:text-red-400 mt-1">Reason: {order.rejectionReason}</p>
           )}
+
+          {/* New two-stage approval breakdown — only show stages that fired. */}
+          <div className="mt-2 space-y-1">
+            {order.deliveryApprovedAt && (
+              <div className="text-xs text-slate-500">
+                Delivery: <span className="text-slate-700 dark:text-slate-300">{order.deliveryApprovedBy?.name || '—'}</span> on {new Date(order.deliveryApprovedAt).toLocaleDateString('en-IN')}
+              </div>
+            )}
+            {order.salesDirectorApprovedAt && (
+              <div className="text-xs text-slate-500">
+                Sales Director: <span className="text-slate-700 dark:text-slate-300">{order.salesDirectorApprovedBy?.name || '—'}</span> on {new Date(order.salesDirectorApprovedAt).toLocaleDateString('en-IN')}
+              </div>
+            )}
+            {order.rejectedFromStatus && order.status === 'REJECTED' && (
+              <div className="text-xs text-red-600">
+                Rejected at: <span className="font-mono">{order.rejectedFromStatus}</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -536,15 +563,9 @@ export default function ServiceOrderDetail() {
           </Button>
         )}
 
-        {/* SAM_EXECUTIVE / SAM_HEAD: Set Activation Date */}
-        {(isSAM || isSuperAdmin) && order.status === 'PENDING_SAM_ACTIVATION' && (
-          <Button
-            onClick={() => setShowActivationModal(true)}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            <Calendar className="w-4 h-4 mr-1" /> Set Activation Date
-          </Button>
-        )}
+        {/* The PENDING_SAM_ACTIVATION step was removed from the state machine.
+            Activation date is no longer set here — billing kicks in when
+            Accounts processes the order. */}
       </div>
 
       {/* History Section */}
@@ -601,41 +622,6 @@ export default function ServiceOrderDetail() {
                 className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
               >
                 {isSubmitting ? 'Processing...' : 'Mark Complete'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Activation Date Modal */}
-      {showActivationModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-5">
-            <h3 className="text-lg font-semibold mb-1">Set Activation Date</h3>
-            <p className="text-sm text-slate-500 mb-4">
-              Enter the billing activation date confirmed by the customer.
-            </p>
-            <input
-              type="date"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-              value={activationDate}
-              onChange={(e) => setActivationDate(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
-            />
-            <div className="flex gap-2 mt-4">
-              <Button
-                variant="outline"
-                onClick={() => { setShowActivationModal(false); setActivationDate(''); }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSetActivationDate}
-                disabled={isSubmitting || !activationDate}
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {isSubmitting ? 'Saving...' : 'Set Date'}
               </Button>
             </div>
           </div>
