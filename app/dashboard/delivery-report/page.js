@@ -48,8 +48,12 @@ const STATUS_CONFIG = {
 };
 
 export default function DeliveryReportPage() {
-  const { isDeliveryTeam, isAdmin, isSuperAdmin } = useRoleCheck();
-  const hasAccess = isDeliveryTeam || isAdmin || isSuperAdmin;
+  // OPS_TEAM gets read-parity with admin here — Ops folks reach this page
+  // through Team Dashboard → Delivery Reports and need to see the same
+  // pipeline data the admin sees. They don't filter to "their own"
+  // (Ops isn't a delivery agent), they see everyone like admins do.
+  const { isDeliveryTeam, isAdmin, isSuperAdmin, isOpsTeam } = useRoleCheck();
+  const hasAccess = isDeliveryTeam || isAdmin || isSuperAdmin || isOpsTeam;
   const searchParams = useSearchParams();
   const deliveryUserId = searchParams.get('userId');
 
@@ -81,15 +85,17 @@ export default function DeliveryReportPage() {
     }
   };
 
-  // Fetch the delivery user's name when viewing by userId
+  // Fetch the delivery user's name when viewing by userId — OPS gets
+  // the same drill-down lookup since they reach this page via Team
+  // Dashboard with a userId in the query string.
   useEffect(() => {
-    if (deliveryUserId && (isAdmin || isSuperAdmin)) {
+    if (deliveryUserId && (isAdmin || isSuperAdmin || isOpsTeam)) {
       api.get('/users/by-role?role=DELIVERY_TEAM').then(res => {
         const found = (res.data.users || []).find(u => u.id === deliveryUserId);
         if (found) setViewingUserName(found.name);
       }).catch(() => {});
     }
-  }, [deliveryUserId, isAdmin, isSuperAdmin]);
+  }, [deliveryUserId, isAdmin, isSuperAdmin, isOpsTeam]);
 
   useEffect(() => {
     if (hasAccess) fetchReport();
