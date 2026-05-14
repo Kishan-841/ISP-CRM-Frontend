@@ -26,7 +26,10 @@ export default function OrderApprovals() {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
-  const [filterStatus, setFilterStatus] = useState('PENDING_APPROVAL');
+  // Default to the new state machine status: orders that have cleared the
+  // delivery gate (or skipped it, for RATE_REVISION/DISCONNECTION) and are now
+  // awaiting Sales Director sign-off.
+  const [filterStatus, setFilterStatus] = useState('PENDING_SALES_DIRECTOR_APPROVAL');
   const [search, setSearch] = useState('');
 
   // Reject modal
@@ -36,7 +39,7 @@ export default function OrderApprovals() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
+    if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER' && user.role !== 'SALES_DIRECTOR') {
       router.push('/dashboard');
     }
   }, [user, router]);
@@ -51,10 +54,11 @@ export default function OrderApprovals() {
       if (filterStatus) params.append('status', filterStatus);
       if (search) params.append('search', search);
 
-      // All order types now go through the admin approval gate (UPGRADE,
-      // DOWNGRADE, RATE_REVISION, DISCONNECTION). The list page no longer
-      // filters by orderType — the API returns every PENDING_APPROVAL row
-      // and the row-level UI still routes per-type for the CTA labels.
+      // This is now the Sales Director's queue. All order types eventually land
+      // here (UPGRADE/DOWNGRADE arrive after Delivery's gate; RATE_REVISION and
+      // DISCONNECTION skip Delivery and start here). The page no longer filters
+      // by orderType — the API returns every row matching the chosen status and
+      // the row-level UI still adapts per-type for CTA labels.
       const response = await api.get(`/service-orders?${params}`);
       setOrders(response.data.orders);
       setPagination(prev => ({ ...prev, ...response.data.pagination }));
@@ -215,7 +219,7 @@ export default function OrderApprovals() {
     },
     {
       key: 'actions', label: 'Actions',
-      render: (row) => row.status === 'PENDING_APPROVAL' ? (
+      render: (row) => row.status === 'PENDING_SALES_DIRECTOR_APPROVAL' ? (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
           <Button
             size="sm"
@@ -245,7 +249,8 @@ export default function OrderApprovals() {
       onChange={(e) => { setFilterStatus(e.target.value); setPagination(p => ({ ...p, page: 1 })); }}
     >
       <option value="">All Statuses</option>
-      <option value="PENDING_APPROVAL">Pending Approval</option>
+      <option value="PENDING_SALES_DIRECTOR_APPROVAL">Pending Sales Director</option>
+      <option value="PENDING_DELIVERY_APPROVAL">Pending Delivery</option>
       <option value="APPROVED">Approved</option>
       <option value="REJECTED">Rejected</option>
       <option value="COMPLETED">Completed</option>
@@ -256,7 +261,7 @@ export default function OrderApprovals() {
   return (
     <div className="p-6">
       <DataTable
-        title="Order Approvals"
+        title="Sales Director Approvals"
         totalCount={pagination.total}
         columns={columns}
         data={orders}
