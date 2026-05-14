@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/lib/store';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import DataTable from '@/components/DataTable';
@@ -21,16 +21,29 @@ const statusBadgeColors = Object.fromEntries(
 
 export default function OrderApprovals() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuthStore();
 
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
-  // Default to the new state machine status: orders that have cleared the
-  // delivery gate (or skipped it, for RATE_REVISION/DISCONNECTION) and are now
-  // awaiting Sales Director sign-off.
-  const [filterStatus, setFilterStatus] = useState('PENDING_SALES_DIRECTOR_APPROVAL');
+  // Honour ?status=… in the URL so the "Date Change Approvals" sidebar link
+  // lands directly on its filter. Otherwise default to Sales Director queue.
+  const [filterStatus, setFilterStatus] = useState(() => {
+    const urlStatus = searchParams?.get('status');
+    return urlStatus || 'PENDING_SALES_DIRECTOR_APPROVAL';
+  });
   const [search, setSearch] = useState('');
+
+  // Keep the filter in sync if the user clicks a different sidebar entry
+  // while already on this page (Next.js doesn't unmount the component).
+  useEffect(() => {
+    const urlStatus = searchParams?.get('status');
+    if (urlStatus && urlStatus !== filterStatus) {
+      setFilterStatus(urlStatus);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Reject modal
   const [showRejectModal, setShowRejectModal] = useState(false);

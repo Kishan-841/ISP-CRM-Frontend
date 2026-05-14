@@ -391,7 +391,8 @@ export default function Sidebar() {
         // Accounts-proposed effectiveDate changes pending admin sign-off,
         // which surface in the same Order Approvals page.
         { name: 'Delivery Approvals', path: '/dashboard/delivery-approvals', badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },
-        { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: (counts.salesDirectorPending || 0) + (counts.dateChangeApprovalPending || 0) > 0 ? (counts.salesDirectorPending || 0) + (counts.dateChangeApprovalPending || 0) : null },
+        { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.salesDirectorPending > 0 ? counts.salesDirectorPending : null },
+        { name: 'Date Change Approvals', path: '/dashboard/order-approvals?status=PENDING_ADMIN_DATE_APPROVAL', badge: counts.dateChangeApprovalPending > 0 ? counts.dateChangeApprovalPending : null },
         { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
         { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
         { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
@@ -676,7 +677,8 @@ export default function Sidebar() {
           // Accounts-proposed effectiveDate changes pending admin sign-off,
           // which surface in the same Order Approvals page.
           { name: 'Delivery Approvals', path: '/dashboard/delivery-approvals', badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },
-          { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: (counts.salesDirectorPending || 0) + (counts.dateChangeApprovalPending || 0) > 0 ? (counts.salesDirectorPending || 0) + (counts.dateChangeApprovalPending || 0) : null },
+          { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.salesDirectorPending > 0 ? counts.salesDirectorPending : null },
+        { name: 'Date Change Approvals', path: '/dashboard/order-approvals?status=PENDING_ADMIN_DATE_APPROVAL', badge: counts.dateChangeApprovalPending > 0 ? counts.dateChangeApprovalPending : null },
           { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
           { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
           { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
