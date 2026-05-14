@@ -309,9 +309,14 @@ export default function AccountsCreatePlanPage() {
   const fetchServiceOrders = async () => {
     setIsLoadingOrders(true);
     try {
-      const response = await api.get('/service-orders?status=PENDING_ACCOUNTS&limit=100');
-      setServiceOrders(response.data.orders || []);
-      setServiceOrdersCount(response.data.pagination?.total || 0);
+      // Fetch both actionable orders AND ones locked at admin-date-approval
+      // so the operator can see what they've already sent for approval.
+      // (The role-based filter on the backend allows ACCOUNTS_TEAM to see both.)
+      const response = await api.get('/service-orders?limit=100');
+      const orders = response.data.orders || [];
+      setServiceOrders(orders);
+      // Count only actionable rows in the badge — locked ones aren't pending action.
+      setServiceOrdersCount(orders.filter(o => o.status === 'PENDING_ACCOUNTS').length);
     } catch (error) {
       console.error('Error fetching service orders:', error);
     } finally {
@@ -1185,6 +1190,17 @@ export default function AccountsCreatePlanPage() {
                   toast.error('Failed to load customer data');
                 }
               };
+
+              // Locked — accounts user proposed a date change; waiting for admin.
+              // Render a read-only chip instead of an action button so the
+              // operator can see at a glance which orders they've already submitted.
+              if (order.status === 'PENDING_ADMIN_DATE_APPROVAL') {
+                return (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                    <Clock size={12} /> Awaiting admin approval
+                  </span>
+                );
+              }
 
               if (order.orderType === 'RATE_REVISION') {
                 return (
