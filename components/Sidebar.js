@@ -571,7 +571,7 @@ export default function Sidebar() {
       { name: 'Delivery Queue', path: '/dashboard/delivery-queue', icon: Package, badge: counts.deliveryPending > 0 ? counts.deliveryPending : null },
       // First-gate approval queue for UPGRADE/DOWNGRADE service orders.
       // RATE_REVISION and DISCONNECTION skip Delivery and go straight to Sales Director.
-      { name: 'Delivery Approvals', path: '/dashboard/delivery-approvals', icon: Truck, badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },
+      { name: 'Order Approvals', path: '/dashboard/delivery-approvals', icon: Truck, badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },
       { name: 'Delivery Report', path: '/dashboard/delivery-report', icon: ClipboardCheck },
     ] : []),
     // NOC Team-only items
