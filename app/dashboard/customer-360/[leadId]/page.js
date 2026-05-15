@@ -2266,7 +2266,7 @@ function StatCard({ icon: Icon, label, value, subValue, color }) {
 
 // ─── Info item ───
 
-function InfoItem({ icon: Icon, label, value, copyable }) {
+function InfoItem({ icon: Icon, label, value, copyable, onExpand }) {
   const handleCopy = () => {
     if (!value || value === '-') return;
     navigator.clipboard.writeText(value);
@@ -2277,7 +2277,16 @@ function InfoItem({ icon: Icon, label, value, copyable }) {
       {label && <p className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-0.5">{label}</p>}
       <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 min-w-0">
         <Icon className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
-        <span className="truncate">{value || '-'}</span>
+        <span className="truncate" title={value && value !== '-' ? value : undefined}>{value || '-'}</span>
+        {onExpand && value && value !== '-' && (
+          <button
+            onClick={onExpand}
+            title="View full"
+            className="shrink-0 p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+          >
+            <Eye className="h-3 w-3" />
+          </button>
+        )}
         {copyable && value && value !== '-' && value !== 'Not created' && (
           <button onClick={handleCopy} className="shrink-0 p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
             <Copy className="h-3 w-3" />
@@ -2460,6 +2469,7 @@ function NotFoundCard() {
 // ─── Summary header ───
 
 function SummaryHeader({ summary }) {
+  const [showAddressModal, setShowAddressModal] = useState(false);
   // Map API response fields to display names
   const companyName = summary.company || summary.campaignData?.company || '';
   const contactName = summary.name || '';
@@ -2533,7 +2543,12 @@ function SummaryHeader({ summary }) {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6 pb-6 border-b border-slate-200 dark:border-slate-700">
         <InfoItem icon={Phone} label="Phone" value={phone} copyable />
         <InfoItem icon={Mail} label="Email" value={email} copyable />
-        <InfoItem icon={MapPin} label="Address" value={address} />
+        <InfoItem
+          icon={MapPin}
+          label="Address"
+          value={address}
+          onExpand={fullAddress ? () => setShowAddressModal(true) : undefined}
+        />
         <InfoItem icon={User} label="Username" value={customerUsername || 'Not created'} copyable />
         <InfoItem icon={Hash} label="GST" value={customerGstNo || '-'} copyable />
         <InfoItem icon={UserCheck} label="BDM" value={bdmName || 'Unassigned'} />
@@ -2589,6 +2604,52 @@ function SummaryHeader({ summary }) {
           color="text-slate-500 dark:text-slate-400"
         />
       </div>
+
+      {/* Full-address modal — opens from the Eye icon on the Address row */}
+      {showAddressModal && fullAddress && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          onClick={() => setShowAddressModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-lg w-full p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-orange-500" />
+                <h3 className="text-lg font-semibold">Full Address</h3>
+              </div>
+              <button
+                onClick={() => setShowAddressModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-1">{companyName || contactName}</p>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words">
+              {fullAddress}
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  navigator.clipboard.writeText(fullAddress);
+                  toast.success('Address copied!');
+                }}
+              >
+                <Copy className="h-4 w-4 mr-1" /> Copy
+              </Button>
+              <Button className="flex-1" onClick={() => setShowAddressModal(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
