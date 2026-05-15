@@ -656,6 +656,8 @@ export default function Sidebar() {
       { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', icon: ClipboardCheck, badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
       // Sales Director is the second approval gate for service orders (after Delivery).
       { name: 'Order Approvals', path: '/dashboard/order-approvals', icon: CheckCircle2, badge: counts.salesDirectorPending > 0 ? counts.salesDirectorPending : null },
+      // Read-only view of every ISR's call outcomes; supports filtering by ISR.
+      { name: 'Call History', path: '/dashboard/call-history', icon: History },
       { name: 'Employees', path: '/dashboard/employees', icon: UserCircle },
     ] : []),
     // Super Admin only items

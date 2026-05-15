@@ -58,8 +58,13 @@ export default function CallHistoryPage() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [dateFilter, setDateFilter] = useState('all');
   const [specificDate, setSpecificDate] = useState('');
+  // ISR filter (admins + Sales Director only — ISRs only see their own calls)
+  const [isrFilter, setIsrFilter] = useState('');
+  const [isrOptions, setIsrOptions] = useState([]);
 
-  const isAdmin = user?.role === 'SUPER_ADMIN';
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER';
+  const isSalesDirector = user?.role === 'SALES_DIRECTOR';
+  const canViewAll = isAdmin || isSalesDirector;
 
   // Redirect admin (optional - remove if admin should see this)
   // useEffect(() => {
@@ -71,7 +76,15 @@ export default function CallHistoryPage() {
   // Fetch call history
   useEffect(() => {
     loadCallHistory();
-  }, [pagination.page, pagination.limit, searchQuery, dateFilter, specificDate]);
+  }, [pagination.page, pagination.limit, searchQuery, dateFilter, specificDate, isrFilter]);
+
+  // Load ISR list once for the filter dropdown (admins + SD only)
+  useEffect(() => {
+    if (!canViewAll) return;
+    api.get('/users?role=ISR&limit=500')
+      .then(res => setIsrOptions(res.data.users || []))
+      .catch(() => { /* dropdown stays empty — not fatal */ });
+  }, [canViewAll]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -130,6 +143,9 @@ export default function CallHistoryPage() {
       }
       if (endDate) {
         params.append('endDate', endDate.toISOString());
+      }
+      if (canViewAll && isrFilter) {
+        params.append('isrId', isrFilter);
       }
 
       const response = await api.get(`/campaigns/call-history?${params}`);
@@ -345,6 +361,27 @@ export default function CallHistoryPage() {
               onChange={(e) => setSpecificDate(e.target.value)}
               className="w-40 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
             />
+          )}
+
+          {/* ISR filter — admins + Sales Director only */}
+          {canViewAll && (
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+              <Select
+                value={isrFilter || 'all'}
+                onValueChange={(v) => { setIsrFilter(v === 'all' ? '' : v); setPagination(p => ({ ...p, page: 1 })); }}
+              >
+                <SelectTrigger className="w-52 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                  <SelectValue placeholder="All ISRs" />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                  <SelectItem value="all">All ISRs</SelectItem>
+                  {isrOptions.map(u => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
       </PageHeader>
