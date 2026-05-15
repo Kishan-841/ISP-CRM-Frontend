@@ -798,11 +798,23 @@ export default function CustomerInvoiceDetailPage() {
     return invoice.grandTotal - totalCreditAmount;
   };
 
-  // Calculate credit note total with GST (18%)
+  // Calculate credit note total with GST (18%). Round to paise so the
+  // comparison against the invoice's grandTotal isn't tripped by
+  // floating-point noise (e.g. 8334 * 1.18 = 9834.1199999… → 9834.12).
   const calculateCreditNoteTotal = (baseAmount) => {
     const base = parseFloat(baseAmount) || 0;
     const gst = base * 0.18;
-    return base + gst;
+    return Math.round((base + gst) * 100) / 100;
+  };
+
+  // Single source of truth for the "credit exceeds max" check. Allows a
+  // 1-paise tolerance so an integer invoice grandTotal (₹9,834) doesn't
+  // reject a credit total like ₹9,834.12 from rounding asymmetry between
+  // the auto-invoice generator (no rounding) and the credit-note math.
+  const exceedsMaxCredit = (baseAmount, invoice) => {
+    const total = calculateCreditNoteTotal(baseAmount);
+    const max = getMaxAllowableCredit(invoice);
+    return total > max + 0.5;
   };
 
   // Generate receipt number from invoice and payments
@@ -2632,7 +2644,7 @@ export default function CustomerInvoiceDetailPage() {
                         <span className="ml-2 text-red-600">{formatCurrency(calculateCreditNoteTotal(creditNoteForm.baseAmount))}</span>
                       </div>
                     </div>
-                    {calculateCreditNoteTotal(creditNoteForm.baseAmount) > getMaxAllowableCredit(creditNoteInvoice) && (
+                    {exceedsMaxCredit(creditNoteForm.baseAmount, creditNoteInvoice) && (
                       <p className="text-xs text-red-600 mt-2 flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
                         Credit amount exceeds maximum allowable!
@@ -2663,7 +2675,7 @@ export default function CustomerInvoiceDetailPage() {
               <Button
                 size="sm"
                 onClick={handleCreateCreditNote}
-                disabled={isCreatingCreditNote || !creditNoteForm.reason || !creditNoteForm.baseAmount || calculateCreditNoteTotal(creditNoteForm.baseAmount) > getMaxAllowableCredit(creditNoteInvoice)}
+                disabled={isCreatingCreditNote || !creditNoteForm.reason || !creditNoteForm.baseAmount || exceedsMaxCredit(creditNoteForm.baseAmount, creditNoteInvoice)}
                 className="bg-red-600 text-white hover:bg-red-700"
               >
                 {isCreatingCreditNote ? (
