@@ -123,7 +123,8 @@ export default function VendorsPage() {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
   const isAccountsTeam = user?.role === 'ACCOUNTS_TEAM' || isMaster;
   const isFeasibilityTeam = user?.role === 'FEASIBILITY_TEAM' || isMaster;
-  const hasAccess = isSuperAdmin || isAccountsTeam || isFeasibilityTeam;
+  const isDeliveryTeam   = user?.role === 'DELIVERY_TEAM';
+  const hasAccess = isSuperAdmin || isAccountsTeam || isFeasibilityTeam || isDeliveryTeam;
   const canCreate = hasAccess;
 
   // Redirect unauthorized users

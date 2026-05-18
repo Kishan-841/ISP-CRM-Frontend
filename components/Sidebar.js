@@ -575,6 +575,9 @@ export default function Sidebar() {
       // First-gate approval queue for UPGRADE/DOWNGRADE service orders.
       // RATE_REVISION and DISCONNECTION skip Delivery and go straight to Sales Director.
       { name: 'Order Approvals', path: '/dashboard/delivery-approvals', icon: Truck, badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },
+      // Delivery can create new vendors for the leads they handle.
+      // Backend POST /api/vendors/ allow-list includes DELIVERY_TEAM.
+      { name: 'Create Vendor', path: '/dashboard/vendors', icon: Building2 },
       { name: 'Delivery Report', path: '/dashboard/delivery-report', icon: ClipboardCheck },
     ] : []),
     // NOC Team-only items
