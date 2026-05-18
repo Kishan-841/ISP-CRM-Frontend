@@ -305,9 +305,15 @@ export default function VendorsPage() {
     setIsUploadingDocs(false);
   };
 
-  // Can verify docs: accounts team or admin, vendor docs are uploaded
+  // Can verify docs: accounts/admin only AND vendor must have cleared the
+  // admin approval gate first. Without the approvalStatus check, a freshly
+  // submitted vendor (PENDING_ADMIN) with docs already uploaded would
+  // render BOTH the admin-approve buttons and the accounts-verify buttons
+  // on the same row — confusing duplicate ✓/✗ pairs. Accounts only acts
+  // after admin has approved.
   const canVerifyDocs = (vendor) => {
     if (vendor.docsStatus !== 'UPLOADED') return false;
+    if (vendor.approvalStatus !== 'PENDING_ACCOUNTS' && vendor.approvalStatus !== 'APPROVED') return false;
     if (isSuperAdmin || isAccountsTeam) return true;
     return false;
   };
