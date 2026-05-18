@@ -72,6 +72,16 @@ const PERIOD_OPTIONS = [
   { value: 'yearly', label: 'Yearly' },
 ];
 
+// Maps the stat-card labels to the bucket slugs the drill-in endpoint
+// expects. Kept here (not in the card config) so the card config stays
+// declarative and the click handler stays trivially testable.
+const BUCKET_FOR_LABEL = {
+  'Total Assigned':    'assigned',
+  'Working Data':      'working',
+  'Pending Data':      'pending',
+  'Converted to Lead': 'converted',
+};
+
 const FUNNEL_PERIOD_OPTIONS = [
   { value: 'today', label: 'Today' },
   { value: 'this_week', label: 'This Week' },
@@ -319,21 +329,36 @@ export default function ISROverallDashboard() {
               { label: 'Working Data', value: stats.workingData, icon: Clock, color: 'bg-blue-500/10', iconColor: 'text-blue-500' },
               { label: 'Pending Data', value: stats.pendingData, icon: AlertCircle, color: 'bg-amber-500/10', iconColor: 'text-amber-500' },
               { label: 'Converted to Lead', value: stats.convertedToLead, icon: Users, color: 'bg-emerald-500/10', iconColor: 'text-emerald-500' },
-            ].map((stat, i) => (
-              <Card key={i} className="col-span-12 sm:col-span-6 lg:col-span-3 rounded-2xl shadow-sm hover:shadow-md transition">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">{stat.label}</p>
-                      <p className="text-3xl font-bold mt-1">{stat.value.toLocaleString()}</p>
+            ].map((stat, i) => {
+              const bucket = BUCKET_FOR_LABEL[stat.label];
+              const handleClick = () => {
+                if (!bucket) return;
+                const params = new URLSearchParams({ bucket });
+                // Propagate the dashboard's current period so the drill-in
+                // matches the count shown on the card.
+                if (dateRange) params.set('period', dateRange);
+                router.push(`/dashboard/admin-dashboards/isr/data?${params.toString()}`);
+              };
+              return (
+                <Card
+                  key={i}
+                  onClick={handleClick}
+                  className="col-span-12 sm:col-span-6 lg:col-span-3 rounded-2xl shadow-sm hover:shadow-md transition cursor-pointer hover:ring-2 hover:ring-orange-300 dark:hover:ring-orange-500/40"
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">{stat.label}</p>
+                        <p className="text-3xl font-bold mt-1">{stat.value.toLocaleString()}</p>
+                      </div>
+                      <div className={`h-10 w-10 rounded-lg ${stat.color} flex items-center justify-center`}>
+                        <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
+                      </div>
                     </div>
-                    <div className={`h-10 w-10 rounded-lg ${stat.color} flex items-center justify-center`}>
-                      <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {/* ── Section: Today's Call Activity + Quick Stats ── */}
