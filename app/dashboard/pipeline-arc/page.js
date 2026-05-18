@@ -163,6 +163,21 @@ export default function PipelineARCPage() {
     return true;
   });
 
+  // When a stage chip is active, re-sort the table so the column the user
+  // is filtering by also drives the order — newest event at top. Without
+  // this, rows come back in updatedAt DESC order from the backend, which
+  // produces a "Login 12 May above Login 7 May above Login 15 May" shuffle
+  // because updatedAt reflects ANY field edit, not the milestone date.
+  // No stage selected → keep the backend's updatedAt DESC ordering.
+  const sortByField = stageFilter && STAGE_CONFIG[stageFilter]?.dateField;
+  if (sortByField) {
+    filteredLeads.sort((a, b) => {
+      const da = a[sortByField] ? new Date(a[sortByField]).getTime() : 0;
+      const db = b[sortByField] ? new Date(b[sortByField]).getTime() : 0;
+      return db - da;   // most-recent event first
+    });
+  }
+
   // Two totals — `totals` drives the top stat CARDS (pipeline-wide, ignoring
   // the stage chip so "Total ARC" doesn't shrink to a stage subset).
   // `tableTotals` drives the table FOOTER (matches whatever rows are
