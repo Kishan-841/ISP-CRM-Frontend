@@ -1,9 +1,27 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Sparkles, X, RotateCcw } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import NexusInput from './NexusInput';
+
+// Distance the pointer must travel before we treat the gesture as a drag
+// (not a click). Below this, pointerup fires `toggle()` as before.
+const DRAG_THRESHOLD_PX = 6;
+
+const CORNERS = ['br', 'bl', 'tr', 'tl'];
+const CORNER_CLASS = {
+  br: 'bottom-4 right-4 sm:bottom-5 sm:right-5',
+  bl: 'bottom-4 left-4  sm:bottom-5 sm:left-5',
+  tr: 'top-4    right-4 sm:top-5    sm:right-5',
+  tl: 'top-4    left-4  sm:top-5    sm:left-5',
+};
+const PANEL_CORNER_CLASS = {
+  br: 'sm:inset-auto sm:bottom-24 sm:right-5 sm:top-auto',
+  bl: 'sm:inset-auto sm:bottom-24 sm:left-5  sm:top-auto',
+  tr: 'sm:inset-auto sm:top-24    sm:right-5 sm:bottom-auto',
+  tl: 'sm:inset-auto sm:top-24    sm:left-5  sm:bottom-auto',
+};
 
 const SUGGESTED_QUESTIONS = [
   'How do I use this page?',
@@ -48,6 +66,81 @@ export default function NexusWidget({ useStoreHook }) {
 
   const scrollRef = useRef(null);
 
+  // Draggable bubble: which corner it sticks to + transient drag state.
+  // The corner persists in localStorage so users don't have to re-drag
+  // every reload. Drag position drives a fixed left/top while dragging,
+  // then on pointer-up we snap to the nearest corner based on viewport
+  // halves.
+  const [corner, setCorner] = useState('br');
+  const [dragPos, setDragPos] = useState(null);   // { x, y } while dragging
+  const dragStartRef = useRef(null);              // { x, y, moved }
+
+  // Load saved corner from localStorage once on mount (client-only).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = window.localStorage.getItem('vectra-corner');
+    if (saved && CORNERS.includes(saved)) setCorner(saved);
+  }, []);
+
+  const handlePointerDown = (e) => {
+    // Left-click / single touch only. Right-click + middle-click pass through.
+    if (e.button !== undefined && e.button !== 0) return;
+    dragStartRef.current = { x: e.clientX, y: e.clientY, moved: false };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* iOS Safari may throw */ }
+  };
+
+  const handlePointerMove = (e) => {
+    const start = dragStartRef.current;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (!start.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
+      start.moved = true;
+    }
+    if (start.moved) {
+      setDragPos({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    const start = dragStartRef.current;
+    if (!start) return;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    if (start.moved) {
+      // Snap to whichever corner the bubble's centre is closest to.
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const isRight = e.clientX > vw / 2;
+      const isBottom = e.clientY > vh / 2;
+      const next = `${isBottom ? 'b' : 't'}${isRight ? 'r' : 'l'}`;
+      setCorner(next);
+      try { window.localStorage.setItem('vectra-corner', next); } catch { /* quota / private mode */ }
+    } else {
+      // Not a drag — treat as a click and open/close the panel.
+      toggle();
+    }
+    setDragPos(null);
+    dragStartRef.current = null;
+  };
+
+  // While dragging, clamp the centre of the bubble inside the viewport so
+  // it can't be dropped outside the screen. The button is 48px (h-12) on
+  // mobile, 56px (sm:h-14) on desktop — use 28px as a half-width
+  // approximation; small over/undershoot is harmless visually.
+  const halfBubble = 28;
+  const buttonStyle = dragPos
+    ? {
+        position: 'fixed',
+        left: Math.max(8, Math.min(window.innerWidth - halfBubble * 2 - 8, dragPos.x - halfBubble)),
+        top:  Math.max(8, Math.min(window.innerHeight - halfBubble * 2 - 8, dragPos.y - halfBubble)),
+        bottom: 'auto',
+        right: 'auto',
+        transition: 'none',
+        touchAction: 'none',
+        cursor: 'grabbing',
+      }
+    : { touchAction: 'none', cursor: 'grab' };
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -67,15 +160,19 @@ export default function NexusWidget({ useStoreHook }) {
 
   return (
     <>
-      {/* Floating bubble */}
+      {/* Floating bubble — draggable, snaps to nearest corner on release. */}
       <button
         type="button"
-        onClick={toggle}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         aria-label={isOpen ? 'Close VECTRA' : 'Open VECTRA'}
-        className="fixed bottom-4 right-4 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-indigo-500 to-indigo-600 text-white shadow-xl transition-transform hover:scale-105 active:scale-95 sm:bottom-5 sm:right-5 sm:h-14 sm:w-14"
+        style={buttonStyle}
+        className={`fixed z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-indigo-500 to-indigo-600 text-white shadow-xl transition-all hover:scale-105 active:scale-95 sm:h-14 sm:w-14 ${dragPos ? '' : CORNER_CLASS[corner]}`}
       >
         {isOpen ? <X className="h-5 w-5 sm:h-6 sm:w-6" /> : <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />}
-        {!isOpen && (
+        {!isOpen && !dragPos && (
           <span className="absolute inset-0 animate-ping rounded-full bg-indigo-400/30" aria-hidden />
         )}
       </button>
@@ -91,12 +188,12 @@ export default function NexusWidget({ useStoreHook }) {
           />
 
           <div
-            className="
+            className={`
               fixed z-[60] flex flex-col overflow-hidden bg-background shadow-2xl
               inset-x-0 bottom-0 top-0 rounded-none border-0
-              sm:inset-auto sm:bottom-24 sm:right-5 sm:top-auto
+              ${PANEL_CORNER_CLASS[corner]}
               sm:h-[min(600px,calc(100vh-120px))] sm:w-[400px] sm:rounded-2xl sm:border
-            "
+            `}
           >
             {/* Header */}
             <div className="flex flex-shrink-0 flex-col gap-2 border-b bg-gradient-to-r from-violet-500 to-indigo-600 px-4 py-3 text-white">
