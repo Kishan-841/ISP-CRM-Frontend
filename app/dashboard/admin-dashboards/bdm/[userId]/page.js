@@ -260,7 +260,14 @@ export default function IndividualBDMDashboard() {
           <Card
             key={i}
             className={`rounded-xl md:rounded-2xl bg-white dark:bg-card border border-l-4 ${stat.borderColor} shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer group`}
-            onClick={() => router.push(`/dashboard/pipeline-arc?stage=${stat.stage}&userId=${userId}`)}
+            onClick={() => {
+              // Propagate the active period so the drill-in inherits the
+              // outer's date filter. 'allTime' / 'custom' aren't pushed
+              // through — alltime defaults inside, custom can't be
+              // serialised cleanly through query params here.
+              const p = period && period !== 'allTime' && period !== 'custom' ? period : null;
+              router.push(`/dashboard/pipeline-arc?stage=${stat.stage}&userId=${userId}${p ? `&period=${p}` : ''}`);
+            }}
           >
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center justify-between">

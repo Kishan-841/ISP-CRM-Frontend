@@ -352,7 +352,13 @@ export default function BDMOverallDashboard() {
               <Card
                 key={i}
                 className={`rounded-xl md:rounded-2xl bg-white dark:bg-card border border-l-4 ${stat.borderColor} shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer group`}
-                onClick={() => router.push(`/dashboard/pipeline-arc?stage=${stat.stage}`)}
+                onClick={() => {
+                  // Propagate the active outer-period to the drill-in page
+                  // so the user doesn't have to re-pick the date filter.
+                  const periodMap = { '7days': 'last7days', 'month': 'lastMonth', 'year': 'lastYear', 'alltime': null };
+                  const p = periodMap[dateRange];
+                  router.push(`/dashboard/pipeline-arc?stage=${stat.stage}${p ? `&period=${p}` : ''}`);
+                }}
               >
                 <CardContent className="p-3 md:p-4">
                   <div className="flex items-center justify-between">
@@ -387,7 +393,11 @@ export default function BDMOverallDashboard() {
             ].map((stat, i) => (
               <Card
                 key={i}
-                onClick={stat.stage ? () => router.push(`/dashboard/pipeline-arc?stage=${stat.stage}`) : undefined}
+                onClick={stat.stage ? () => {
+                  const periodMap = { '7days': 'last7days', 'month': 'lastMonth', 'year': 'lastYear', 'alltime': null };
+                  const p = periodMap[dateRange];
+                  router.push(`/dashboard/pipeline-arc?stage=${stat.stage}${p ? `&period=${p}` : ''}`);
+                } : undefined}
                 className={`rounded-xl md:rounded-2xl bg-white dark:bg-card border border-l-4 ${stat.borderColor} shadow-sm hover:shadow-lg transition-all duration-200 ${stat.stage ? 'cursor-pointer' : ''}`}
               >
                 <CardContent className="p-3 md:p-4">

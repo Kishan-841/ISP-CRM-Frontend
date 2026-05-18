@@ -276,6 +276,9 @@ export default function PipelineARCPage() {
           {[
             { key: 'mtd', label: 'MTD' },
             { key: 'ytd', label: 'YTD' },
+            { key: 'last7days', label: 'Last 7 Days' },
+            { key: 'lastMonth', label: 'Last Month' },
+            { key: 'lastYear', label: 'Last Year' },
             { key: 'alltime', label: 'All Time' },
             { key: 'custom', label: 'Custom' },
           ].map((p) => (
