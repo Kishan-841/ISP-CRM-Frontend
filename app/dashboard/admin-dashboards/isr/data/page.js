@@ -6,9 +6,8 @@ import { useAuthStore } from '@/lib/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Phone, Mail } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, ClipboardList, Clock, AlertCircle, Users, Calendar, Filter } from 'lucide-react';
 import DataTable from '@/components/DataTable';
-import { PageHeader } from '@/components/PageHeader';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
@@ -17,6 +16,40 @@ const BUCKET_LABEL = {
   working:   'Working Data',
   pending:   'Pending Data',
   converted: 'Converted to Lead',
+};
+
+// Per-bucket visual hint — colour + icon + one-line subtitle. Mirrors the
+// source dashboard cards so the user keeps their orientation across the
+// drill-in transition.
+const BUCKET_THEME = {
+  assigned: {
+    icon: ClipboardList,
+    accent: 'from-orange-500 to-orange-600',
+    border: 'border-l-orange-500',
+    badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+    subtitle: 'Every campaign data record assigned to an ISR.',
+  },
+  working: {
+    icon: Clock,
+    accent: 'from-blue-500 to-indigo-600',
+    border: 'border-l-blue-500',
+    badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    subtitle: 'Records where at least one call attempt has been recorded.',
+  },
+  pending: {
+    icon: AlertCircle,
+    accent: 'from-amber-500 to-orange-500',
+    border: 'border-l-amber-500',
+    badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    subtitle: 'New records still waiting on their first call attempt.',
+  },
+  converted: {
+    icon: Users,
+    accent: 'from-emerald-500 to-teal-600',
+    border: 'border-l-emerald-500',
+    badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    subtitle: 'Records marked Interested by the ISR — handed off to BDM.',
+  },
 };
 
 const PERIOD_LABEL = {
@@ -128,15 +161,17 @@ export default function IsrDataDrillPage() {
       key: 'contact',
       label: 'Phone / Email',
       render: (r) => (
-        <div className="text-xs space-y-1">
+        <div className="text-xs space-y-1 max-w-[200px]">
           {r.phone && (
             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-              <Phone size={11} className="text-slate-400" /> {r.phone}
+              <Phone size={11} className="text-slate-400 shrink-0" />
+              <span className="truncate" title={r.phone}>{r.phone}</span>
             </div>
           )}
           {r.email && (
             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-              <Mail size={11} className="text-slate-400" /> {r.email}
+              <Mail size={11} className="text-slate-400 shrink-0" />
+              <span className="truncate" title={r.email}>{r.email}</span>
             </div>
           )}
           {!r.phone && !r.email && <span className="text-slate-400">—</span>}
@@ -212,49 +247,80 @@ export default function IsrDataDrillPage() {
     },
   ];
 
-  const description = [
-    `${pagination.total.toLocaleString()} record${pagination.total === 1 ? '' : 's'}`,
-    period ? PERIOD_LABEL[period] || period : null,
-    userId ? 'Scoped to one ISR' : null,
-  ].filter(Boolean).join(' · ');
-
   if (!user || !ALLOWED_ROLES.has(user.role)) return null;
 
-  return (
-    <div className="p-6 space-y-4">
-      <PageHeader
-        title={BUCKET_LABEL[bucket] || 'Campaign Data'}
-        description={description}
-      >
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back
-        </Button>
-      </PageHeader>
+  const theme = BUCKET_THEME[bucket] || BUCKET_THEME.assigned;
+  const BucketIcon = theme.icon;
+  const periodLabel = period ? (PERIOD_LABEL[period] || period) : 'All Time';
 
-      <Card className="rounded-2xl shadow-sm">
+  return (
+    <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
+      {/* Back row */}
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={() => router.back()} className="text-slate-600 dark:text-slate-400 hover:text-slate-900">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back to ISR Dashboard
+        </Button>
+      </div>
+
+      {/* Hero card — anchors the page; pulls the user's eye to the bucket
+          context (label + count) and the active filters at a glance. */}
+      <div className={`relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 border-l-4 ${theme.border} bg-white dark:bg-slate-900 shadow-sm`}>
+        <div className={`absolute inset-y-0 right-0 w-1/3 opacity-[0.06] bg-gradient-to-br ${theme.accent} pointer-events-none`} />
+        <div className="relative p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className={`h-12 w-12 sm:h-14 sm:w-14 rounded-xl bg-gradient-to-br ${theme.accent} text-white flex items-center justify-center shadow-sm shrink-0`}>
+            <BucketIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{BUCKET_LABEL[bucket] || 'Campaign Data'}</h1>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${theme.badge}`}>
+                {isLoading ? '…' : pagination.total.toLocaleString()} {pagination.total === 1 ? 'record' : 'records'}
+              </span>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{theme.subtitle}</p>
+            <div className="flex items-center gap-3 mt-3 text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5" />
+                <span className="font-medium text-slate-700 dark:text-slate-300">{periodLabel}</span>
+              </div>
+              {userId && (
+                <div className="flex items-center gap-1.5">
+                  <Filter className="h-3.5 w-3.5" />
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Scoped to one ISR</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Table card with horizontal scroll on small viewports. */}
+      <Card className="rounded-2xl shadow-sm overflow-hidden">
         <CardContent className="p-0">
-          <DataTable
-            totalCount={pagination.total}
-            columns={columns}
-            data={rows}
-            searchable
-            searchPlaceholder="Search company, name, phone, email…"
-            onSearch={(v) => setSearchInput(v)}
-            pagination
-            defaultPageSize={pagination.limit}
-            pageSizeOptions={[10, 25, 50, 100]}
-            serverPagination={{
-              page: pagination.page,
-              limit: pagination.limit,
-              total: pagination.total,
-              totalPages: pagination.totalPages,
-            }}
-            onPageChange={(p) => setPagination(prev => ({ ...prev, page: p }))}
-            onPageSizeChange={(l) => setPagination(prev => ({ ...prev, page: 1, limit: l }))}
-            loading={isLoading}
-            emptyMessage="No records in this bucket"
-            emptySubtitle="Try a different period or clear your search"
-          />
+          <div className="overflow-x-auto">
+            <DataTable
+              totalCount={pagination.total}
+              columns={columns}
+              data={rows}
+              searchable
+              searchPlaceholder="Search company, name, phone, email…"
+              onSearch={(v) => setSearchInput(v)}
+              pagination
+              defaultPageSize={pagination.limit}
+              pageSizeOptions={[10, 25, 50, 100]}
+              serverPagination={{
+                page: pagination.page,
+                limit: pagination.limit,
+                total: pagination.total,
+                totalPages: pagination.totalPages,
+              }}
+              onPageChange={(p) => setPagination(prev => ({ ...prev, page: p }))}
+              onPageSizeChange={(l) => setPagination(prev => ({ ...prev, page: 1, limit: l }))}
+              loading={isLoading}
+              emptyMessage="No records in this bucket"
+              emptySubtitle="Try a different period or clear your search"
+            />
+          </div>
         </CardContent>
       </Card>
     </div>
