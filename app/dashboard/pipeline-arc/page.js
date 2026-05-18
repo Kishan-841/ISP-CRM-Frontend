@@ -130,19 +130,20 @@ export default function PipelineARCPage() {
     ? otcLeads
     : pipelineLeads;
 
-  const filteredLeads = sourceLeads.filter((lead) => {
-    // login-otc / po-otc: filter pipelineLeads down to rows where the
-    // milestone date is set (loginCompletedAt or accountsVerifiedAt).
+  // Two-tier filter:
+  //   searchedLeads → applies search + OTC-stage date check (the view's
+  //     intrinsic narrowing). Used for the SUMMARY CARDS so they keep
+  //     showing pipeline-wide numbers regardless of which stage chip is
+  //     active. Without this split, clicking "PO Received" used to collapse
+  //     every card to the PO subset, which made "Total ARC" misleading.
+  //   filteredLeads → searchedLeads + the stage chip filter. Drives the
+  //     table below.
+  const searchedLeads = sourceLeads.filter((lead) => {
+    // login-otc / po-otc views: require the milestone date even before
+    // the user picks a stage chip — this is the view's intrinsic filter.
     if (isStageOtcView) {
       const dateField = STAGE_CONFIG[stageFilter].dateField;
       if (!lead[dateField]) return false;
-    }
-    // Milestone stage filter: require the row to have that milestone date.
-    // Funnel and OTC stages don't need a date check — backend already
-    // pre-filters those slices to rows with a positive amount.
-    if (!isFunnelView && !isOtcView && !isStageOtcView && stageFilter && STAGE_CONFIG[stageFilter]) {
-      const dateField = STAGE_CONFIG[stageFilter].dateField;
-      if (dateField && !lead[dateField]) return false;
     }
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -151,10 +152,22 @@ export default function PipelineARCPage() {
       .some(f => f.toLowerCase().includes(q));
   });
 
-  // Totals — computed from the FULL filtered set, not the visible page.
-  // The footer's "Total (N leads)" line is the grand total even when a
-  // small page size is selected.
-  const totals = filteredLeads.reduce(
+  const filteredLeads = searchedLeads.filter((lead) => {
+    // Milestone stage chip: require the row to have that milestone date.
+    // Funnel and OTC stages don't need a date check — backend already
+    // pre-filters those slices to rows with a positive amount.
+    if (!isFunnelView && !isOtcView && !isStageOtcView && stageFilter && STAGE_CONFIG[stageFilter]) {
+      const dateField = STAGE_CONFIG[stageFilter].dateField;
+      if (dateField && !lead[dateField]) return false;
+    }
+    return true;
+  });
+
+  // Two totals — `totals` drives the top stat CARDS (pipeline-wide, ignoring
+  // the stage chip so "Total ARC" doesn't shrink to a stage subset).
+  // `tableTotals` drives the table FOOTER (matches whatever rows are
+  // currently displayed under the stage chip).
+  const sumStages = (leads) => leads.reduce(
     (acc, lead) => {
       acc.arc += lead.arcAmount || 0;
       acc.funnel += lead.funnelAmount || 0;
@@ -168,6 +181,8 @@ export default function PipelineARCPage() {
     },
     { arc: 0, funnel: 0, otc: 0, login: 0, po: 0, install: 0, accept: 0, ftb: 0 }
   );
+  const totals = sumStages(searchedLeads);
+  const tableTotals = sumStages(filteredLeads);
 
   // Sliced view for the current page. Empty when filteredLeads is empty.
   const totalRows = filteredLeads.length;
@@ -527,9 +542,9 @@ export default function PipelineARCPage() {
                     {/* Empty cell under the BDM column to keep alignment. */}
                     <td className="py-3 px-4" />
                     <td className="py-3 px-4 text-right text-sm text-slate-900 dark:text-slate-100">
-                      {formatCurrency(totals.arc)}
+                      {formatCurrency(tableTotals.arc)}
                     </td>
-                    {[totals.login, totals.po, totals.install, totals.accept, totals.ftb].map((val, i) => (
+                    {[tableTotals.login, tableTotals.po, tableTotals.install, tableTotals.accept, tableTotals.ftb].map((val, i) => (
                       <td key={i} className="py-3 px-4 text-center text-sm text-slate-900 dark:text-slate-100">
                         {formatCurrency(val)}
                       </td>
