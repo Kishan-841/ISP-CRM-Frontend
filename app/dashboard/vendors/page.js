@@ -102,7 +102,9 @@ export default function VendorsPage() {
   const [isUploadingDocs, setIsUploadingDocs] = useState(false);
 
 
-  // Edit form state
+  // Edit form state. When editing a REJECTED vendor (resubmit flow), the
+  // bank/doc/PAN/GST fields are also editable — pre-populated from the
+  // existing record so the creator only changes what was wrong.
   const [editFormData, setEditFormData] = useState({
     companyName: '',
     contactPerson: '',
@@ -112,7 +114,17 @@ export default function VendorsPage() {
     city: '',
     state: '',
     category: '',
-    isActive: true
+    isActive: true,
+    panNumber: '',
+    gstNumber: '',
+    accountName: '',
+    accountNumber: '',
+    ifscCode: '',
+    bankName: '',
+    branchName: '',
+    panDocumentFile: null,
+    gstDocumentFile: null,
+    cancelledChequeFile: null,
   });
 
   // Mobile pagination
@@ -134,13 +146,11 @@ export default function VendorsPage() {
     }
   }, [user, hasAccess, router]);
 
-  // Map tab to approvalStatus filter. 'docs_rejected' is a pseudo-status
-  // the backend resolves to (approvalStatus='PENDING_ACCOUNTS', docsStatus='REJECTED').
+  // Map tab to approvalStatus filter.
   const getApprovalFilter = useCallback(() => {
     switch (activeTab) {
       case 'pending_admin': return 'PENDING_ADMIN';
       case 'pending_accounts': return 'PENDING_ACCOUNTS';
-      case 'docs_rejected': return 'DOCS_REJECTED';
       case 'approved': return 'APPROVED';
       case 'rejected': return 'REJECTED';
       default: return undefined;
@@ -176,7 +186,17 @@ export default function VendorsPage() {
       city: vendor.city || '',
       state: vendor.state || '',
       category: vendor.category || '',
-      isActive: vendor.isActive
+      isActive: vendor.isActive,
+      panNumber: vendor.panNumber || '',
+      gstNumber: vendor.gstNumber || '',
+      accountName: vendor.accountName || '',
+      accountNumber: vendor.accountNumber || '',
+      ifscCode: vendor.ifscCode || '',
+      bankName: vendor.bankName || '',
+      branchName: vendor.branchName || '',
+      panDocumentFile: null,
+      gstDocumentFile: null,
+      cancelledChequeFile: null,
     });
     setShowEditModal(true);
   };
@@ -188,12 +208,25 @@ export default function VendorsPage() {
       toast.error('Company name is required');
       return;
     }
+
     setIsSaving(true);
-    const result = await updateVendor(editingVendor.id, editFormData);
+
+    // Resubmit path (REJECTED): the creator pushes the full payload through
+    // upload-docs, which also flips approvalStatus back to PENDING_ACCOUNTS.
+    // Admin/standard edit path: basic info only via updateVendor.
+    const result = isResubmitMode(editingVendor)
+      ? await uploadVendorDocs(editingVendor.id, editFormData)
+      : await updateVendor(editingVendor.id, editFormData);
+
     if (result.success) {
-      toast.success(result.message || 'Vendor updated');
+      toast.success(
+        isResubmitMode(editingVendor)
+          ? 'Vendor resubmitted to accounts for verification'
+          : result.message || 'Vendor updated'
+      );
       setShowEditModal(false);
       setEditingVendor(null);
+      fetchVendors(searchTerm, undefined, getApprovalFilter());
       fetchVendorStats();
     } else {
       toast.error(result.error || 'Failed to update vendor');
@@ -269,6 +302,16 @@ export default function VendorsPage() {
   };
 
   const canRejectVendor = (vendor) => canApproveVendor(vendor);
+
+  // Admin can always edit. Creator can edit ONLY when the vendor is REJECTED —
+  // that's the resubmit-after-rejection flow (fix the issue, re-upload, push
+  // back to accounts for verification).
+  const canEditVendor = (vendor) => {
+    if (isSuperAdmin) return true;
+    return vendor.approvalStatus === 'REJECTED' && vendor.createdById === user?.id;
+  };
+
+  const isResubmitMode = (vendor) => vendor?.approvalStatus === 'REJECTED';
 
   // Can upload docs: vendor is admin-approved (PENDING_ACCOUNTS) or fully approved, docs pending/rejected, user is creator or admin/feasibility
   const canUploadDocs = (vendor) => {
@@ -388,8 +431,6 @@ export default function VendorsPage() {
     { key: 'all', label: 'All', count: stats.total, icon: LayoutGrid, color: 'orange' },
     { key: 'pending_admin', label: 'Pending Admin', count: stats.pendingAdmin, icon: Clock, color: 'yellow' },
     { key: 'pending_accounts', label: 'Pending Accounts', count: stats.pendingAccounts, icon: Clock, color: 'orange' },
-    // Vendors whose docs were rejected by Accounts — awaiting creator re-upload.
-    { key: 'docs_rejected', label: 'Docs Rejected', count: stats.docsRejected, icon: Upload, color: 'red' },
     { key: 'approved', label: 'Approved', count: stats.approved, icon: ShieldCheck, color: 'emerald' },
     { key: 'rejected', label: 'Rejected', count: stats.rejected, icon: Ban, color: 'red' },
   ];
@@ -437,10 +478,9 @@ export default function VendorsPage() {
       </PageHeader>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <StatCard color="orange" icon={Clock} label="Pending Admin" value={stats.pendingAdmin || 0} />
         <StatCard color="blue" icon={Clock} label="Pending Accounts" value={stats.pendingAccounts || 0} />
-        <StatCard color="red" icon={Upload} label="Docs Rejected" value={stats.docsRejected || 0} />
         <StatCard color="emerald" icon={ShieldCheck} label="Approved" value={stats.approved || 0} />
         <StatCard color="red" icon={Ban} label="Rejected" value={stats.rejected || 0} />
       </div>
@@ -641,23 +681,23 @@ export default function VendorsPage() {
                 </button>
               </>
             )}
+            {canEditVendor(vendor) && (
+              <button
+                onClick={() => handleOpenEditModal(vendor)}
+                className="p-1.5 text-slate-500 hover:text-orange-600 dark:text-slate-400 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-md transition-colors"
+                title={isResubmitMode(vendor) ? 'Edit & Resubmit' : 'Edit'}
+              >
+                <Edit size={16} />
+              </button>
+            )}
             {isSuperAdmin && (
-              <>
-                <button
-                  onClick={() => handleOpenEditModal(vendor)}
-                  className="p-1.5 text-slate-500 hover:text-orange-600 dark:text-slate-400 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-md transition-colors"
-                  title="Edit"
-                >
-                  <Edit size={16} />
-                </button>
-                <button
-                  onClick={() => handleDelete(vendor)}
-                  className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-                  title="Delete"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </>
+              <button
+                onClick={() => handleDelete(vendor)}
+                className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                title="Delete"
+              >
+                <Trash2 size={16} />
+              </button>
             )}
           </div>
         )}
@@ -805,21 +845,22 @@ export default function VendorsPage() {
                             </button>
                           </>
                         )}
+                        {canEditVendor(vendor) && (
+                          <button
+                            onClick={() => handleOpenEditModal(vendor)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-md transition-colors ml-auto"
+                          >
+                            <Edit size={14} />
+                            {isResubmitMode(vendor) && <span>Resubmit</span>}
+                          </button>
+                        )}
                         {isSuperAdmin && (
-                          <>
-                            <button
-                              onClick={() => handleOpenEditModal(vendor)}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-md transition-colors ml-auto"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(vendor)}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
+                          <button
+                            onClick={() => handleDelete(vendor)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -896,8 +937,10 @@ export default function VendorsPage() {
         }}
       />
 
-      {/* Edit Modal (Admin only) */}
-      {showEditModal && editingVendor && (
+      {/* Edit Modal — also serves as the resubmit flow for REJECTED vendors. */}
+      {showEditModal && editingVendor && (() => {
+        const resubmit = isResubmitMode(editingVendor);
+        return (
         <div data-modal className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-white dark:bg-slate-900 rounded-t-xl sm:rounded-xl w-full sm:max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700">
             <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
@@ -905,7 +948,9 @@ export default function VendorsPage() {
                 <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
                   <Edit size={18} className="text-orange-600 dark:text-orange-400" />
                 </div>
-                <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">Edit Vendor</h2>
+                <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
+                  {resubmit ? 'Edit & Resubmit Vendor' : 'Edit Vendor'}
+                </h2>
               </div>
               <button
                 onClick={() => { setShowEditModal(false); setEditingVendor(null); }}
@@ -916,6 +961,23 @@ export default function VendorsPage() {
             </div>
 
             <form onSubmit={handleEdit} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4">
+              {resubmit && (
+                <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 p-3 sm:p-4">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-red-700 dark:text-red-300">Rejected by Accounts</p>
+                      <p className="text-sm text-red-700 dark:text-red-300 mt-0.5 break-words">
+                        {editingVendor.accountsRejectionReason || 'No reason recorded.'}
+                      </p>
+                      <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-1">
+                        Update the details below and resubmit. The vendor will go back to accounts for verification.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className={labelClass}>
@@ -997,6 +1059,143 @@ export default function VendorsPage() {
                   </select>
                 </div>
               </div>
+
+              {resubmit && (
+                <>
+                  {/* PAN / GST numbers */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-3">Tax IDs</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelClass}>PAN Number <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          value={editFormData.panNumber}
+                          onChange={(e) => setEditFormData({ ...editFormData, panNumber: e.target.value.toUpperCase() })}
+                          maxLength={10}
+                          placeholder="ABCDE1234F"
+                          className={inputClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>GST Number <span className="text-slate-400 text-xs">(Optional)</span></label>
+                        <input
+                          type="text"
+                          value={editFormData.gstNumber}
+                          onChange={(e) => setEditFormData({ ...editFormData, gstNumber: e.target.value.toUpperCase() })}
+                          maxLength={15}
+                          placeholder="22AAAAA0000A1Z5"
+                          className={inputClass}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bank Details */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-3">Bank Details</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelClass}>Account Name</label>
+                        <input
+                          type="text"
+                          value={editFormData.accountName}
+                          onChange={(e) => setEditFormData({ ...editFormData, accountName: e.target.value })}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Account Number</label>
+                        <input
+                          type="text"
+                          value={editFormData.accountNumber}
+                          onChange={(e) => setEditFormData({ ...editFormData, accountNumber: e.target.value })}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>IFSC Code</label>
+                        <input
+                          type="text"
+                          value={editFormData.ifscCode}
+                          onChange={(e) => setEditFormData({ ...editFormData, ifscCode: e.target.value.toUpperCase() })}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Bank Name</label>
+                        <input
+                          type="text"
+                          value={editFormData.bankName}
+                          onChange={(e) => setEditFormData({ ...editFormData, bankName: e.target.value })}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className={labelClass}>Branch Name</label>
+                        <input
+                          type="text"
+                          value={editFormData.branchName}
+                          onChange={(e) => setEditFormData({ ...editFormData, branchName: e.target.value })}
+                          className={inputClass}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Documents — only replace if a new file is picked */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-3">Documents</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Leave a slot empty to keep the existing file.</p>
+                    <div className="space-y-3">
+                      {[
+                        { key: 'panDocumentFile', label: 'PAN Document', existing: editingVendor.panDocument },
+                        { key: 'gstDocumentFile', label: 'GST Certificate', existing: editingVendor.gstDocument },
+                        { key: 'cancelledChequeFile', label: 'Cancelled Cheque', existing: editingVendor.cancelledCheque },
+                      ].map(doc => (
+                        <div key={doc.key}>
+                          <label className={labelClass}>
+                            {doc.label}
+                            {doc.existing && (
+                              <a
+                                href={doc.existing}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ml-2 inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium"
+                              >
+                                <ExternalLink size={12} /> View current
+                              </a>
+                            )}
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:border-orange-500 transition-colors">
+                              <Upload size={16} className="text-slate-400" />
+                              <span className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                                {editFormData[doc.key] ? editFormData[doc.key].name : `Replace ${doc.label} (optional)`}
+                              </span>
+                              <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => setEditFormData(prev => ({ ...prev, [doc.key]: e.target.files[0] || null }))}
+                                className="hidden"
+                              />
+                            </label>
+                            {editFormData[doc.key] && (
+                              <button
+                                type="button"
+                                onClick={() => setEditFormData(prev => ({ ...prev, [doc.key]: null }))}
+                                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </form>
 
             <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
@@ -1018,16 +1217,17 @@ export default function VendorsPage() {
                 {isSaving ? (
                   <>
                     <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                    Saving...
+                    {resubmit ? 'Resubmitting...' : 'Saving...'}
                   </>
                 ) : (
-                  'Update Vendor'
+                  resubmit ? 'Resubmit to Accounts' : 'Update Vendor'
                 )}
               </Button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* View Details Modal */}
       {showViewModal && selectedVendor && (
