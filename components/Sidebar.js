@@ -487,6 +487,11 @@ export default function Sidebar() {
       { name: 'Create Opportunity', path: '/dashboard/create-opportunity', icon: Plus },
       { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
       { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
+      // Team-wide visibility — scoped to TL's team only on the backend.
+      // Team Dashboard shows aggregate stats; Team Pipeline drills into every
+      // team lead with its current stage. Both pages already accept TL role.
+      { name: 'Team Dashboard', path: '/dashboard/admin-dashboards/bdm', icon: BarChart3 },
+      { name: 'Team Pipeline', path: '/dashboard/pipeline-arc', icon: GitBranch },
       {
         name: 'Reports',
         icon: BarChart3,
