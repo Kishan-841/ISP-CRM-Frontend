@@ -134,11 +134,13 @@ export default function VendorsPage() {
     }
   }, [user, hasAccess, router]);
 
-  // Map tab to approvalStatus filter
+  // Map tab to approvalStatus filter. 'docs_rejected' is a pseudo-status
+  // the backend resolves to (approvalStatus='PENDING_ACCOUNTS', docsStatus='REJECTED').
   const getApprovalFilter = useCallback(() => {
     switch (activeTab) {
       case 'pending_admin': return 'PENDING_ADMIN';
       case 'pending_accounts': return 'PENDING_ACCOUNTS';
+      case 'docs_rejected': return 'DOCS_REJECTED';
       case 'approved': return 'APPROVED';
       case 'rejected': return 'REJECTED';
       default: return undefined;
@@ -386,6 +388,8 @@ export default function VendorsPage() {
     { key: 'all', label: 'All', count: stats.total, icon: LayoutGrid, color: 'orange' },
     { key: 'pending_admin', label: 'Pending Admin', count: stats.pendingAdmin, icon: Clock, color: 'yellow' },
     { key: 'pending_accounts', label: 'Pending Accounts', count: stats.pendingAccounts, icon: Clock, color: 'orange' },
+    // Vendors whose docs were rejected by Accounts — awaiting creator re-upload.
+    { key: 'docs_rejected', label: 'Docs Rejected', count: stats.docsRejected, icon: Upload, color: 'red' },
     { key: 'approved', label: 'Approved', count: stats.approved, icon: ShieldCheck, color: 'emerald' },
     { key: 'rejected', label: 'Rejected', count: stats.rejected, icon: Ban, color: 'red' },
   ];
@@ -433,9 +437,10 @@ export default function VendorsPage() {
       </PageHeader>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <StatCard color="orange" icon={Clock} label="Pending Admin" value={stats.pendingAdmin || 0} />
         <StatCard color="blue" icon={Clock} label="Pending Accounts" value={stats.pendingAccounts || 0} />
+        <StatCard color="red" icon={Upload} label="Docs Rejected" value={stats.docsRejected || 0} />
         <StatCard color="emerald" icon={ShieldCheck} label="Approved" value={stats.approved || 0} />
         <StatCard color="red" icon={Ban} label="Rejected" value={stats.rejected || 0} />
       </div>
