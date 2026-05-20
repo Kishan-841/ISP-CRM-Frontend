@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import DataTable from '@/components/DataTable';
+import NotesCell from '@/components/NotesCell';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { CheckCircle2, XCircle, Paperclip, ExternalLink } from 'lucide-react';
@@ -217,9 +218,7 @@ export default function DeliveryApprovals() {
     },
     {
       key: 'notes', label: 'Notes',
-      render: (row) => row.notes
-        ? <span className="text-xs text-slate-700 dark:text-slate-300" title={row.notes}>{row.notes.length > 60 ? `${row.notes.slice(0, 60)}…` : row.notes}</span>
-        : <span className="text-slate-400 text-xs">—</span>,
+      render: (row) => <NotesCell notes={row.notes} />,
     },
     {
       key: 'actions', label: 'Actions',

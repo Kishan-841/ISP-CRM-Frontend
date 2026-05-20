@@ -313,7 +313,13 @@ export default function AccountsCreatePlanPage() {
       // so the operator can see what they've already sent for approval.
       // (The role-based filter on the backend allows ACCOUNTS_TEAM to see both.)
       const response = await api.get('/service-orders?limit=100');
-      const orders = response.data.orders || [];
+      const raw = response.data.orders || [];
+      // This page is for plan-change (Upgrade / Downgrade / Rate Revision) only.
+      // Disconnection orders live in /dashboard/accounts-dashboard/order-requests
+      // where they have a dedicated "Disconnect & Close" handler. Surfacing
+      // them here used to flag a generic "Downgrade" button by fallthrough,
+      // which was wrong.
+      const orders = raw.filter(o => o.orderType !== 'DISCONNECTION');
       setServiceOrders(orders);
       // Count only actionable rows in the badge — locked ones aren't pending action.
       setServiceOrdersCount(orders.filter(o => o.status === 'PENDING_ACCOUNTS').length);
@@ -1216,11 +1222,17 @@ export default function AccountsCreatePlanPage() {
                   </Button>
                 );
               }
-              return (
-                <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-7 px-3" onClick={() => handleOrderAction(order, 'degrade')}>
-                  <ArrowDownCircle size={12} className="mr-1" /> Downgrade
-                </Button>
-              );
+              if (order.orderType === 'DOWNGRADE') {
+                return (
+                  <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-7 px-3" onClick={() => handleOrderAction(order, 'degrade')}>
+                    <ArrowDownCircle size={12} className="mr-1" /> Downgrade
+                  </Button>
+                );
+              }
+              // Defensive: a new orderType slipped through the DISCONNECTION
+              // filter without an explicit case. Render a dash rather than
+              // mis-labelling it — better a missing button than a wrong one.
+              return <span className="text-xs text-slate-400">—</span>;
             }}
           />
         )}
