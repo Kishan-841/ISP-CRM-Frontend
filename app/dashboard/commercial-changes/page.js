@@ -561,6 +561,31 @@ export default function CommercialChangesPage() {
                 </p>
               </Section>
 
+              {(viewing.approvalFileUrl || viewing.poFileUrl) && (
+                <Section title="Documents from SAM">
+                  {viewing.approvalFileUrl && (
+                    <a
+                      href={viewing.approvalFileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-sm font-medium text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
+                    >
+                      <Eye size={14} /> View customer approval
+                    </a>
+                  )}
+                  {viewing.poFileUrl && (
+                    <a
+                      href={viewing.poFileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-sm font-medium text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
+                    >
+                      <Eye size={14} /> View Purchase Order
+                    </a>
+                  )}
+                </Section>
+              )}
+
               {viewing.status !== 'PENDING' && (
                 <Section title={viewing.status === 'APPROVED' ? 'Approval' : 'Rejection'}>
                   <Field label={viewing.status === 'APPROVED' ? 'Approved By' : 'Rejected By'} value={viewing.decidedBy?.name} />
