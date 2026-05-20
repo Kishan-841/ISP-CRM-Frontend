@@ -19,7 +19,6 @@ import { useAuthStore, useCommercialChangeStore } from '@/lib/store';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import DataTable from '@/components/DataTable';
 import TabBar from '@/components/TabBar';
 import StatCard from '@/components/StatCard';
@@ -140,33 +139,46 @@ export default function CommercialChangesPage() {
   const rowsWithIndex = (items || []).map((r, i) => ({ ...r, _sno: (pagination.page - 1) * pagination.limit + i + 1 }));
 
   const columns = [
-    { key: '_sno', header: 'S.No', width: '60px' },
+    { key: '_sno', label: 'S.No', width: '60px' },
     {
       key: 'company',
-      header: 'Company',
-      render: (row) => row.lead?.campaignData?.company || row.lead?.leadNumber || '—',
+      label: 'Company',
+      render: (row) => (
+        <span className="font-medium text-slate-900 dark:text-slate-100">
+          {row.lead?.campaignData?.company || row.lead?.leadNumber || '—'}
+        </span>
+      ),
     },
     {
       key: 'arc',
-      header: 'Current ARC',
-      render: (row) => inr(row.lead?.arcAmount),
+      label: 'Current ARC',
+      render: (row) => (
+        <span className="text-sm text-slate-900 dark:text-slate-100">{inr(row.lead?.arcAmount)}</span>
+      ),
     },
     {
       key: 'plan',
-      header: 'Current Plan',
-      render: (row) =>
-        row.lead?.actualPlanName
-          ? `${row.lead.actualPlanName}${row.lead.actualPlanBandwidth ? ` (${row.lead.actualPlanBandwidth} Mbps)` : ''}`
-          : '—',
+      label: 'Current Plan',
+      render: (row) => (
+        <span className="text-sm text-slate-700 dark:text-slate-300">
+          {row.lead?.actualPlanName
+            ? `${row.lead.actualPlanName}${row.lead.actualPlanBandwidth ? ` (${row.lead.actualPlanBandwidth} Mbps)` : ''}`
+            : '—'}
+        </span>
+      ),
     },
     {
       key: 'raisedBy',
-      header: 'Raised By',
-      render: (row) => row.raisedBySamEmail || row.raisedBySamUserId || '—',
+      label: 'Raised By',
+      render: (row) => (
+        <span className="text-sm text-slate-700 dark:text-slate-300">
+          {row.raisedBySamEmail || row.raisedBySamUserId || '—'}
+        </span>
+      ),
     },
     {
       key: 'reason',
-      header: 'Reason',
+      label: 'Reason',
       render: (row) => (
         <span title={row.reason} className="text-sm text-slate-700 dark:text-slate-300">
           {truncate(row.reason, 90)}
@@ -175,44 +187,15 @@ export default function CommercialChangesPage() {
     },
     {
       key: 'raisedAt',
-      header: 'Raised',
-      render: (row) => formatDateTime(row.raisedAt),
+      label: 'Raised',
+      render: (row) => (
+        <span className="text-sm text-slate-600 dark:text-slate-300">{formatDateTime(row.raisedAt)}</span>
+      ),
     },
-    ...(status === 'PENDING'
+    ...(status !== 'PENDING'
       ? [{
-          key: 'actions',
-          header: 'Actions',
-          render: (row) => (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setViewing(row)}
-                className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-md"
-                title="View details"
-              >
-                <Eye size={16} />
-              </button>
-              <button
-                onClick={() => handleApprove(row)}
-                disabled={busyId === row.id}
-                className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md disabled:opacity-50"
-                title="Approve"
-              >
-                {busyId === row.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-              </button>
-              <button
-                onClick={() => { setRejectingRow(row); setRejectNote(''); }}
-                disabled={busyId === row.id}
-                className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md disabled:opacity-50"
-                title="Reject"
-              >
-                <XCircle size={16} />
-              </button>
-            </div>
-          ),
-        }]
-      : [{
           key: 'decision',
-          header: status === 'APPROVED' ? 'Approved By' : 'Rejected By',
+          label: status === 'APPROVED' ? 'Approved By' : 'Rejected By',
           render: (row) => (
             <div className="text-sm">
               <div className="font-medium text-slate-900 dark:text-white">{row.decidedBy?.name || '—'}</div>
@@ -224,20 +207,43 @@ export default function CommercialChangesPage() {
               )}
             </div>
           ),
-        }, {
-          key: 'view',
-          header: '',
-          render: (row) => (
-            <button
-              onClick={() => setViewing(row)}
-              className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-md"
-              title="View details"
-            >
-              <Eye size={16} />
-            </button>
-          ),
-        }]),
+        }]
+      : []),
   ];
+
+  // Row-level actions rendered in DataTable's actions slot. PENDING rows get
+  // view + approve + reject; history rows only get view.
+  const rowActions = (row) => (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => setViewing(row)}
+        className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-md"
+        title="View details"
+      >
+        <Eye size={16} />
+      </button>
+      {status === 'PENDING' && (
+        <>
+          <button
+            onClick={() => handleApprove(row)}
+            disabled={busyId === row.id}
+            className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md disabled:opacity-50"
+            title="Approve"
+          >
+            {busyId === row.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+          </button>
+          <button
+            onClick={() => { setRejectingRow(row); setRejectNote(''); }}
+            disabled={busyId === row.id}
+            className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md disabled:opacity-50"
+            title="Reject"
+          >
+            <XCircle size={16} />
+          </button>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -267,24 +273,23 @@ export default function CommercialChangesPage() {
         </div>
       </div>
 
-      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <CardContent className="p-0">
-          <DataTable
-            columns={columns}
-            data={rowsWithIndex}
-            loading={isLoading}
-            emptyIcon={PowerOff}
-            emptyMessage="No quick disconnects"
-            emptySubtitle={status === 'PENDING' ? 'Nothing waiting on your decision.' : 'No history in this tab yet.'}
-            serverPagination={{
-              page: pagination.page,
-              totalPages: pagination.totalPages,
-              total: pagination.total,
-            }}
-            onPageChange={setPage}
-          />
-        </CardContent>
-      </Card>
+      {/* DataTable owns its own container styling — no Card wrap here, otherwise
+          we get the double-card visual the user flagged. */}
+      <DataTable
+        columns={columns}
+        data={rowsWithIndex}
+        loading={isLoading}
+        emptyIcon={PowerOff}
+        emptyMessage="No quick disconnects"
+        emptySubtitle={status === 'PENDING' ? 'Nothing waiting on your decision.' : 'No history in this tab yet.'}
+        serverPagination={{
+          page: pagination.page,
+          totalPages: pagination.totalPages,
+          total: pagination.total,
+        }}
+        onPageChange={setPage}
+        actions={rowActions}
+      />
 
       {/* Reject Modal */}
       {rejectingRow && (
