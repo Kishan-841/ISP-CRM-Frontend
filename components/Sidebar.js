@@ -378,8 +378,8 @@ export default function Sidebar() {
       name: 'Approvals',
       icon: CheckCircle2,
       menuKey: 'masterApprovals',
-      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) > 0
-        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0)
+      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) + (counts.quickDisconnectPending || 0) > 0
+        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) + (counts.quickDisconnectPending || 0)
         : null,
       submenu: [
         { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
@@ -396,6 +396,8 @@ export default function Sidebar() {
         { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
         { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
         { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
+        // SAM-raised quick-disconnect requests waiting on admin decision.
+        { name: 'Quick Disconnects', path: '/dashboard/commercial-changes', badge: counts.quickDisconnectPending > 0 ? counts.quickDisconnectPending : null },
       ]
     },
     {
@@ -434,6 +436,9 @@ export default function Sidebar() {
     // every CRM change. MASTER reaches the same page via masterNavItems above.
     ...(canViewAuditLog(user) ? [{ name: 'Event Log', path: '/dashboard/audit-log', icon: ShieldCheck }] : []),
     ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager && !isSalesDirector && !isBDMCP ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
+    // Team Performance sits directly under Dashboard for TLs — it's the
+    // primary oversight surface and should be one click away from landing.
+    ...(isBDMTeamLeader ? [{ name: 'Team Performance', path: '/dashboard/team-performance', icon: BarChart3 }] : []),
     // Raw Data - available for Admin, ISR, BDM, and BDM Team Leader
     ...(isAdmin || isSalesDirector || isISR || isBDM || isBDMCP || isBDMTeamLeader ? [
       {
@@ -487,11 +492,6 @@ export default function Sidebar() {
       { name: 'Create Opportunity', path: '/dashboard/create-opportunity', icon: Plus },
       { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
       { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
-      // Team-wide visibility — scoped to TL's team only on the backend.
-      // Team Dashboard shows aggregate stats; Team Pipeline drills into every
-      // team lead with its current stage. Both pages already accept TL role.
-      { name: 'Team Dashboard', path: '/dashboard/admin-dashboards/bdm', icon: BarChart3 },
-      { name: 'Team Pipeline', path: '/dashboard/pipeline-arc', icon: GitBranch },
       {
         name: 'Reports',
         icon: BarChart3,
@@ -674,8 +674,8 @@ export default function Sidebar() {
         name: 'Approvals',
         icon: CheckCircle2,
         menuKey: 'approvals',
-        badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) > 0
-          ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0)
+        badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) + (counts.quickDisconnectPending || 0) > 0
+          ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) + (counts.quickDisconnectPending || 0)
           : null,
         submenu: [
           { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
@@ -692,6 +692,8 @@ export default function Sidebar() {
           { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
           { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
           { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
+          // SAM-raised quick-disconnect requests waiting on admin decision.
+          { name: 'Quick Disconnects', path: '/dashboard/commercial-changes', badge: counts.quickDisconnectPending > 0 ? counts.quickDisconnectPending : null },
         ]
       },
       { name: 'Employees', path: '/dashboard/employees', icon: UserCircle },
