@@ -56,6 +56,7 @@ export default function CommercialChangesPage() {
     fetchList,
     fetchPendingCount,
     decide,
+    cancel,
   } = useCommercialChangeStore();
 
   // SUPER_ADMIN only — match backend route guard. Master inherits via the
@@ -71,6 +72,11 @@ export default function CommercialChangesPage() {
   const [rejectingRow, setRejectingRow] = useState(null);
   const [rejectNote, setRejectNote] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
+
+  // Cancel modal state (for already-approved QDs whose workflow isn't done).
+  const [cancellingRow, setCancellingRow] = useState(null);
+  const [cancelNote, setCancelNote] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // View detail modal.
   const [viewing, setViewing] = useState(null);
@@ -94,6 +100,9 @@ export default function CommercialChangesPage() {
 
   useModal(Boolean(rejectingRow), () => {
     if (!isRejecting) { setRejectingRow(null); setRejectNote(''); }
+  });
+  useModal(Boolean(cancellingRow), () => {
+    if (!isCancelling) { setCancellingRow(null); setCancelNote(''); }
   });
   useModal(Boolean(viewing), () => setViewing(null));
 
@@ -129,6 +138,31 @@ export default function CommercialChangesPage() {
     }
     setIsRejecting(false);
   };
+
+  const handleCancel = async () => {
+    const trimmed = cancelNote.trim();
+    if (trimmed.length < 3) {
+      toast.error('Please provide a reason (min 3 chars).');
+      return;
+    }
+    setIsCancelling(true);
+    const result = await cancel(cancellingRow.id, trimmed);
+    if (result.success) {
+      toast.success('Cancelled. SAM notified.');
+      setCancellingRow(null);
+      setCancelNote('');
+      refresh();
+    } else {
+      toast.error(result.error || 'Failed to cancel.');
+    }
+    setIsCancelling(false);
+  };
+
+  // Approved-but-not-COMPLETED-yet QDs can be cancelled by admin. Once the
+  // linked service order completes, the customer is already disconnected
+  // and cancellation no longer makes sense.
+  const isCancellable = (row) =>
+    row.status === 'APPROVED' && row.serviceOrder && row.serviceOrder.status !== 'COMPLETED' && row.serviceOrder.status !== 'CANCELLED';
 
   const tabs = [
     { key: 'pending', label: 'Pending', count: pendingCount, icon: Clock, variant: 'warning' },
@@ -261,6 +295,15 @@ export default function CommercialChangesPage() {
           </button>
         </>
       )}
+      {status === 'APPROVED' && isCancellable(row) && (
+        <button
+          onClick={() => { setCancellingRow(row); setCancelNote(''); }}
+          className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md"
+          title="Cancel workflow"
+        >
+          <XCircle size={16} />
+        </button>
+      )}
     </div>
   );
 
@@ -371,6 +414,80 @@ export default function CommercialChangesPage() {
                   <><Loader2 className="animate-spin w-4 h-4 mr-2" /> Rejecting...</>
                 ) : (
                   'Send Rejection'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Modal */}
+      {cancellingRow && (
+        <div data-modal className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-t-xl sm:rounded-xl w-full sm:max-w-md max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700">
+            <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 dark:border-slate-700 bg-red-50 dark:bg-red-900/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                  <XCircle size={18} className="text-red-600 dark:text-red-400" />
+                </div>
+                <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">Cancel Workflow</h2>
+              </div>
+              <button
+                onClick={() => { setCancellingRow(null); setCancelNote(''); }}
+                disabled={isCancelling}
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-3">
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3 text-sm">
+                <div className="font-medium text-slate-900 dark:text-white">
+                  {cancellingRow.lead?.campaignData?.company || '—'}
+                </div>
+                {cancellingRow.serviceOrder && (
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Service order {cancellingRow.serviceOrder.orderNumber} — {cancellingRow.serviceOrder.status?.replace(/_/g, ' ')}
+                  </div>
+                )}
+              </div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={cancelNote}
+                onChange={(e) => setCancelNote(e.target.value)}
+                rows={4}
+                placeholder="Why are you cancelling this disconnection mid-workflow?"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              />
+              <p className="text-xs text-slate-500">
+                SAM will revert the account back to ACTIVE. The linked service order will be marked CANCELLED on CRM.
+              </p>
+            </div>
+
+            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => { setCancellingRow(null); setCancelNote(''); }}
+                disabled={isCancelling}
+              >
+                Keep workflow
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleCancel}
+                disabled={isCancelling || cancelNote.trim().length < 3}
+              >
+                {isCancelling ? (
+                  <><Loader2 className="animate-spin w-4 h-4 mr-2" /> Cancelling...</>
+                ) : (
+                  'Cancel Workflow'
                 )}
               </Button>
             </div>
