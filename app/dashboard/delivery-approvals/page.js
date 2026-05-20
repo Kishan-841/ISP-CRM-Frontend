@@ -216,6 +216,12 @@ export default function DeliveryApprovals() {
       )
     },
     {
+      key: 'notes', label: 'Notes',
+      render: (row) => row.notes
+        ? <span className="text-xs text-slate-700 dark:text-slate-300" title={row.notes}>{row.notes.length > 60 ? `${row.notes.slice(0, 60)}…` : row.notes}</span>
+        : <span className="text-slate-400 text-xs">—</span>,
+    },
+    {
       key: 'actions', label: 'Actions',
       render: (row) => row.status === 'PENDING_DELIVERY_APPROVAL' ? (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>

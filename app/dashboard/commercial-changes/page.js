@@ -209,6 +209,25 @@ export default function CommercialChangesPage() {
           ),
         }]
       : []),
+    ...(status === 'APPROVED'
+      ? [{
+          key: 'serviceOrder',
+          label: 'Service Order',
+          render: (row) => row.serviceOrder ? (
+            <a
+              href={`/dashboard/order-approvals?orderId=${row.serviceOrder.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex flex-col text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700"
+              title={row.serviceOrder.status?.replace(/_/g, ' ')}
+            >
+              <span className="font-medium">{row.serviceOrder.orderNumber}</span>
+              <span className="text-slate-500">{row.serviceOrder.status?.replace(/_/g, ' ')}</span>
+            </a>
+          ) : (
+            <span className="text-xs text-slate-400" title="SAM hasn't created the workflow service order yet">awaiting SAM</span>
+          ),
+        }]
+      : []),
   ];
 
   // Row-level actions rendered in DataTable's actions slot. PENDING rows get
@@ -435,6 +454,21 @@ export default function CommercialChangesPage() {
                       <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{viewing.decisionNote}</p>
                     </div>
                   )}
+                </Section>
+              )}
+
+              {viewing.serviceOrder && (
+                <Section title="Follow-on Service Order">
+                  <Field label="Order #" value={viewing.serviceOrder.orderNumber} />
+                  <Field label="Status" value={viewing.serviceOrder.status?.replace(/_/g, ' ')} />
+                  <div className="col-span-full">
+                    <a
+                      href={`/dashboard/order-approvals?orderId=${viewing.serviceOrder.id}`}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-orange-600 dark:text-orange-400 hover:text-orange-700"
+                    >
+                      Open in workflow queue →
+                    </a>
+                  </div>
                 </Section>
               )}
             </div>
