@@ -292,7 +292,13 @@ export default function Sidebar() {
         { name: 'Add Customer', path: '/dashboard/accounts-add-customer' },
         { name: 'Vendor Docs', path: '/dashboard/vendors', badge: counts.vendorDocsToVerify > 0 ? counts.vendorDocsToVerify : null },
         { name: 'Demo Plan Assignment', path: '/dashboard/accounts-demo-plan', badge: counts.demoPlanPending > 0 ? counts.demoPlanPending : null },
-        { name: 'Create Plan', path: '/dashboard/accounts-create-plan', badge: (counts.createPlanPending || 0) + (counts.orderRequestsPending || 0) > 0 ? (counts.createPlanPending || 0) + (counts.orderRequestsPending || 0) : null },
+        { name: 'Create Plan', path: '/dashboard/accounts-create-plan', badge: counts.createPlanPending > 0 ? counts.createPlanPending : null },
+        // Order Requests is the canonical Accounts surface for DISCONNECTION
+        // orders (Create Plan filters them out — that page is for plan changes
+        // only). Without this entry there was no sidebar path to the
+        // disconnect-and-close flow; the badge double-counted on Create Plan
+        // but clicking it took you to the wrong page.
+        { name: 'Order Requests', path: '/dashboard/accounts-dashboard/order-requests', badge: counts.orderRequestsPending > 0 ? counts.orderRequestsPending : null },
         { name: 'PO Creation', path: '/dashboard/accounts-po-creation' },
         { name: 'Billing Management', path: '/dashboard/billing-mgmt' },
         { name: 'Daily Collection', path: '/dashboard/accounts-dashboard/daily-collection' },
@@ -555,7 +561,13 @@ export default function Sidebar() {
       { name: 'Channel Partners', path: '/dashboard/channel-partners', icon: Handshake },
       { name: 'Vendor Docs', path: '/dashboard/vendors', icon: Building2, badge: counts.vendorDocsToVerify > 0 ? counts.vendorDocsToVerify : null },
       { name: 'Demo Plan Assignment', path: '/dashboard/accounts-demo-plan', icon: FileText, badge: counts.demoPlanPending > 0 ? counts.demoPlanPending : null },
-      { name: 'Create Plan', path: '/dashboard/accounts-create-plan', icon: FileText, badge: (counts.createPlanPending || 0) + (counts.orderRequestsPending || 0) > 0 ? (counts.createPlanPending || 0) + (counts.orderRequestsPending || 0) : null },
+      { name: 'Create Plan', path: '/dashboard/accounts-create-plan', icon: FileText, badge: counts.createPlanPending > 0 ? counts.createPlanPending : null },
+      // Order Requests = the dedicated surface for DISCONNECTION orders +
+      // accounts-stage upgrade/downgrade processing. Create Plan filters out
+      // disconnections, so without this entry there was no nav path to act
+      // on the "Disconnect & Close" button. Badge counts everything at
+      // PENDING_ACCOUNTS across all order types.
+      { name: 'Order Requests', path: '/dashboard/accounts-dashboard/order-requests', icon: FileText, badge: counts.orderRequestsPending > 0 ? counts.orderRequestsPending : null },
       { name: 'PO Creation', path: '/dashboard/accounts-po-creation', icon: FileText },
       { name: 'Billing Management', path: '/dashboard/billing-mgmt', icon: Receipt },
       {
