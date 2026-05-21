@@ -18,6 +18,7 @@ const CAMPAIGN_TYPE_COLORS = {
   ASSIGNED: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   'CUSTOMER REF': 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
   'SAM REF': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  SAM: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800',
 };
 
 export default function AllDataPage() {
@@ -99,8 +100,13 @@ export default function AllDataPage() {
       label: 'Type',
       render: (row) => {
         let displayType = row.type;
-        // Show friendly names for referral campaigns
-        if (row.code === 'CUSTOMER-REFERRAL') {
+        // SAM-dispatch campaigns share the underlying SELF type for visibility
+        // (per-BDM ownership) but the data inside them was created by a SAM
+        // operator. Surface that distinction to the operator viewing the list
+        // so a SAM-sourced campaign doesn't look like a self-created one.
+        if (row.samProvider) {
+          displayType = 'SAM';
+        } else if (row.code === 'CUSTOMER-REFERRAL') {
           displayType = 'CUSTOMER REF';
         } else if (row.code === 'SAM-GENERATED') {
           displayType = 'SAM REF';
@@ -118,9 +124,28 @@ export default function AllDataPage() {
     {
       key: 'createdBy',
       label: 'Created By',
-      render: (row) => (
-        <span className="text-slate-600 dark:text-slate-400 text-sm">{row.createdBy?.name || '-'}</span>
-      ),
+      render: (row) => {
+        // For SAM Dispatch rows, show the SAM operator (most recent
+        // dispatcher), not the BDM. The BDM only "owns" the campaign as a
+        // visibility trick; the data was actually created by SAM.
+        if (row.samProvider?.name || row.samProvider?.email) {
+          const label = row.samProvider.name || row.samProvider.email;
+          return (
+            <div className="text-sm">
+              <span className="text-slate-700 dark:text-slate-200 font-medium">{label}</span>
+              <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+                SAM
+              </span>
+              {row.samProvider.operatorCount > 1 && (
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  +{row.samProvider.operatorCount - 1} other SAM operator{row.samProvider.operatorCount - 1 === 1 ? '' : 's'}
+                </p>
+              )}
+            </div>
+          );
+        }
+        return <span className="text-slate-600 dark:text-slate-400 text-sm">{row.createdBy?.name || '-'}</span>;
+      },
     },
     {
       key: 'assignedTo',
