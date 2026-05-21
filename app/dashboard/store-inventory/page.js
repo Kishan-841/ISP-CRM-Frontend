@@ -63,27 +63,42 @@ export default function StoreInventoryPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [productSearch, setProductSearch] = useState('');
 
-  // Serial numbers dropdown state
+  // Serial numbers dropdown state. dropdownCoords holds the fixed-position
+  // coordinates we compute from the button's getBoundingClientRect on open —
+  // we use `position: fixed` for the dropdown body (not absolute) so the
+  // DataTable's `overflow-x-auto` wrapper can't clip it. Pure-absolute would
+  // get sliced anywhere the dropdown overflows the table's viewport.
   const [expandedSerials, setExpandedSerials] = useState(null);
   const [serialSearchTerm, setSerialSearchTerm] = useState('');
   const [dropDirection, setDropDirection] = useState('down'); // 'up' or 'down'
+  const [dropdownCoords, setDropdownCoords] = useState({ top: 0, left: 0 });
   const serialDropdownRef = useRef(null);
   const serialSearchInputRef = useRef(null);
   const serialButtonRefs = useRef({});
 
-  // Close serial dropdown when clicking outside
+  // Close serial dropdown when clicking outside OR when the page scrolls
+  // (the dropdown is fixed-positioned, so scrolling would visually
+  // disconnect it from its anchor button — closing is the simpler fix).
   useEffect(() => {
+    if (!expandedSerials) return;
     const handleClickOutside = (event) => {
       if (serialDropdownRef.current && !serialDropdownRef.current.contains(event.target)) {
         setExpandedSerials(null);
         setSerialSearchTerm('');
       }
     };
-
-    if (expandedSerials) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
+    const handleScrollOrResize = () => {
+      setExpandedSerials(null);
+      setSerialSearchTerm('');
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
   }, [expandedSerials]);
 
   // Focus search input when dropdown opens
@@ -102,26 +117,35 @@ export default function StoreInventoryPage() {
     );
   };
 
-  // Handle serial dropdown toggle with smart positioning
+  // Compute fixed-position coords + open/close direction. position:fixed
+  // means the dropdown lives relative to the viewport instead of the table's
+  // overflow box, so it can't get clipped by DataTable's overflow-x-auto.
+  // The minor cost: if the user scrolls while the dropdown is open it
+  // disconnects from its anchor button — we close on scroll to avoid that.
+  const DROPDOWN_WIDTH = 280;
+  const DROPDOWN_HEIGHT = 340;
+
   const handleSerialDropdownToggle = (productId) => {
     if (expandedSerials === productId) {
       setExpandedSerials(null);
       setSerialSearchTerm('');
-    } else {
-      // Calculate if we should drop up or down
-      const buttonEl = serialButtonRefs.current[productId];
-      if (buttonEl) {
-        const rect = buttonEl.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const spaceBelow = viewportHeight - rect.bottom;
-        const dropdownHeight = 340; // Approximate dropdown height
-
-        // If not enough space below, drop up
-        setDropDirection(spaceBelow < dropdownHeight ? 'up' : 'down');
-      }
-      setExpandedSerials(productId);
-      setSerialSearchTerm('');
+      return;
     }
+    const buttonEl = serialButtonRefs.current[productId];
+    if (buttonEl) {
+      const rect = buttonEl.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const direction = spaceBelow < DROPDOWN_HEIGHT ? 'up' : 'down';
+      setDropDirection(direction);
+      // Right-edge anchored to the button's right (matches the old design),
+      // clamped to a 4px gutter from the viewport so a dropdown on a narrow
+      // screen doesn't slip off-screen on the left.
+      const left = Math.max(4, rect.right - DROPDOWN_WIDTH);
+      const top = direction === 'up' ? rect.top - DROPDOWN_HEIGHT - 4 : rect.bottom + 4;
+      setDropdownCoords({ top, left });
+    }
+    setExpandedSerials(productId);
+    setSerialSearchTerm('');
   };
 
   const hasAccess = isStoreManager || isAdmin;
@@ -337,7 +361,10 @@ export default function StoreInventoryPage() {
                               {expandedSerials === item.productId ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                             </button>
                             {expandedSerials === item.productId && (
-                              <div className="absolute z-[9999] right-0 w-[260px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl bottom-full mb-1">
+                              <div
+                                className="fixed z-[9999] w-[260px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl"
+                                style={{ top: dropdownCoords.top, left: dropdownCoords.left }}
+                              >
                                 <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-emerald-50 to-slate-50 dark:from-emerald-900/20 dark:to-slate-800 rounded-t-lg">
                                   <div className="flex items-center justify-between mb-2">
                                     <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate flex-1">
@@ -516,9 +543,10 @@ export default function StoreInventoryPage() {
                             )}
                           </button>
                           {expandedSerials === item.productId && (
-                            <div className={`absolute z-[9999] right-0 w-[280px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl ${
-                              dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
-                            }`}>
+                            <div
+                              className="fixed z-[9999] w-[280px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl"
+                              style={{ top: dropdownCoords.top, left: dropdownCoords.left }}
+                            >
                               <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-emerald-50 to-slate-50 dark:from-emerald-900/20 dark:to-slate-800 rounded-t-lg">
                                 <div className="flex items-center justify-between mb-2">
                                   <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate flex-1">
