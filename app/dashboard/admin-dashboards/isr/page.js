@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/lib/store';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -92,7 +92,15 @@ const FUNNEL_PERIOD_OPTIONS = [
 
 export default function ISROverallDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuthStore();
+
+  // When `?userId=<id>` is in the URL, the page renders as a per-ISR drill-in
+  // (single fetch, leaderboard hidden, header shows that ISR's name). When
+  // absent, it renders the team-aggregate view as before. The /admin-dashboards/
+  // isr/<id> route is a thin redirect into this same component.
+  const scopedUserId = searchParams.get('userId') || null;
+  const [scopedUser, setScopedUser] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState('last7days');
@@ -136,8 +144,28 @@ export default function ISROverallDashboard() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const usersRes = await api.get('/users/by-role?role=ISR');
-      const isrUsers = (usersRes.data.users || []).filter(u => u.role === 'ISR');
+      // Scope: ALL ISRs (overall view) or ONE ISR (drill-in via ?userId=).
+      // The aggregation loop below treats both the same — it just iterates
+      // over a 1-item list when scoped, so per-ISR vs aggregate is a
+      // single-fork branch up here without duplicating the rendering code.
+      let isrUsers;
+      if (scopedUserId) {
+        try {
+          const userRes = await api.get(`/users/${scopedUserId}`);
+          const u = userRes.data?.user || userRes.data || null;
+          if (!u) throw new Error('user not found');
+          isrUsers = [u];
+          setScopedUser(u);
+        } catch (err) {
+          console.error('Failed to load scoped ISR user:', err);
+          isrUsers = [];
+          setScopedUser(null);
+        }
+      } else {
+        const usersRes = await api.get('/users/by-role?role=ISR');
+        isrUsers = (usersRes.data.users || []).filter(u => u.role === 'ISR');
+        setScopedUser(null);
+      }
       setIsrList(isrUsers);
 
       let aggregatedStats = { totalAssigned: 0, workingData: 0, pendingData: 0, convertedToLead: 0 };
@@ -234,7 +262,7 @@ export default function ISROverallDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, scopedUserId]);
 
   useEffect(() => {
     if (isAllowed) fetchData();
@@ -243,8 +271,13 @@ export default function ISROverallDashboard() {
   const fetchFunnelData = useCallback(async () => {
     setFunnelLoading(true);
     try {
+      // Funnel/comparison endpoints accept an optional `userId` filter; when
+      // scoped, pass it through so the drill-in funnel reflects just that
+      // ISR. Comparison is aggregate-only so it's still useful (shows where
+      // this ISR sits relative to the team's pipeline).
+      const userScope = scopedUserId ? `&userId=${scopedUserId}` : '';
       const [funnelRes, comparisonRes] = await Promise.all([
-        api.get(`/campaigns/reports/pipeline-funnel?period=${funnelPeriod}`),
+        api.get(`/campaigns/reports/pipeline-funnel?period=${funnelPeriod}${userScope}`),
         api.get(`/campaigns/reports/pipeline-comparison?period=${funnelPeriod}`)
       ]);
       setFunnelData(funnelRes.data);
@@ -254,7 +287,7 @@ export default function ISROverallDashboard() {
     } finally {
       setFunnelLoading(false);
     }
-  }, [funnelPeriod]);
+  }, [funnelPeriod, scopedUserId]);
 
   useEffect(() => {
     if (isAllowed) fetchFunnelData();
@@ -285,10 +318,16 @@ export default function ISROverallDashboard() {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <div className="h-7 w-1.5 bg-orange-500 rounded-full" />
-              <h1 className="text-xl font-semibold">ISR Team Performance</h1>
+              <h1 className="text-xl font-semibold">
+                {scopedUserId
+                  ? (scopedUser?.name ? `ISR: ${scopedUser.name}` : 'ISR Dashboard')
+                  : 'ISR Team Performance'}
+              </h1>
             </div>
             <p className="text-sm text-muted-foreground ml-[18px]">
-              {isrList.length} active ISR{isrList.length !== 1 ? 's' : ''} across all campaigns
+              {scopedUserId
+                ? (scopedUser?.email || 'Loading…')
+                : `${isrList.length} active ISR${isrList.length !== 1 ? 's' : ''} across all campaigns`}
             </p>
           </div>
         </div>
@@ -559,7 +598,10 @@ export default function ISROverallDashboard() {
             </div>
           </div>
 
-          {/* ── Section: ISR Performance Leaderboard ── */}
+          {/* ── Section: ISR Performance Leaderboard ──
+              Hidden in scoped (single-ISR) view — comparing one person to
+              themselves isn't useful. */}
+          {!scopedUserId && (
           <div>
             <h2 className="text-lg font-semibold mb-4">Performance Leaderboard</h2>
             <Card className="rounded-2xl shadow-sm hover:shadow-md transition overflow-hidden">
@@ -630,6 +672,7 @@ export default function ISROverallDashboard() {
               </CardContent>
             </Card>
           </div>
+          )}
 
           {/* ── Section: Pipeline Funnel ── */}
           <div>
@@ -722,8 +765,9 @@ export default function ISROverallDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* ISR True Conversion Leaderboard */}
-                {comparisonData?.isrs?.length > 0 && (
+                {/* ISR True Conversion Leaderboard — same rationale as the
+                    Performance Leaderboard above: hide when scoped to one ISR. */}
+                {!scopedUserId && comparisonData?.isrs?.length > 0 && (
                   <Card className="rounded-2xl shadow-sm hover:shadow-md transition overflow-hidden">
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
