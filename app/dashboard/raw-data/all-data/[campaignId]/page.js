@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Pencil, Phone, Mail, MapPin, Building2, User, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
+import SamSourceBadge from '@/components/SamSourceBadge';
 
 const STATUS_COLORS = {
   NEW: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
@@ -118,7 +119,18 @@ export default function CampaignDataDetailPage() {
       label: 'Company',
       render: (row) => (
         <div>
-          <p className="text-sm text-slate-900 dark:text-slate-100">{row.company || '-'}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm text-slate-900 dark:text-slate-100">{row.company || '-'}</p>
+            {/* Lead-level SAM-dispatch attribution. Renders null when the
+                linked lead wasn't created via SAM, so it's safe to drop in
+                even for non-SAM campaigns. */}
+            <SamSourceBadge lead={row.lead} />
+          </div>
+          {row.lead?.creationSource === 'SAM_DISPATCH' && (row.lead?.samCreatedByName || row.lead?.samCreatedByEmail) && (
+            <p className="text-[10px] text-orange-600/80 dark:text-orange-300/80 mt-0.5">
+              via SAM: {row.lead.samCreatedByName || row.lead.samCreatedByEmail}
+            </p>
+          )}
           {row.city && (
             <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
               <MapPin size={10} /> {row.city}{row.state ? `, ${row.state}` : ''}
