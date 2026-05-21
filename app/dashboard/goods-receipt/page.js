@@ -26,6 +26,7 @@ import {
   PackageCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 import POStatusBadge from '@/components/po/POStatusBadge';
 import POProgressStepper from '@/components/po/POProgressStepper';
 import {
@@ -65,12 +66,18 @@ export default function GoodsReceiptPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [testBypass, setTestBypass] = useState(false);
+  // Parsed serials uploaded per item in the Verify modal. Keyed by item.id.
+  // Excel column A → serial number array. Empty array when nothing uploaded.
+  const [verifySerials, setVerifySerials] = useState({});
 
   // Batch update form
   const [batchItems, setBatchItems] = useState({});
   const [batchRemark, setBatchRemark] = useState('');
   const [batchReceiptStatus, setBatchReceiptStatus] = useState('');
   const [batchHistory, setBatchHistory] = useState([]);
+  // Parsed serials uploaded per item in the Batch modal. Same shape as
+  // verifySerials but for subsequent batches on partially-received POs.
+  const [batchSerials, setBatchSerials] = useState({});
 
 
   const isMaster = user?.role === 'MASTER';
@@ -156,7 +163,49 @@ export default function GoodsReceiptPage() {
       };
     });
     setItemReceipts(initialItems);
+    setVerifySerials({});
     setShowVerifyModal(true);
+  };
+
+  // Parse the first column of an uploaded .xlsx/.xls file into a flat list
+  // of serial numbers. Strips empty rows + trims whitespace. Stores the
+  // result in the per-item serials state slot so the modal can show a count
+  // chip and pass them to the API on submit.
+  const handleSerialsFileUpload = (e, itemId, store) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const workbook = XLSX.read(ev.target.result, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        // Heuristic: skip the first row if it looks like a header (any
+        // non-numeric, non-serial-shaped string). Then take column A.
+        const isHeaderRow = (row) => {
+          const v = String(row?.[0] ?? '').toLowerCase().trim();
+          return v === 'serial' || v === 'serial number' || v === 'sn' || v === 's.no' || v === 's no';
+        };
+        const dataRows = rows.length > 0 && isHeaderRow(rows[0]) ? rows.slice(1) : rows;
+        const serials = dataRows
+          .map(r => String(r?.[0] ?? '').trim())
+          .filter(Boolean);
+        if (serials.length === 0) {
+          toast.error('No serials found in column A of the uploaded file.');
+          return;
+        }
+        const setter = store === 'verify' ? setVerifySerials : setBatchSerials;
+        setter(prev => ({ ...prev, [itemId]: serials }));
+        toast.success(`Parsed ${serials.length} serial number${serials.length === 1 ? '' : 's'}.`);
+      } catch (err) {
+        console.error('Excel parse failed:', err);
+        toast.error('Could not read that file. Make sure it is a valid .xlsx / .xls.');
+      } finally {
+        // Clear the input so re-selecting the same file fires onChange again.
+        e.target.value = '';
+      }
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   // Open batch modal
@@ -177,6 +226,7 @@ export default function GoodsReceiptPage() {
       }
     });
     setBatchItems(initialBatch);
+    setBatchSerials({});
 
     // Fetch batch history
     try {
@@ -291,9 +341,12 @@ export default function GoodsReceiptPage() {
 
     setIsSaving(true);
     try {
+      // Attach uploaded serials per item. Backend validates count matches
+      // receivedQuantity and flips the item to IN_STORE in the same call.
       const itemsData = Object.entries(itemReceipts).map(([id, data]) => ({
         id,
-        ...data
+        ...data,
+        ...(verifySerials[id]?.length > 0 && { serials: verifySerials[id] }),
       }));
 
       const response = await fetch(`${API_BASE}/store/goods-receipt/${selectedPO.id}/verify`, {
@@ -320,6 +373,10 @@ export default function GoodsReceiptPage() {
         setSelectedPO(null);
         fetchPurchaseOrders();
         fetchStats();
+      } else if (Array.isArray(data.errors) && data.errors.length > 0) {
+        // Backend's per-item serial validation returns a list — show them all
+        // rather than just the generic message so the operator can fix each.
+        data.errors.slice(0, 5).forEach(err => toast.error(err));
       } else {
         toast.error(data.message || 'Verification failed');
       }
@@ -353,9 +410,15 @@ export default function GoodsReceiptPage() {
 
     setIsSaving(true);
     try {
+      // Same per-item serials pattern as the Verify modal — batch-scoped
+      // serials extend (not replace) the item's existing serialNumbers.
       const itemsData = Object.entries(batchItems)
         .filter(([_, data]) => data.receivedInBatch > 0)
-        .map(([itemId, data]) => ({ itemId, ...data }));
+        .map(([itemId, data]) => ({
+          itemId,
+          ...data,
+          ...(batchSerials[itemId]?.length > 0 && { serials: batchSerials[itemId] }),
+        }));
 
       const response = await fetch(`${API_BASE}/store/goods-receipt/${selectedPO.id}/update-batch`, {
         method: 'POST',
@@ -378,6 +441,8 @@ export default function GoodsReceiptPage() {
         setSelectedPO(null);
         fetchPurchaseOrders();
         fetchStats();
+      } else if (Array.isArray(data.errors) && data.errors.length > 0) {
+        data.errors.slice(0, 5).forEach(err => toast.error(err));
       } else {
         toast.error(data.message || 'Failed to record batch');
       }
@@ -842,6 +907,54 @@ export default function GoodsReceiptPage() {
                             />
                           </div>
                         </div>
+
+                        {/* Serial upload — non-fiber items only. Excel column A,
+                            one serial per row. Count must equal received qty
+                            for the backend to accept it. */}
+                        {!isFiber && (
+                          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                            {(() => {
+                              const expected = itemReceipts[item.id]?.receivedQuantity ?? item.quantity;
+                              const uploaded = verifySerials[item.id] || [];
+                              const matches = uploaded.length === expected;
+                              return (
+                                <div className="flex items-center gap-3">
+                                  <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                                    uploaded.length > 0 ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                  }`}>
+                                    <Upload size={12} />
+                                    {uploaded.length > 0 ? 'Replace serials .xlsx' : 'Upload serials .xlsx'}
+                                    <input
+                                      type="file"
+                                      accept=".xlsx,.xls"
+                                      className="hidden"
+                                      onChange={(e) => handleSerialsFileUpload(e, item.id, 'verify')}
+                                    />
+                                  </label>
+                                  {uploaded.length > 0 && (
+                                    <>
+                                      <span className={`text-xs ${matches ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                        {uploaded.length} serial(s) parsed — {matches ? 'matches received qty' : `expected ${expected}`}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setVerifySerials(prev => { const n = { ...prev }; delete n[item.id]; return n; })}
+                                        className="text-xs text-slate-500 hover:text-red-600"
+                                      >
+                                        clear
+                                      </button>
+                                    </>
+                                  )}
+                                  {uploaded.length === 0 && (
+                                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                                      Need {expected} serial(s) in column A
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1187,6 +1300,64 @@ export default function GoodsReceiptPage() {
                             />
                           </div>
                         </div>
+
+                        {/* Serial upload for this batch — applies to non-fiber
+                            items only. Serials get concatenated to the item's
+                            running list across batches, so each upload only
+                            needs to cover THIS batch's received qty. */}
+                        {!isFiber && (
+                          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                            {(() => {
+                              const expected = batchItems[item.id]?.receivedInBatch ?? 0;
+                              const uploaded = batchSerials[item.id] || [];
+                              const matches = uploaded.length === expected;
+                              const alreadyReceived = item.receivedQuantity || 0;
+                              return (
+                                <>
+                                  {alreadyReceived > 0 && (
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                                      {alreadyReceived} of {item.quantity} already serialised in earlier batch(es). Upload {expected || 'N'} serial(s) for THIS batch only.
+                                    </p>
+                                  )}
+                                  <div className="flex items-center gap-3 flex-wrap">
+                                    <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                                      uploaded.length > 0 ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                    } ${expected === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                      <Upload size={12} />
+                                      {uploaded.length > 0 ? 'Replace batch serials .xlsx' : 'Upload batch serials .xlsx'}
+                                      <input
+                                        type="file"
+                                        accept=".xlsx,.xls"
+                                        className="hidden"
+                                        disabled={expected === 0}
+                                        onChange={(e) => handleSerialsFileUpload(e, item.id, 'batch')}
+                                      />
+                                    </label>
+                                    {uploaded.length > 0 && (
+                                      <>
+                                        <span className={`text-xs ${matches ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                          {uploaded.length} parsed — {matches ? 'matches batch qty' : `expected ${expected}`}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => setBatchSerials(prev => { const n = { ...prev }; delete n[item.id]; return n; })}
+                                          className="text-xs text-slate-500 hover:text-red-600"
+                                        >
+                                          clear
+                                        </button>
+                                      </>
+                                    )}
+                                    {uploaded.length === 0 && expected > 0 && (
+                                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                                        Need {expected} serial(s) in column A
+                                      </span>
+                                    )}
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
