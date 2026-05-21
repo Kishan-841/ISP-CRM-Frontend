@@ -1238,7 +1238,18 @@ export default function BDMQueuePage() {
                             <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm truncate">
                               {lead.company || 'No Company'}
                             </p>
-                            {lead.campaign?.code === 'SAM-GENERATED' ? (
+                            {/* Origin chip cascade — order matters. SAM dispatch
+                                wins over isSelfGenerated because SAM-created
+                                leads ARE self-generated (we mark the underlying
+                                CampaignData that way for ISR-dashboard
+                                filtering) but the right attribution is the SAM
+                                operator, not the local CRM service-user that
+                                authored the row. */}
+                            {lead.creationSource === 'SAM_DISPATCH' ? (
+                              <span className="bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 text-[10px] px-1.5 py-0 rounded font-semibold">
+                                SAM {lead.samCreatedByName ? `· ${lead.samCreatedByName}` : (lead.samCreatedByEmail ? `· ${lead.samCreatedByEmail}` : '')}
+                              </span>
+                            ) : lead.campaign?.code === 'SAM-GENERATED' ? (
                               <span className="bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 text-[10px] px-1.5 py-0 rounded">
                                 SAM Generated {lead.dataCreatedBy?.name ? `(${lead.dataCreatedBy.name})` : ''}
                               </span>
@@ -1289,7 +1300,13 @@ export default function BDMQueuePage() {
                         <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                           {selectedLead.company || 'No Company'}
                         </h2>
-                        {selectedLead.campaign?.code === 'SAM-GENERATED' ? (
+                        {/* Same chip cascade as the queue list — SAM dispatch
+                            wins over the generic self-generated branch. */}
+                        {selectedLead.creationSource === 'SAM_DISPATCH' ? (
+                          <span className="bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 text-xs px-2 py-0.5 rounded font-semibold">
+                            SAM {selectedLead.samCreatedByName ? `· ${selectedLead.samCreatedByName}` : (selectedLead.samCreatedByEmail ? `· ${selectedLead.samCreatedByEmail}` : '')}
+                          </span>
+                        ) : selectedLead.campaign?.code === 'SAM-GENERATED' ? (
                           <span className="bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 text-xs px-2 py-0.5 rounded">
                             SAM Generated {selectedLead.dataCreatedBy?.name ? `(${selectedLead.dataCreatedBy.name})` : ''}
                           </span>
