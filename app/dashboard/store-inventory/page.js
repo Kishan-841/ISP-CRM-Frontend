@@ -76,9 +76,16 @@ export default function StoreInventoryPage() {
   const serialSearchInputRef = useRef(null);
   const serialButtonRefs = useRef({});
 
-  // Close serial dropdown when clicking outside OR when the page scrolls
-  // (the dropdown is fixed-positioned, so scrolling would visually
-  // disconnect it from its anchor button — closing is the simpler fix).
+  // Close serial dropdown on click-outside, on viewport resize, OR on PAGE
+  // scroll (which would visually disconnect a fixed-positioned dropdown
+  // from its anchor button).
+  //
+  // Important: do NOT pass `capture: true` to the scroll listener. Scroll
+  // events don't bubble, and capture-phase listening would catch the
+  // dropdown's OWN internal overflow-y-auto scroll too — closing the
+  // dropdown the moment the user tries to scroll through long serial lists.
+  // Plain window scroll listener only fires on actual page scrolls, which
+  // is the only case we want to react to.
   useEffect(() => {
     if (!expandedSerials) return;
     const handleClickOutside = (event) => {
@@ -87,17 +94,17 @@ export default function StoreInventoryPage() {
         setSerialSearchTerm('');
       }
     };
-    const handleScrollOrResize = () => {
+    const handlePageScrollOrResize = () => {
       setExpandedSerials(null);
       setSerialSearchTerm('');
     };
     document.addEventListener('mousedown', handleClickOutside);
-    window.addEventListener('scroll', handleScrollOrResize, true);
-    window.addEventListener('resize', handleScrollOrResize);
+    window.addEventListener('scroll', handlePageScrollOrResize);
+    window.addEventListener('resize', handlePageScrollOrResize);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScrollOrResize, true);
-      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('scroll', handlePageScrollOrResize);
+      window.removeEventListener('resize', handlePageScrollOrResize);
     };
   }, [expandedSerials]);
 
