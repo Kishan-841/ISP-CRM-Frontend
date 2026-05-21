@@ -405,11 +405,12 @@ export default function POManagementPage() {
     }
   };
 
-  // When expanding a RECEIVED PO, fetch inventory items
+  // When expanding a PO with received items (full or partial), fetch
+  // inventory items so the user can upload serials / add to store.
   const handleExpandPO = (poId, poStatus) => {
     const isExpanded = expandedPO === poId;
     setExpandedPO(isExpanded ? null : poId);
-    if (!isExpanded && (poStatus === 'RECEIVED' || poStatus === 'COMPLETED')) {
+    if (!isExpanded && (poStatus === 'RECEIVED' || poStatus === 'COMPLETED' || poStatus === 'PARTIALLY_RECEIVED')) {
       fetchInventoryItems(poId);
     } else {
       setInventoryItems(null);
@@ -732,8 +733,8 @@ export default function POManagementPage() {
                             </div>
                           </div>
 
-                          {/* Inventory Section - for RECEIVED POs */}
-                          {(po.status === 'RECEIVED' || po.status === 'COMPLETED') && (
+                          {/* Inventory Section - for RECEIVED / PARTIALLY_RECEIVED / COMPLETED POs */}
+                          {(po.status === 'RECEIVED' || po.status === 'COMPLETED' || po.status === 'PARTIALLY_RECEIVED') && (
                             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                               <div className="px-3 sm:px-4 py-2.5 bg-orange-50 dark:bg-orange-900/20 border-b border-orange-200 dark:border-orange-700">
                                 <div className="flex items-center justify-between">
@@ -787,17 +788,30 @@ export default function POManagementPage() {
                                         <div className="space-y-1.5">
                                           {inventoryItems.pendingItems.map((item) => {
                                             const isFiber = item.product?.category === 'FIBER' || item.product?.unit === 'mtrs';
+                                            const receivedQty = item.receivedQuantity ?? item.quantity;
+                                            const serialised = (item.serialNumbers || []).length;
+                                            const missing = isFiber ? 0 : Math.max(0, receivedQty - serialised);
                                             return (
-                                              <div key={item.id} className="flex items-center justify-between px-3 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                  <Package size={14} className="text-amber-500 flex-shrink-0" />
-                                                  <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                                                    {item.product?.modelNumber}
+                                              <div key={item.id} className="px-3 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                                                <div className="flex items-center justify-between gap-2">
+                                                  <div className="flex items-center gap-2 min-w-0">
+                                                    <Package size={14} className="text-amber-500 flex-shrink-0" />
+                                                    <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                                                      {item.product?.modelNumber}
+                                                    </span>
+                                                  </div>
+                                                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400 flex-shrink-0 ml-2">
+                                                    {missing > 0 ? `${missing} serial(s) needed` : `${receivedQty} ${isFiber ? 'mtrs' : 'pcs'}`}
                                                   </span>
                                                 </div>
-                                                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 flex-shrink-0 ml-2">
-                                                  {item.receivedQuantity ?? item.quantity} {isFiber ? 'mtrs' : 'pcs'}
-                                                </span>
+                                                {!isFiber && (
+                                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                                                    {serialised} of {receivedQty} received serialised
+                                                    {receivedQty < item.quantity && (
+                                                      <span className="text-amber-600 dark:text-amber-400"> · {item.quantity - receivedQty} still awaited</span>
+                                                    )}
+                                                  </p>
+                                                )}
                                               </div>
                                             );
                                           })}
@@ -874,7 +888,7 @@ export default function POManagementPage() {
                                                   <><Upload size={14} className="mr-1" /> Upload & Add to Store</>
                                                 )}
                                               </Button>
-                                            ) : (
+                                            ) : po.status !== 'PARTIALLY_RECEIVED' ? (
                                               <Button
                                                 onClick={(e) => { e.stopPropagation(); handleAddWithoutSerials(po.id); }}
                                                 disabled={isSavingInventory}
@@ -888,7 +902,7 @@ export default function POManagementPage() {
                                                   'Add Without Serials'
                                                 )}
                                               </Button>
-                                            )}
+                                            ) : null}
                                           </div>
                                         </div>
                                       </div>
@@ -1072,8 +1086,8 @@ export default function POManagementPage() {
                       </table>
                     </div>
 
-                    {/* Inventory Section - for RECEIVED POs */}
-                    {(po.status === 'RECEIVED' || po.status === 'COMPLETED') && (
+                    {/* Inventory Section - for RECEIVED / PARTIALLY_RECEIVED / COMPLETED POs */}
+                    {(po.status === 'RECEIVED' || po.status === 'COMPLETED' || po.status === 'PARTIALLY_RECEIVED') && (
                       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                         <div className="px-4 py-3 bg-orange-50 dark:bg-orange-900/20 border-b border-orange-200 dark:border-orange-700">
                           <div className="flex items-center justify-between">
@@ -1084,6 +1098,11 @@ export default function POManagementPage() {
                             {po.status === 'COMPLETED' && (
                               <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-medium">
                                 All items in store
+                              </span>
+                            )}
+                            {po.status === 'PARTIALLY_RECEIVED' && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium">
+                                Partial delivery — upload serials for received units
                               </span>
                             )}
                           </div>
@@ -1130,19 +1149,30 @@ export default function POManagementPage() {
                                   <div className="space-y-1.5">
                                     {inventoryItems.pendingItems.map((item) => {
                                       const isFiber = item.product?.category === 'FIBER' || item.product?.unit === 'mtrs';
+                                      const receivedQty = item.receivedQuantity ?? item.quantity;
+                                      const serialised = (item.serialNumbers || []).length;
+                                      const missing = isFiber ? 0 : Math.max(0, receivedQty - serialised);
                                       return (
                                         <div key={item.id} className="flex items-center justify-between px-3 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                                          <div className="flex items-center gap-2">
-                                            <Package size={14} className="text-amber-500" />
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            <Package size={14} className="text-amber-500 flex-shrink-0" />
                                             <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                               {item.product?.modelNumber}
                                             </span>
                                             <span className="text-xs text-slate-500">
                                               {getCategoryLabel(item.product?.category)} | {item.product?.brandName}
                                             </span>
+                                            {!isFiber && (
+                                              <span className="text-xs text-slate-500">
+                                                — {serialised} of {receivedQty} received serialised
+                                                {receivedQty < item.quantity && (
+                                                  <span className="text-amber-600 dark:text-amber-400"> ({item.quantity - receivedQty} {item.quantity - receivedQty === 1 ? 'unit' : 'units'} still awaited)</span>
+                                                )}
+                                              </span>
+                                            )}
                                           </div>
-                                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                                            {item.receivedQuantity ?? item.quantity} {isFiber ? 'mtrs' : 'pcs'}
+                                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400 flex-shrink-0 ml-2">
+                                            {missing > 0 ? `${missing} serial(s) needed` : `${receivedQty} ${isFiber ? 'mtrs' : 'pcs'}`}
                                           </span>
                                         </div>
                                       );
@@ -1220,7 +1250,7 @@ export default function POManagementPage() {
                                             <><Upload size={14} className="mr-1" /> Upload & Add to Store</>
                                           )}
                                         </Button>
-                                      ) : (
+                                      ) : po.status !== 'PARTIALLY_RECEIVED' ? (
                                         <Button
                                           onClick={(e) => { e.stopPropagation(); handleAddWithoutSerials(po.id); }}
                                           disabled={isSavingInventory}
@@ -1234,7 +1264,7 @@ export default function POManagementPage() {
                                             'Add Without Serials'
                                           )}
                                         </Button>
-                                      )}
+                                      ) : null}
                                     </div>
                                   </div>
                                 </div>

@@ -646,6 +646,7 @@ export default function Sidebar() {
     ...(isStoreManager ? [
       { name: 'Product Management', path: '/dashboard/product-management', icon: Package },
       { name: 'PO Management', path: '/dashboard/po-management', icon: ShoppingCart },
+      { name: 'Goods Receipt', path: '/dashboard/goods-receipt', icon: ClipboardCheck },
       { name: 'Store Inventory', path: '/dashboard/store-inventory', icon: Warehouse },
       { name: 'Inventory', path: '/dashboard/inventory', icon: Warehouse },
       { name: 'Store Requests', path: '/dashboard/store-requests', icon: ClipboardCheck, badge: counts.storeRequests > 0 ? counts.storeRequests : null },

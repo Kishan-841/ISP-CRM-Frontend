@@ -83,7 +83,8 @@ export default function GoodsReceiptPage() {
   const isMaster = user?.role === 'MASTER';
   const isAdmin = user?.role === 'ADMIN' || isMaster;
   const isSuperAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
-  const canAccess = isAdmin || isSuperAdmin;
+  const isStoreManager = user?.role === 'STORE_MANAGER';
+  const canAccess = isAdmin || isSuperAdmin || isStoreManager;
 
   useEffect(() => {
     if (user && !canAccess) {
