@@ -37,6 +37,7 @@ import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { PageHeader } from '@/components/PageHeader';
 import SearchableCampaignSelect from '@/components/SearchableCampaignSelect';
+import SamSourceBadge from '@/components/SamSourceBadge';
 
 export default function BDMQueuePage() {
   const router = useRouter();
@@ -884,6 +885,7 @@ export default function BDMQueuePage() {
                               <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm truncate">
                                 {lead.company || 'No Company'}
                               </p>
+                              <SamSourceBadge lead={lead} />
                               {lead.vendor?.category === 'CHANNEL_PARTNER' && (
                                 <Badge className="border-0 text-[10px] px-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
                                   CP: {lead.vendor.companyName}

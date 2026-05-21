@@ -41,6 +41,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { formatDate } from '@/lib/formatters';
 import { LEAD_STATUS_CONFIG, getStatusBadgeClass as _getStatusBadgeClass, getStatusLabel as _getStatusLabel } from '@/lib/statusConfig';
+import SamSourceBadge from '@/components/SamSourceBadge';
 
 export default function LeadsPage() {
   const { user } = useAuthStore();
@@ -571,9 +572,12 @@ export default function LeadsPage() {
       key: 'company',
       label: 'Company',
       render: (lead) => (
-        <span className="font-medium text-slate-900 dark:text-slate-100">
-          {lead.company || '-'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-slate-900 dark:text-slate-100">
+            {lead.company || '-'}
+          </span>
+          <SamSourceBadge lead={lead} />
+        </div>
       ),
       cellClassName: 'whitespace-nowrap',
     },
@@ -1060,8 +1064,24 @@ export default function LeadsPage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
               <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{selectedLead.company || 'Unknown Company'}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{selectedLead.company || 'Unknown Company'}</h2>
+                  <SamSourceBadge lead={selectedLead} />
+                </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Lead Details and Actions</p>
+                {selectedLead.creationSource === 'SAM_DISPATCH' && (
+                  <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 text-xs text-orange-700 dark:text-orange-300">
+                    Created from SAM by{' '}
+                    <span className="font-medium">
+                      {selectedLead.samCreatedByName || selectedLead.samCreatedByEmail}
+                    </span>
+                    {selectedLead.samCreatedAt && (
+                      <span className="text-orange-600/70 dark:text-orange-300/70">
+                        · {new Date(selectedLead.samCreatedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => setShowDetailsModal(false)}
