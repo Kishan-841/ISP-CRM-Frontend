@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Phone, Mail, ClipboardList, Clock, AlertCircle, Users, Calendar, Filter } from 'lucide-react';
@@ -294,35 +293,32 @@ export default function IsrDataDrillPage() {
         </div>
       </div>
 
-      {/* Table card with horizontal scroll on small viewports. */}
-      <Card className="rounded-2xl shadow-sm overflow-hidden">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <DataTable
-              totalCount={pagination.total}
-              columns={columns}
-              data={rows}
-              searchable
-              searchPlaceholder="Search company, name, phone, email…"
-              onSearch={(v) => setSearchInput(v)}
-              pagination
-              defaultPageSize={pagination.limit}
-              pageSizeOptions={[10, 25, 50, 100]}
-              serverPagination={{
-                page: pagination.page,
-                limit: pagination.limit,
-                total: pagination.total,
-                totalPages: pagination.totalPages,
-              }}
-              onPageChange={(p) => setPagination(prev => ({ ...prev, page: p }))}
-              onPageSizeChange={(l) => setPagination(prev => ({ ...prev, page: 1, limit: l }))}
-              loading={isLoading}
-              emptyMessage="No records in this bucket"
-              emptySubtitle="Try a different period or clear your search"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* DataTable handles its own container styling — no Card wrap, avoids
+          the double-card visual. */}
+      <div className="overflow-x-auto">
+        <DataTable
+          totalCount={pagination.total}
+          columns={columns}
+          data={rows}
+          searchable
+          searchPlaceholder="Search company, name, phone, email…"
+          onSearch={(v) => setSearchInput(v)}
+          pagination
+          defaultPageSize={pagination.limit}
+          pageSizeOptions={[10, 25, 50, 100]}
+          serverPagination={{
+            page: pagination.page,
+            limit: pagination.limit,
+            total: pagination.total,
+            totalPages: pagination.totalPages,
+          }}
+          onPageChange={(p) => setPagination(prev => ({ ...prev, page: p }))}
+          onPageSizeChange={(l) => setPagination(prev => ({ ...prev, page: 1, limit: l }))}
+          loading={isLoading}
+          emptyMessage="No records in this bucket"
+          emptySubtitle="Try a different period or clear your search"
+        />
+      </div>
     </div>
   );
 }
