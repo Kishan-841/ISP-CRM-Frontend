@@ -650,6 +650,7 @@ export default function Sidebar() {
       { name: 'Store Inventory', path: '/dashboard/store-inventory', icon: Warehouse },
       { name: 'Inventory', path: '/dashboard/inventory', icon: Warehouse },
       { name: 'Store Requests', path: '/dashboard/store-requests', icon: ClipboardCheck, badge: counts.storeRequests > 0 ? counts.storeRequests : null },
+      { name: 'Reports', path: '/dashboard/store-reports', icon: BarChart3 },
     ] : []),
     // Leads - available for all roles except Docs Team, Accounts Team, Store Manager, and OPS Team
     ...(!isBDM && !isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isNOCHead && !isSuperAdmin && !isSalesDirector && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isBDMCP ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
