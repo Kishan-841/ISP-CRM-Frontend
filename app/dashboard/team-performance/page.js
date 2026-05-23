@@ -14,7 +14,11 @@ import {
   IndianRupee,
   Briefcase,
   Layers,
+  Download,
+  Loader2,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import toast from 'react-hot-toast';
 
 import { useAuthStore, useTeamPerformanceStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';
@@ -100,6 +104,7 @@ export default function TeamPerformancePage() {
     leadsLoading,
     fetchSummary,
     fetchLeads,
+    exportLeads,
   } = useTeamPerformanceStore();
 
   // Page is meant for TLs primarily. Admins/master can land here too for
@@ -112,6 +117,7 @@ export default function TeamPerformancePage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [viewingLead, setViewingLead] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (user && !isAllowed) router.push('/dashboard');
@@ -152,6 +158,62 @@ export default function TeamPerformancePage() {
   }, [selectedBdmId, byMember, aggregateCard]);
 
   const showBdmColumn = selectedBdmId === 'all';
+
+  const hasActiveFilter = selectedBdmId !== 'all' || status !== 'all' || Boolean(search.trim());
+
+  // Export every row matching the CURRENT filters (member + status + search),
+  // not just the visible page. With no filter applied this exports the whole
+  // team. Filename encodes the active filter so multiple exports don't clash.
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await exportLeads({ bdmId: selectedBdmId, status, search });
+      if (!res.success) {
+        toast.error(res.error || 'Export failed');
+        return;
+      }
+      const rows = res.data || [];
+      if (rows.length === 0) {
+        toast.error('No leads to export');
+        return;
+      }
+      const formatted = rows.map((r) => ({
+        'Lead #': r.leadNumber || '',
+        'Company': r.company || '',
+        'Contact Name': r.contactName || '',
+        'Phone': r.phone || '',
+        'Email': r.email || '',
+        'Current Stage': r.currentStage || '',
+        'Owner': r.currentOwner || '',
+        'Days In Stage': r.daysInStage ?? '',
+        'Status': r.status || '',
+        'ARC': typeof r.arcAmount === 'number' ? r.arcAmount : '',
+        'Plan': r.actualPlanName || '',
+        'Active Customer': r.actualPlanIsActive ? 'Yes' : 'No',
+        'Cold Lead': r.isColdLead ? 'Yes' : 'No',
+        'BDM': r.bdm?.name || '',
+        'BDM Email': r.bdm?.email || '',
+        'Created': formatDate(r.createdAt),
+        'Last Activity': formatDate(r.lastActivityAt),
+      }));
+      const ws = XLSX.utils.json_to_sheet(formatted);
+      const headers = Object.keys(formatted[0]);
+      ws['!cols'] = headers.map((h) => ({
+        wch: Math.min(50, Math.max(h.length, ...formatted.map((row) => String(row[h] ?? '').length)) + 2),
+      }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Team Performance');
+
+      const memberLabel = selectedBdmId === 'all'
+        ? 'all'
+        : (selectedMember?.name || 'member').replace(/\s+/g, '-');
+      const stamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `team_performance_${memberLabel}_${stamp}.xlsx`);
+      toast.success(`Exported ${rows.length} lead${rows.length === 1 ? '' : 's'}`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (!isAllowed) return null;
 
@@ -237,7 +299,17 @@ export default function TeamPerformancePage() {
       <PageHeader
         title="Team Performance"
         description="Compare your BDMs at a glance and drill into each one's leads — current stage, ARC pipeline, and time since last activity."
-      />
+      >
+        <Button
+          onClick={handleExport}
+          disabled={exporting || leadsLoading}
+          size="sm"
+          className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+        >
+          {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {exporting ? 'Exporting…' : (hasActiveFilter ? 'Export filtered' : 'Export all')}
+        </Button>
+      </PageHeader>
 
       {/* BDM selector + KPI tiles for whoever is selected. Dropdown replaces
           the older horizontal card grid — single source of truth for "who am
