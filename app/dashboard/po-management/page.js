@@ -418,6 +418,27 @@ export default function POManagementPage() {
     }
   };
 
+  // Close the desktop drawer + reset its associated state.
+  const closeDrawer = () => {
+    setExpandedPO(null);
+    setInventoryItems(null);
+    setUploadedSerialFile(null);
+  };
+
+  // ESC closes the drawer; body scroll locked while it's open so the
+  // background table doesn't scroll under the panel.
+  useEffect(() => {
+    if (!expandedPO) return;
+    const onKey = (e) => { if (e.key === 'Escape') closeDrawer(); };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [expandedPO]);
+
   // Desktop DataTable columns
   const poColumns = [
     {
@@ -968,16 +989,50 @@ export default function POManagementPage() {
         className="hidden lg:block"
       />
 
-      {/* Desktop Expanded PO Detail */}
-      {expandedPO && !isLoading && (
-        <div className="hidden lg:block">
-          {(() => {
-            const po = purchaseOrders.find(p => p.id === expandedPO);
-            if (!po) return null;
-
-            return (
-              <Card className="bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 overflow-hidden">
-                <CardContent className="p-4">
+      {/* Desktop PO Detail — right-side drawer.
+          Backdrop closes on click; ESC also closes (see effect above). The
+          drawer mounts only when a PO is selected so unmount cleans state. */}
+      {expandedPO && !isLoading && (() => {
+        const po = purchaseOrders.find(p => p.id === expandedPO);
+        if (!po) return null;
+        return (
+          <div className="hidden lg:block">
+            {/* Backdrop — sits ABOVE the sidebar (z-50) so the sidebar is
+                visually recessed when the drawer is open. Very light tint +
+                tiny blur so the page just dims gently, not a harsh overlay. */}
+            <div
+              className="fixed inset-0 z-[60] bg-slate-900/15 backdrop-blur-[2px] transition-opacity"
+              onClick={closeDrawer}
+              aria-hidden
+            />
+            {/* Drawer panel — sits one level above the backdrop. */}
+            <aside
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="po-drawer-title"
+              className="fixed top-0 right-0 z-[70] h-screen w-full max-w-3xl bg-slate-50 dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col animate-in slide-in-from-right duration-200"
+            >
+              {/* Drawer header — sticky so PO context stays visible while
+                  the user scrolls the long detail body. */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Purchase Order</p>
+                  <h2 id="po-drawer-title" className="text-base font-semibold text-slate-900 dark:text-slate-100 truncate flex items-center gap-2">
+                    {po.poNumber}
+                    <POStatusBadge status={po.status} />
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeDrawer}
+                  className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  aria-label="Close detail"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              {/* Scrollable body */}
+              <div className="flex-1 overflow-y-auto p-4">
                   <div className="space-y-4">
                     {/* Progress Stepper Full */}
                     <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
@@ -1311,12 +1366,11 @@ export default function POManagementPage() {
                       )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })()}
-        </div>
-      )}
+                </div>
+              </aside>
+            </div>
+          );
+        })()}
 
       {/* Create PO Modal */}
       {showCreateModal && (
