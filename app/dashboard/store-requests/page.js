@@ -51,7 +51,10 @@ export default function StoreRequestsPage() {
   const {
     deliveryRequests,
     deliveryRequestStats,
+    storePendingRequests,
+    storePendingCount,
     fetchApprovedRequestsForStore,
+    fetchPendingApprovalForStore,
     fetchAvailableInventoryForRequest,
     assignItemsToRequest,
     isLoading
@@ -70,22 +73,35 @@ export default function StoreRequestsPage() {
   const [serialSearchTerm, setSerialSearchTerm] = useState('');
 
   const isAuthorized = isStoreManager;
+  const isPendingTab = activeTab === 'PENDING_APPROVAL';
+
+  // Which dataset feeds the list — the pending tab is read-only and lives in
+  // its own store slice so it never overwrites the Approved/Assigned data.
+  const displayRequests = isPendingTab ? storePendingRequests : deliveryRequests;
+
+  // Refetch the right dataset for whichever tab is active.
+  const refetchActive = () => {
+    if (activeTab === 'PENDING_APPROVAL') fetchPendingApprovalForStore();
+    else fetchApprovedRequestsForStore(activeTab);
+  };
 
   // Modal accessibility: Escape-to-close, scroll lock, autofocus
   useModal(showAssignModal, () => !isAssigning && handleCloseAssignModal());
 
-  useSocketRefresh(() => fetchApprovedRequestsForStore(activeTab), { enabled: isAuthorized });
+  useSocketRefresh(() => refetchActive(), { enabled: isAuthorized });
 
   const tabs = [
+    { id: 'PENDING_APPROVAL', label: 'Pending Approval', count: storePendingCount },
     { id: 'APPROVED', label: 'Approved', count: deliveryRequestStats.approved },
     { id: 'ASSIGNED', label: 'Assigned', count: deliveryRequestStats.assigned }
   ];
 
   useEffect(() => {
     if (isAuthorized) {
-      fetchApprovedRequestsForStore(activeTab);
+      refetchActive();
     }
-  }, [isAuthorized, activeTab, fetchApprovedRequestsForStore]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthorized, activeTab]);
 
   const handleOpenAssignModal = async (request) => {
     setSelectedRequest(request);
@@ -260,7 +276,7 @@ export default function StoreRequestsPage() {
           key: tab.id,
           label: tab.label,
           count: tab.count,
-          variant: tab.id === 'APPROVED' ? 'success' : 'info',
+          variant: tab.id === 'PENDING_APPROVAL' ? 'warning' : tab.id === 'APPROVED' ? 'success' : 'info',
         }))}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -272,21 +288,31 @@ export default function StoreRequestsPage() {
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
         </div>
-      ) : deliveryRequests.length === 0 ? (
+      ) : displayRequests.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16">
           <Package className="h-16 w-16 text-slate-300 mb-4" />
           <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">
             No requests found
           </h3>
           <p className="text-slate-500">
-            {activeTab === 'APPROVED' ? 'No approved requests waiting for assignment.' : 'No requests in this category.'}
+            {isPendingTab ? 'No requests waiting for admin approval.' : activeTab === 'APPROVED' ? 'No approved requests waiting for assignment.' : 'No requests in this category.'}
           </p>
         </div>
       ) : (
         <>
+          {/* Read-only notice on the pending tab */}
+          {isPendingTab && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+              <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                These requests are awaiting admin approval. They're shown here for visibility only — you can assign items once they're approved and move to the <strong>Approved</strong> tab.
+              </p>
+            </div>
+          )}
+
           {/* Mobile Card View */}
           <div className="lg:hidden divide-y divide-slate-200 dark:divide-slate-700">
-                {deliveryRequests.map((request) => {
+                {displayRequests.map((request) => {
                   const isExpanded = expandedItems[request.id];
                   return (
                     <div key={request.id} className="p-4 space-y-3">
@@ -414,7 +440,7 @@ export default function StoreRequestsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {deliveryRequests.map((row) => (
+                    {displayRequests.map((row) => (
                       <Fragment key={row.id}>
                         <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                           <td className="px-4 py-3">
@@ -535,10 +561,10 @@ export default function StoreRequestsPage() {
                     ))}
                   </tbody>
                 </table>
-                {deliveryRequests.length === 0 && (
+                {displayRequests.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-16">
                     <Package className="h-12 w-12 text-slate-300 mb-3" />
-                    <p className="text-sm text-slate-500">{activeTab === 'APPROVED' ? 'No approved requests waiting for assignment.' : 'No requests in this category.'}</p>
+                    <p className="text-sm text-slate-500">{isPendingTab ? 'No requests waiting for admin approval.' : activeTab === 'APPROVED' ? 'No approved requests waiting for assignment.' : 'No requests in this category.'}</p>
                   </div>
                 )}
               </div>

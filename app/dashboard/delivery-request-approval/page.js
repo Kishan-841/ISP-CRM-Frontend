@@ -52,7 +52,7 @@ const getStatusBadge = (status) => getStatusBadgeClass(status, DELIVERY_APPROVAL
 const getUrgencyBadge = (urgency) => getStatusBadgeClass(urgency, DELIVERY_URGENCY_CONFIG, 'bg-slate-100 text-slate-600 border-slate-200');
 
 export default function DeliveryRequestApprovalPage() {
-  const { user, isSuperAdmin, isAreaHead } = useRoleCheck();
+  const { user, isSuperAdmin } = useRoleCheck();
   const {
     deliveryRequests,
     deliveryRequestStats,
@@ -69,7 +69,7 @@ export default function DeliveryRequestApprovalPage() {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
 
-  const isAuthorized = isSuperAdmin || isAreaHead;
+  const isAuthorized = isSuperAdmin;
 
   // Modal accessibility: Escape-to-close, scroll lock, autofocus
   useModal(showDetailsModal, () => { setShowDetailsModal(false); setSelectedRequest(null); });
@@ -149,7 +149,7 @@ export default function DeliveryRequestApprovalPage() {
           <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Access Denied</h2>
           <p className="text-slate-600 dark:text-slate-400">
-            Only Super Admin and Area Head can access this page.
+            Only Super Admin can access this page.
           </p>
         </div>
       </div>
@@ -246,13 +246,7 @@ export default function DeliveryRequestApprovalPage() {
                 {row.superAdminApprovedBy && (
                   <span className="text-xs text-emerald-600">
                     <CheckCircle className="h-3 w-3 inline mr-1" />
-                    Super Admin
-                  </span>
-                )}
-                {row.areaHeadApprovedBy && (
-                  <span className="text-xs text-emerald-600">
-                    <CheckCircle className="h-3 w-3 inline mr-1" />
-                    Area Head
+                    Approved
                   </span>
                 )}
               </div>
@@ -473,17 +467,6 @@ export default function DeliveryRequestApprovalPage() {
                           <span className="text-emerald-600 flex items-center gap-1">
                             <CheckCircle className="h-4 w-4" />
                             Approved by {selectedRequest.superAdminApprovedBy.name}
-                          </span>
-                        ) : (
-                          <span className="text-amber-600">Pending</span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-600 dark:text-slate-400">Area Head</span>
-                        {selectedRequest.areaHeadApprovedBy ? (
-                          <span className="text-emerald-600 flex items-center gap-1">
-                            <CheckCircle className="h-4 w-4" />
-                            Approved by {selectedRequest.areaHeadApprovedBy.name}
                           </span>
                         ) : (
                           <span className="text-amber-600">Pending</span>

@@ -479,7 +479,7 @@ function stageAccentClass(stage, label, isError) {
     'ACTUAL_PLAN', 'CUSTOMER_ACCEPTED', 'CUSTOMER_CREATED', 'NOC_CONFIGURED',
     'DOCS_VERIFIED', 'ACCOUNTS_VERIFIED', 'GST_VERIFIED', 'SALES_DIRECTOR_APPROVED',
     'QUOTATION_SUBMITTED', 'FEASIBILITY_APPROVED', 'QUOTE_SHARED',
-    'DELIVERY_SUPER_ADMIN_APPROVED', 'DELIVERY_AREA_HEAD_APPROVED',
+    'DELIVERY_SUPER_ADMIN_APPROVED',
     'DELIVERY_DISPATCHED', 'DELIVERY_COMPLETED', 'INSTALLATION_COMPLETED',
     'LOGIN_COMPLETED', 'DOCS_UPLOADED',
   ];
@@ -572,7 +572,6 @@ function JourneyTable({ events }) {
 // indent them in the table for visual grouping under their request.
 const DELIVERY_SUB_STAGES = new Set([
   'DELIVERY_SUPER_ADMIN_APPROVED', 'DELIVERY_SUPER_ADMIN_REJECTED',
-  'DELIVERY_AREA_HEAD_APPROVED',   'DELIVERY_AREA_HEAD_REJECTED',
   'DELIVERY_ASSIGNED_TO_STORE',    'DELIVERY_DISPATCHED',
   'DELIVERY_COMPLETED',
 ]);
@@ -804,12 +803,6 @@ function EventMeta({ meta, stage }) {
       items.push({
         label: 'Super Admin Approval',
         value: `${meta.approvalChain.superAdmin.user.name} on ${formatDate(meta.approvalChain.superAdmin.at)}`,
-      });
-    }
-    if (meta.approvalChain?.areaHead) {
-      items.push({
-        label: 'Area Head Approval',
-        value: `${meta.approvalChain.areaHead.user.name} on ${formatDate(meta.approvalChain.areaHead.at)}`,
       });
     }
     if (meta.dispatchedAt) items.push({ label: 'Dispatched', value: formatDate(meta.dispatchedAt) });

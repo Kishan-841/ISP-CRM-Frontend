@@ -193,7 +193,6 @@ export default function Sidebar() {
   const isAccountsTeam = user?.role === 'ACCOUNTS_TEAM';
   const isDeliveryTeam = user?.role === 'DELIVERY_TEAM';
   const isStoreManager = user?.role === 'STORE_MANAGER';
-  const isAreaHead = user?.role === 'AREA_HEAD';
   const isNOC = user?.role === 'NOC';
   const isNOCHead = user?.role === 'NOC_HEAD';
   const isSAMHead = user?.role === 'SAM_HEAD';
@@ -203,7 +202,6 @@ export default function Sidebar() {
   const isBDMCP = user?.role === 'BDM_CP';
   const isSuperAdmin2 = user?.role === 'SUPER_ADMIN_2';
   const isMaster = user?.role === 'MASTER';
-  const canApproveDeliveryRequest = isSuperAdmin || isAreaHead;
 
   // Accent colors
   const accent = {
@@ -668,10 +666,6 @@ export default function Sidebar() {
     ...(canApprovePO && !isSuperAdmin ? [
       { name: 'PO Approval', path: '/dashboard/po-approval', icon: CheckCircle2, badge: counts.poApprovalPending > 0 ? counts.poApprovalPending : null },
       { name: 'Goods Receipt', path: '/dashboard/goods-receipt', icon: ClipboardCheck },
-    ] : []),
-    // Delivery Request Approval - Area Head only (Super Admin gets it via Approvals submenu)
-    ...(canApproveDeliveryRequest && !isSuperAdmin ? [
-      { name: 'Delivery Approval', path: '/dashboard/delivery-request-approval', icon: ClipboardCheck, badge: counts.deliveryRequestPending > 0 ? counts.deliveryRequestPending : null },
     ] : []),
     // Sales Director items
     ...(isSalesDirector ? [

@@ -105,7 +105,6 @@ export default function DashboardPage() {
       SUPPORT_TEAM: '/dashboard/complaints',
       SUPER_ADMIN_2: '/dashboard/super-admin2-approval',
       SAM: '/dashboard/sam-data',
-      AREA_HEAD: '/dashboard/delivery-request-approval',
     };
     const target = redirectMap[user.role];
     if (target) router.replace(target);

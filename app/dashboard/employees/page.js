@@ -288,7 +288,6 @@ export default function EmployeesPage() {
                 <option value="">All Roles</option>
                 <option value="SUPER_ADMIN">Super Admin</option>
                 <option value="ADMIN">Admin</option>
-                <option value="AREA_HEAD">Area Head</option>
                 <option value="BDM">BDM</option>
                 <option value="BDM_TEAM_LEADER">BDM Team Leader</option>
                 <option value="ISR">ISR</option>
@@ -363,8 +362,6 @@ export default function EmployeesPage() {
                               ? 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'
                               : u.role === 'ADMIN'
                               ? 'bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800'
-                              : u.role === 'AREA_HEAD'
-                              ? 'bg-fuchsia-100 dark:bg-fuchsia-900 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-800'
                               : u.role === 'BDM'
                               ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
                               : u.role === 'BDM_TEAM_LEADER'
@@ -394,7 +391,7 @@ export default function EmployeesPage() {
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                           }
                         >
-                          {u.role === 'SUPER_ADMIN' ? 'Super Admin' : u.role === 'ADMIN' ? 'Admin' : u.role === 'AREA_HEAD' ? 'Area Head' : u.role === 'BDM' ? 'BDM' : u.role === 'BDM_TEAM_LEADER' ? 'BDM Team Leader' : u.role === 'SAM' ? 'SAM' : u.role === 'SAM_HEAD' ? 'SAM Head' : u.role === 'SAM_EXECUTIVE' ? 'SAM Executive' : u.role === 'FEASIBILITY_TEAM' ? 'Feasibility Team' : u.role === 'OPS_TEAM' ? 'OPS Team' : u.role === 'DOCS_TEAM' ? 'Docs Team' : u.role === 'ACCOUNTS_TEAM' ? 'Accounts Team' : u.role === 'DELIVERY_TEAM' ? 'Delivery Team' : u.role === 'STORE_MANAGER' ? 'Store Manager' : u.role === 'NOC' ? 'NOC' : u.role === 'NOC_HEAD' ? 'NOC Head' : u.role === 'SALES_DIRECTOR' ? 'Sales Director' : u.role === 'BDM_CP' ? 'BDM (CP)' : 'ISR'}
+                          {u.role === 'SUPER_ADMIN' ? 'Super Admin' : u.role === 'ADMIN' ? 'Admin' : u.role === 'BDM' ? 'BDM' : u.role === 'BDM_TEAM_LEADER' ? 'BDM Team Leader' : u.role === 'SAM' ? 'SAM' : u.role === 'SAM_HEAD' ? 'SAM Head' : u.role === 'SAM_EXECUTIVE' ? 'SAM Executive' : u.role === 'FEASIBILITY_TEAM' ? 'Feasibility Team' : u.role === 'OPS_TEAM' ? 'OPS Team' : u.role === 'DOCS_TEAM' ? 'Docs Team' : u.role === 'ACCOUNTS_TEAM' ? 'Accounts Team' : u.role === 'DELIVERY_TEAM' ? 'Delivery Team' : u.role === 'STORE_MANAGER' ? 'Store Manager' : u.role === 'NOC' ? 'NOC' : u.role === 'NOC_HEAD' ? 'NOC Head' : u.role === 'SALES_DIRECTOR' ? 'Sales Director' : u.role === 'BDM_CP' ? 'BDM (CP)' : 'ISR'}
                         </Badge>
                         {u.teamLeader && (
                           <span className="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">
@@ -650,7 +647,6 @@ export default function EmployeesPage() {
                         className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-600 focus:border-transparent"
                       >
                         <option value="ADMIN">Admin</option>
-                        <option value="AREA_HEAD">Area Head</option>
                         <option value="ISR">ISR (Inside Sales Representative)</option>
                         <option value="BDM">BDM (Business Development Manager)</option>
                         <option value="BDM_TEAM_LEADER">BDM Team Leader</option>

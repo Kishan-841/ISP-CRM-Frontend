@@ -837,8 +837,6 @@ export default function DeliveryQueuePage() {
   // Get request status badge and label
   const REQUEST_STATUS_ICON_MAP = {
     PENDING_APPROVAL: Clock,
-    SUPER_ADMIN_APPROVED: CheckCircle,
-    AREA_HEAD_APPROVED: CheckCircle,
     APPROVED: CheckCircle,
     REJECTED: X,
     ASSIGNED: Package,
@@ -879,7 +877,7 @@ export default function DeliveryQueuePage() {
       if (activeRequest.pushedToNocAt) {
         return 'pushed_to_noc';
       }
-      if (['PENDING_APPROVAL', 'SUPER_ADMIN_APPROVED', 'AREA_HEAD_APPROVED', 'APPROVED'].includes(activeRequest.status)) {
+      if (['PENDING_APPROVAL', 'APPROVED'].includes(activeRequest.status)) {
         return 'material_requested';
       }
     }
@@ -936,7 +934,7 @@ export default function DeliveryQueuePage() {
       case 'material_rejected': {
         // Rejected - show reason and re-request
         const rejectedRequest = lead.activeDeliveryRequest;
-        const rejectionReason = rejectedRequest?.areaHeadRejectionReason || rejectedRequest?.superAdminRejectionReason || 'No reason provided';
+        const rejectionReason = rejectedRequest?.superAdminRejectionReason || 'No reason provided';
         return (
           <div className="flex flex-col items-center gap-1">
             <span className="text-[10px] text-red-600 max-w-[150px] truncate" title={rejectionReason}>
