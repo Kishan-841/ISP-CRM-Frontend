@@ -152,6 +152,18 @@ export default function DeliveryVendorSetup({ lead, onSaved }) {
   const removeMaterial = (idx) => setMaterials(prev => prev.filter((_, i) => i !== idx));
   const updateMaterial = (idx, field, value) => setMaterials(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
 
+  // Changing the vendor type at setup time. Feasibility's pick is only a
+  // starting point — the real type sometimes firms up here at the very
+  // end. Clearing selectedVendorId is important: a vendor chosen for the
+  // old type doesn't belong under the new one (and may be a different
+  // category entirely). The vendor dropdown re-fetches automatically
+  // because vendorCategory is derived from vendorType.
+  const handleVendorTypeChange = (key) => {
+    if (key === vendorType) return;
+    setLocalVendorType(key);
+    setSelectedVendorId('');
+  };
+
   const handleSave = async () => {
     if (!vendorType) return toast.error('Please select a vendor type');
     if (!isOwnNetwork && !selectedVendorId) return toast.error('Please select a vendor');
@@ -239,22 +251,35 @@ export default function DeliveryVendorSetup({ lead, onSaved }) {
         {vendorType && <Badge variant="outline" className="text-xs">{vendorTypeLabel}</Badge>}
       </div>
 
-      {/* Step 1: Vendor Type (if not pre-set) */}
-      {!vendorType && (
-        <div>
-          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-            Select Vendor Type <span className="text-red-500">*</span>
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {Object.entries(VENDOR_TYPE_LABELS).map(([key, label]) => (
-              <button key={key} type="button" onClick={() => setLocalVendorType(key)}
-                className="px-3 py-2 rounded-md border-2 text-xs font-medium bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-violet-400 transition-colors">
+      {/* Step 1: Vendor Type — always editable. Feasibility pre-selects a
+          type, but the delivery team can change it here (e.g. a lead set
+          as Fiber Vendor that's actually Own Network). Changing it resets
+          the vendor selection and re-renders the type-specific fields. */}
+      <div>
+        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
+          Vendor Type <span className="text-red-500">*</span>
+          {vendorType && (
+            <span className="ml-2 font-normal text-[11px] text-slate-400">
+              (tap a different type to change)
+            </span>
+          )}
+        </label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {Object.entries(VENDOR_TYPE_LABELS).map(([key, label]) => {
+            const active = vendorType === key;
+            return (
+              <button key={key} type="button" onClick={() => handleVendorTypeChange(key)}
+                className={`px-3 py-2 rounded-md border-2 text-xs font-medium transition-colors ${
+                  active
+                    ? 'bg-violet-600 text-white border-violet-600'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-violet-400'
+                }`}>
                 {label}
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {vendorType && (
         <>
