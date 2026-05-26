@@ -1,6 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import { useAuditStore } from '@/lib/store';
+import { actionBadgeClass } from '@/lib/auditFormat';
 
 export default function AuditEventTable({ onRowClick }) {
   const { items, total, nextCursor, isLoading, error, fetchEvents } = useAuditStore();
@@ -45,7 +46,11 @@ export default function AuditEventTable({ onRowClick }) {
                 {r.actor?.name || <span className="text-slate-400">—</span>}{' '}
                 <span className="text-xs text-slate-500">{r.actor?.role}</span>
               </td>
-              <td className="px-4 py-2 font-mono text-xs">{r.action}</td>
+              <td className="px-4 py-2">
+                <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${actionBadgeClass(r.action)}`}>
+                  {r.action}
+                </span>
+              </td>
               <td className="px-4 py-2">
                 {r.entityLabel
                   ? <>{r.entityLabel}</>
