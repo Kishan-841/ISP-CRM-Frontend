@@ -215,6 +215,9 @@ export default function SuperAdmin2ApprovalPage() {
           {row.otcAmount > 0 && (
             <p className="text-sm text-slate-500 dark:text-slate-400">OTC: {formatCurrency(row.otcAmount)}</p>
           )}
+          {row.quotationRevisedAt && (
+            <div className="mt-1"><QuotationRevisedBadge lead={row} size="xs" /></div>
+          )}
         </div>
       )
     },

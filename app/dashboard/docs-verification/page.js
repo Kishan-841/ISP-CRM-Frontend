@@ -37,6 +37,7 @@ import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import TabBar from '@/components/TabBar';
 import { PageHeader } from '@/components/PageHeader';
+import QuotationRevisedBadge from '@/components/QuotationRevisedBadge';
 
 // Helper to get documents as array from object or array format
 const getDocumentsArray = (documents) => {
@@ -558,6 +559,9 @@ export default function DocsVerificationPage() {
                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100 mt-0.5">{lead.bdm?.name || '-'}</p>
                   </div>
                 </div>
+                {lead.quotationRevisedAt && (
+                  <div className="mt-2"><QuotationRevisedBadge lead={lead} size="xs" /></div>
+                )}
               </div>
 
               {/* Footer */}
@@ -609,6 +613,9 @@ export default function DocsVerificationPage() {
                   )}
                   {lead.otcAmount && (
                     <p className="text-sm"><span className="text-slate-500 dark:text-slate-400">OTC:</span> <span className="font-medium text-slate-900 dark:text-slate-100">₹{parseFloat(lead.otcAmount).toLocaleString('en-IN')}</span></p>
+                  )}
+                  {lead.quotationRevisedAt && (
+                    <div className="pt-1"><QuotationRevisedBadge lead={lead} size="xs" /></div>
                   )}
                 </div>
               ),

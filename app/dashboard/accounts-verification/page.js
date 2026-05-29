@@ -676,6 +676,9 @@ export default function AccountsVerificationPage() {
                       )}
                     </div>
                   )}
+                  {lead.quotationRevisedAt && (
+                    <QuotationRevisedBadge lead={lead} size="xs" />
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-2.5">
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold uppercase">BDM</p>
@@ -842,6 +845,9 @@ export default function AccountsVerificationPage() {
                           )}
                         </div>
                       )}
+                      {lead.quotationRevisedAt && (
+                        <div className="pt-1"><QuotationRevisedBadge lead={lead} size="xs" /></div>
+                      )}
                     </div>
                   );
                 }
@@ -987,6 +993,9 @@ export default function AccountsVerificationPage() {
                     </div>
                   )}
                 </div>
+                {lead.quotationRevisedAt && (
+                  <QuotationRevisedBadge lead={lead} size="xs" />
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-2.5">
                     <p className="text-[11px] text-orange-600 dark:text-orange-400 font-semibold uppercase">Documents</p>

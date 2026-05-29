@@ -1543,6 +1543,9 @@ export default function QuotationManagementPage() {
                                 {formatCurrency(lead.arcAmount)}
                               </p>
                               <p className="text-xs text-slate-500">ARC</p>
+                              {lead.quotationRevisedAt && (
+                                <div className="mt-1"><QuotationRevisedBadge lead={lead} size="xs" /></div>
+                              )}
                             </div>
                           ) : (
                             <span className="text-slate-400">-</span>

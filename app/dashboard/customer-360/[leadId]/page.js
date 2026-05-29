@@ -58,6 +58,7 @@ import {
 } from '@/lib/statusConfig';
 import TabBar from '@/components/TabBar';
 import EventTimeline from '@/components/audit/EventTimeline';
+import QuotationRevisedBadge from '@/components/QuotationRevisedBadge';
 
 // ─── Formatters ───
 
@@ -986,7 +987,10 @@ function PricingCard({ pricing }) {
   ];
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-      <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Pricing</h4>
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Pricing</h4>
+        <QuotationRevisedBadge lead={pricing} />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         {items.map((item, i) => (
           <div key={i}>
