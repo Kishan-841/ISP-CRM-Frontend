@@ -27,9 +27,12 @@ import {
   FileText,
   BarChart3,
   CalendarDays,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 import api from '@/lib/api';
 import DataTable from '@/components/DataTable';
 import { PageHeader } from '@/components/PageHeader';
@@ -61,6 +64,7 @@ export default function CallHistoryPage() {
   // ISR filter (admins + Sales Director only — ISRs only see their own calls)
   const [isrFilter, setIsrFilter] = useState('');
   const [isrOptions, setIsrOptions] = useState([]);
+  const [exporting, setExporting] = useState(false);
 
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER';
   const isSalesDirector = user?.role === 'SALES_DIRECTOR';
@@ -241,6 +245,85 @@ export default function CallHistoryPage() {
     );
   };
 
+  const hasActiveFilter =
+    !!searchQuery ||
+    dateFilter !== 'all' ||
+    (canViewAll && !!isrFilter);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const PAGE_SIZE = 500;
+      const all = [];
+      let page = 1;
+      let totalPages = 1;
+
+      const { startDate, endDate } = getDateRange();
+
+      do {
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(PAGE_SIZE),
+        });
+        if (searchQuery) params.append('search', searchQuery);
+        if (startDate) params.append('startDate', startDate.toISOString());
+        if (endDate) params.append('endDate', endDate.toISOString());
+        if (canViewAll && isrFilter) params.append('isrId', isrFilter);
+
+        const res = await api.get(`/campaigns/call-history?${params}`);
+        const rows = res.data.callLogs || [];
+        all.push(...rows);
+        totalPages = res.data.pagination?.totalPages || 1;
+        page += 1;
+      } while (page <= totalPages);
+
+      if (all.length === 0) {
+        toast.error('No call records to export');
+        return;
+      }
+
+      const formatted = all.map((r) => ({
+        'Company': r.company || '',
+        'Contact Name': r.name || '',
+        'Phone': r.phone || '',
+        'Campaign': r.campaign || '',
+        'Campaign Code': r.campaignCode || '',
+        'Outcome': (r.outcome || '').replace(/_/g, ' ').toLowerCase(),
+        'Other Reason': r.otherReason || '',
+        'Products Pitched': Array.isArray(r.products)
+          ? r.products.map((p) => p.title).filter(Boolean).join(', ')
+          : '',
+        'Duration': formatDuration(r.duration),
+        'Duration (sec)': r.duration ?? 0,
+        'ISR Name': r.isrName || '',
+        'Date & Time': formatDateTime(r.dateTime),
+        'Notes': r.notes || '',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(formatted);
+      const headers = Object.keys(formatted[0]);
+      ws['!cols'] = headers.map((h) => ({
+        wch: Math.min(
+          50,
+          Math.max(h.length, ...formatted.map((row) => String(row[h] ?? '').length)) + 2
+        ),
+      }));
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Call History');
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      const scope = hasActiveFilter ? 'filtered' : 'all';
+      XLSX.writeFile(wb, `call_history_${scope}_${stamp}.xlsx`);
+      toast.success(`Exported ${all.length} call record(s)`);
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast.error('Failed to export call history');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const callHistoryColumns = [
     {
       key: 'company',
@@ -383,6 +466,24 @@ export default function CallHistoryPage() {
               </Select>
             </div>
           )}
+
+          <Button
+            onClick={handleExport}
+            disabled={exporting || isLoading}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {exporting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-2" />
+                {hasActiveFilter ? 'Export filtered' : 'Export all'}
+              </>
+            )}
+          </Button>
         </div>
       </PageHeader>
 
