@@ -18,7 +18,8 @@ import {
   DollarSign,
   Wifi,
   Eye,
-  Send
+  Send,
+  RefreshCw
 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatCard from '@/components/StatCard';
@@ -26,8 +27,11 @@ import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
+import { useRoleCheck } from '@/lib/useRoleCheck';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
+import ReviseQuotationModal from '@/components/ReviseQuotationModal';
+import QuotationRevisedBadge from '@/components/QuotationRevisedBadge';
 
 const TABS = [
   { key: 'pending', label: 'Pending', icon: Clock, color: 'amber' },
@@ -51,6 +55,8 @@ export default function SuperAdmin2ApprovalPage() {
 
   // Detail modal
   const [selectedLead, setSelectedLead] = useState(null);
+  const { canRevisePricing } = useRoleCheck();
+  const [reviseLead, setReviseLead] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
   // Disposition
@@ -388,11 +394,27 @@ export default function SuperAdmin2ApprovalPage() {
               {/* SA2 Decision Banner (for approved/rejected tabs) */}
               {selectedLead.superAdmin2ApprovalStatus === 'APPROVED' && (
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" size={20} />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Approved by {selectedLead.superAdmin2ApprovedBy?.name || 'Admin'}</p>
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400">{formatDate(selectedLead.superAdmin2ApprovedAt)}</p>
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" size={20} />
+                      <div>
+                        <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Approved by {selectedLead.superAdmin2ApprovedBy?.name || 'Admin'}</p>
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400">{formatDate(selectedLead.superAdmin2ApprovedAt)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <QuotationRevisedBadge lead={selectedLead} />
+                      {canRevisePricing && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                          onClick={() => setReviseLead(selectedLead)}
+                        >
+                          <RefreshCw size={12} className="mr-1" />
+                          Revise Pricing
+                        </Button>
+                      )}
                     </div>
                   </div>
                   {selectedLead.superAdmin2ApprovalNotes && (
@@ -707,6 +729,17 @@ export default function SuperAdmin2ApprovalPage() {
           </div>
         </div>
       )}
+
+      {/* Sales Director — Revise Pricing */}
+      <ReviseQuotationModal
+        lead={reviseLead}
+        open={!!reviseLead}
+        onClose={() => setReviseLead(null)}
+        onSuccess={(updated) => {
+          // Reflect the new ARC/OTC + revision tags inside the open detail modal
+          setSelectedLead((cur) => (cur && cur.id === updated.id ? { ...cur, ...updated } : cur));
+        }}
+      />
     </>
   );
 }

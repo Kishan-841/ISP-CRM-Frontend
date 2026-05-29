@@ -48,6 +48,7 @@ import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { formatCurrency } from '@/lib/formatters';
 import TabBar from '@/components/TabBar';
+import QuotationRevisedBadge from '@/components/QuotationRevisedBadge';
 
 // Helper to get documents as array from object or array format
 const getDocumentsArray = (documents) => {
@@ -1464,56 +1465,18 @@ export default function AccountsVerificationPage() {
                 </div>
               )}
 
-              {/* Financial Details - Editable for BDM on rejected leads */}
-              {(isBDM && selectedLead.accountsStatus === 'ACCOUNTS_REJECTED') ? (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-700">
-                  <h4 className="text-sm font-medium text-red-700 dark:text-red-300 mb-3 flex items-center gap-2">
-                    <IndianRupee size={16} />
-                    Update Pricing
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <label className="block text-xs text-red-600 dark:text-red-400 mb-1">ARC (Monthly)</label>
-                      <Input
-                        type="number"
-                        value={editArc}
-                        onChange={(e) => setEditArc(e.target.value)}
-                        placeholder="Enter ARC"
-                        className="text-sm h-10"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-red-600 dark:text-red-400 mb-1">OTC (One-time)</label>
-                      <Input
-                        type="number"
-                        value={editOtc}
-                        onChange={(e) => setEditOtc(e.target.value)}
-                        placeholder="Enter OTC"
-                        className="text-sm h-10"
-                      />
-                    </div>
-                  </div>
-                  <Button
-                    onClick={handleUpdateFinancials}
-                    disabled={isUpdating}
-                    className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white"
-                  >
-                    {isUpdating ? (
-                      <>
-                        <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                        Updating...
-                      </>
-                    ) : (
-                      'Update & Resubmit for Review'
-                    )}
-                  </Button>
-                </div>
-              ) : (selectedLead.arcAmount || selectedLead.otcAmount) && (
+              {/* Financial Details — read-only for BDM. Sales Director is the
+                  only role allowed to revise ARC/OTC; the "Revise Pricing"
+                  button lives on Quotation Mgmt and Quotation Approval pages. */}
+              {(selectedLead.arcAmount || selectedLead.otcAmount) && (
                 <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
-                  <h4 className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-3 flex items-center gap-2">
-                    <IndianRupee size={16} />
-                    Financial Details
-                  </h4>
+                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                    <h4 className="text-sm font-medium text-orange-700 dark:text-orange-300 flex items-center gap-2">
+                      <IndianRupee size={16} />
+                      Financial Details
+                    </h4>
+                    <QuotationRevisedBadge lead={selectedLead} />
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {selectedLead.arcAmount && (
                       <div>

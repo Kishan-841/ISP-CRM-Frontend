@@ -64,6 +64,8 @@ import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { formatCurrency } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
+import ReviseQuotationModal from '@/components/ReviseQuotationModal';
+import QuotationRevisedBadge from '@/components/QuotationRevisedBadge';
 
 // Stage configuration with explicit Tailwind classes for proper purging
 const STAGES = [
@@ -159,7 +161,7 @@ const STAGES = [
 
 export default function QuotationManagementPage() {
   const router = useRouter();
-  const { user, isBDM: _isBDM, isBDMCP, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster } = useRoleCheck();
+  const { user, isBDM: _isBDM, isBDMCP, isBDMTeamLeader: _isBDMTeamLeader, isSuperAdmin: isAdmin, isMaster, canRevisePricing } = useRoleCheck();
   const isBDM = isMaster ? false : _isBDM;
   const isBDMTeamLeader = isMaster ? false : _isBDMTeamLeader;
   const canAccessBDM = isBDM || isBDMCP || isBDMTeamLeader || isAdmin;
@@ -285,12 +287,12 @@ export default function QuotationManagementPage() {
   const [advanceOtcAmount, setAdvanceOtcAmount] = useState('');
   const [advanceOtcDate, setAdvanceOtcDate] = useState('');
 
-  // Editable ARC/OTC amounts
-  const [editableArc, setEditableArc] = useState('');
-  const [editableOtc, setEditableOtc] = useState('');
 
   // Accounts rejected edit modal
   const [showAccountsRejectedModal, setShowAccountsRejectedModal] = useState(false);
+  // Sales Director — Revise Pricing modal
+  const [reviseLead, setReviseLead] = useState(null);
+  const handleOpenReviseModal = (lead) => setReviseLead(lead);
   const [rejectedEditArc, setRejectedEditArc] = useState('');
   const [rejectedEditOtc, setRejectedEditOtc] = useState('');
   const [isResubmitting, setIsResubmitting] = useState(false);
@@ -495,9 +497,6 @@ export default function QuotationManagementPage() {
     setCustomerNote('');
     // Initialize all documents as selected for link generation
     setSelectedDocsForLink(getAllDocumentTypes().map(d => d.id));
-    // Initialize editable ARC/OTC from lead
-    setEditableArc(lead.arcAmount?.toString() || '');
-    setEditableOtc(lead.otcAmount?.toString() || '');
     // Reset advance OTC states
     const existingAdvanceOtc = lead.documents?.ADVANCE_OTC;
     setAdvanceOtcMethod(existingAdvanceOtc?.paymentMethod || '');
@@ -1283,13 +1282,15 @@ export default function QuotationManagementPage() {
     }
 
     if (activeStage === 'accounts_review') {
-      if (accountsStatus === 'rejected') {
+      // Sales Director can revise pricing on any SA2-approved lead — including
+      // ones Accounts rejected. BDMs no longer edit ARC/OTC anywhere.
+      if (canRevisePricing && lead.superAdmin2ApprovalStatus === 'APPROVED') {
         return (
           <Button
             size="icon"
-            onClick={() => handleOpenAccountsRejectedModal(lead)}
-            className="bg-red-600 hover:bg-red-700 text-white h-8 w-8"
-            title="Edit ARC/OTC & Resubmit"
+            onClick={() => handleOpenReviseModal(lead)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 w-8"
+            title="Revise pricing (Sales Director)"
           >
             <RefreshCw size={16} />
           </Button>
@@ -2583,7 +2584,23 @@ export default function QuotationManagementPage() {
               {/* Financial Info */}
               {(selectedLead.arcAmount || selectedLead.otcAmount) && (
                 <div className="p-3 sm:p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                  <h4 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 mb-3">Financial Details</h4>
+                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                    <h4 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Financial Details</h4>
+                    <div className="flex items-center gap-2">
+                      <QuotationRevisedBadge lead={selectedLead} />
+                      {canRevisePricing && selectedLead.superAdmin2ApprovalStatus === 'APPROVED' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                          onClick={() => handleOpenReviseModal(selectedLead)}
+                        >
+                          <RefreshCw size={12} className="mr-1" />
+                          Revise Pricing
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
                       <p className="text-xs text-emerald-600 dark:text-emerald-400">ARC</p>
@@ -3330,37 +3347,6 @@ export default function QuotationManagementPage() {
                       })}
                     </div>
 
-                    {/* Editable ARC/OTC Fields */}
-                    <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                        <IndianRupee size={14} />
-                        Pricing Details
-                      </h3>
-                      <div className={selectedLead?.hasOtc !== false ? "grid grid-cols-2 gap-3" : ""}>
-                        <div>
-                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">ARC (Monthly)</label>
-                          <Input
-                            type="number"
-                            value={editableArc}
-                            onChange={(e) => setEditableArc(e.target.value)}
-                            placeholder="Enter ARC"
-                            className="text-sm h-9"
-                          />
-                        </div>
-                        {selectedLead?.hasOtc !== false && (
-                          <div>
-                            <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">OTC (One-time)</label>
-                            <Input
-                              type="number"
-                              value={editableOtc}
-                              onChange={(e) => setEditableOtc(e.target.value)}
-                              placeholder="Enter OTC"
-                              className="text-sm h-9"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
                   </div>
                 )}
 
@@ -3730,37 +3716,6 @@ export default function QuotationManagementPage() {
                         </div>
                       )}
 
-                      {/* Editable ARC/OTC Fields */}
-                      <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                          <IndianRupee size={14} />
-                          Pricing Details
-                        </h3>
-                        <div className={selectedLead?.hasOtc !== false ? "grid grid-cols-2 gap-3" : ""}>
-                          <div>
-                            <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">ARC (Monthly)</label>
-                            <Input
-                              type="number"
-                              value={editableArc}
-                              onChange={(e) => setEditableArc(e.target.value)}
-                              placeholder="Enter ARC"
-                              className="text-sm h-9"
-                            />
-                          </div>
-                          {selectedLead?.hasOtc !== false && (
-                            <div>
-                              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">OTC (One-time)</label>
-                              <Input
-                                type="number"
-                                value={editableOtc}
-                                onChange={(e) => setEditableOtc(e.target.value)}
-                                placeholder="Enter OTC"
-                                className="text-sm h-9"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -3783,11 +3738,14 @@ export default function QuotationManagementPage() {
 
                     setIsSaving(true);
                     try {
+                      // No ARC/OTC override here — pricing is locked once the
+                      // Sales Director approves the quotation. Backend keeps
+                      // the lead's existing arcAmount/otcAmount when omitted.
                       const result = await pushToDocsVerificationTyped(
                         selectedLead.id,
                         testMode ? '(TEST MODE) Bypassed document upload' : 'Documents submitted for verification',
                         testMode,
-                        { arcAmount: parseFloat(editableArc) || selectedLead.arcAmount, otcAmount: parseFloat(editableOtc) || selectedLead.otcAmount },
+                        {},
                         hasGst,
                       );
 
@@ -3933,6 +3891,14 @@ export default function QuotationManagementPage() {
           onClose={() => setPreviewDoc(null)}
         />
       )}
+
+      {/* Sales Director — Revise Pricing */}
+      <ReviseQuotationModal
+        lead={reviseLead}
+        open={!!reviseLead}
+        onClose={() => setReviseLead(null)}
+        onSuccess={() => refreshOpportunityLeads()}
+      />
     </div>
   );
 }
