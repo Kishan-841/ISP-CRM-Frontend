@@ -57,7 +57,7 @@ export default function EmployeesPage() {
   useUnsavedChanges(isFormDirty);
 
   const isTL = user?.role === 'BDM_TEAM_LEADER';
-  const canViewPasswords = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER';
+  const canViewPasswords = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER' || user?.role === 'SALES_DIRECTOR';
 
   const hidePassword = useCallback((userId) => {
     setRevealedPasswords((prev) => {
