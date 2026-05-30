@@ -29,6 +29,8 @@ import {
 import toast from 'react-hot-toast';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { formatCurrency } from '@/lib/formatters';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function OpsInstallationPage() {
   const router = useRouter();
@@ -51,6 +53,9 @@ export default function OpsInstallationPage() {
   const [installationNotes, setInstallationNotes] = useState('');
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Inline-error hook instance for the Assign-to-Delivery modal action.
+  const assignDeliveryAction = useActionError();
 
   const canAccess = isOpsTeam || isSuperAdmin;
 
@@ -97,24 +102,18 @@ export default function OpsInstallationPage() {
 
   const handleAssign = async () => {
     if (!selectedLead || !selectedDeliveryUser) {
-      toast.error('Please select a delivery user');
-      return;
+      return assignDeliveryAction.fail('Please select a delivery user.');
     }
     setIsSaving(true);
-    try {
-      const result = await pushToInstallation(selectedLead.id, installationNotes, selectedDeliveryUser);
-      if (result.success) {
-        toast.success(result.message || 'Assigned to Delivery Team');
-        setShowAssignModal(false);
-        fetchQueue();
-      } else {
-        toast.error(result.error || 'Failed to assign');
-      }
-    } catch {
-      toast.error('Failed to assign to delivery');
-    } finally {
-      setIsSaving(false);
+    const result = await assignDeliveryAction.runAction(() =>
+      pushToInstallation(selectedLead.id, installationNotes, selectedDeliveryUser)
+    );
+    if (result.success) {
+      toast.success(result.message || 'Assigned to Delivery Team');
+      setShowAssignModal(false);
+      fetchQueue();
     }
+    setIsSaving(false);
   };
 
   if (!canAccess) {
@@ -325,18 +324,21 @@ export default function OpsInstallationPage() {
               </div>
             </div>
 
-            <div className="flex gap-3 p-5 border-t border-slate-200 dark:border-slate-800">
-              <Button variant="outline" className="flex-1" onClick={() => setShowAssignModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-                onClick={handleAssign}
-                disabled={!selectedDeliveryUser || isSaving}
-              >
-                {isSaving ? <Loader2 size={16} className="mr-1 animate-spin" /> : <Truck size={16} className="mr-1" />}
-                Assign to Delivery
-              </Button>
+            <div className="p-5 border-t border-slate-200 dark:border-slate-800 space-y-3">
+              <InlineError message={assignDeliveryAction.error} onDismiss={assignDeliveryAction.clearError} />
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setShowAssignModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                  onClick={handleAssign}
+                  disabled={!selectedDeliveryUser || isSaving}
+                >
+                  {isSaving ? <Loader2 size={16} className="mr-1 animate-spin" /> : <Truck size={16} className="mr-1" />}
+                  Assign to Delivery
+                </Button>
+              </div>
             </div>
           </div>
         </div>

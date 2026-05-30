@@ -53,6 +53,8 @@ import {
   getStatusLabel,
 } from '@/lib/statusConfig';
 import TabBar from '@/components/TabBar';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 // Vendor type labels
 const vendorTypeLabels = {
@@ -103,6 +105,13 @@ export default function DeliveryQueuePage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isPushingToNoc, setIsPushingToNoc] = useState(false);
   const [updatingStatusLeadId, setUpdatingStatusLeadId] = useState(null);
+
+  // Inline-error hook instances — one per action surface (independent error state).
+  const materialRequestAction = useActionError();
+  const speedTestAction = useActionError();
+  const bypassSpeedTestAction = useActionError();
+  const customerAcceptanceAction = useActionError();
+  const saveDeliveryAction = useActionError();
 
   // Material Verification Modal State
   const [showMaterialModal, setShowMaterialModal] = useState(false);
@@ -410,50 +419,46 @@ export default function DeliveryQueuePage() {
   };
 
   const handleUploadSpeedTest = async () => {
-    if (!speedTestLead || !speedTestFiles.speedTest || !speedTestFiles.latencyTest) {
-      toast.error('Please upload both speed test and latency test screenshots');
-      return;
+    if (!speedTestLead) return;
+    if (!speedTestFiles.speedTest || !speedTestFiles.latencyTest) {
+      return speedTestAction.fail('Please upload both speed test and latency test screenshots.');
     }
 
     setIsUploadingSpeedTest(true);
 
-    try {
-      const formData = new FormData();
-      formData.append('speedTest', speedTestFiles.speedTest);
-      formData.append('latencyTest', speedTestFiles.latencyTest);
+    const formData = new FormData();
+    formData.append('speedTest', speedTestFiles.speedTest);
+    formData.append('latencyTest', speedTestFiles.latencyTest);
 
-      const response = await api.post(`/leads/delivery-team/${speedTestLead.id}/speed-test`, formData, {
+    const result = await speedTestAction.runAction(() =>
+      api.post(`/leads/delivery-team/${speedTestLead.id}/speed-test`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      })
+    );
 
-      if (response.data) {
-        toast.success('Speed test uploaded successfully!');
-        handleCloseSpeedTestModal();
-        fetchDeliveryQueue(activeTab);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to upload speed test');
-    } finally {
-      setIsUploadingSpeedTest(false);
+    if (result?.success !== false && result?.data) {
+      toast.success('Speed test uploaded successfully!');
+      handleCloseSpeedTestModal();
+      fetchDeliveryQueue(activeTab);
     }
+    setIsUploadingSpeedTest(false);
   };
 
   // Bypass speed test (testing only)
   const handleBypassSpeedTest = async () => {
     if (!speedTestLead) return;
     setIsUploadingSpeedTest(true);
-    try {
-      const response = await api.post(`/leads/delivery-team/${speedTestLead.id}/speed-test-bypass`);
-      if (response.data) {
-        toast.success('Speed test bypassed!');
-        handleCloseSpeedTestModal();
-        fetchDeliveryQueue(activeTab);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to bypass speed test');
-    } finally {
-      setIsUploadingSpeedTest(false);
+
+    const result = await bypassSpeedTestAction.runAction(() =>
+      api.post(`/leads/delivery-team/${speedTestLead.id}/speed-test-bypass`)
+    );
+
+    if (result?.success !== false && result?.data) {
+      toast.success('Speed test bypassed!');
+      handleCloseSpeedTestModal();
+      fetchDeliveryQueue(activeTab);
     }
+    setIsUploadingSpeedTest(false);
   };
 
   // ========== CUSTOMER ACCEPTANCE HANDLERS ==========
@@ -478,29 +483,28 @@ export default function DeliveryQueuePage() {
     setAcceptanceAction(status);
     setIsSubmittingAcceptance(true);
 
-    try {
+    // Multi-step body wrapped in runAction — branches on ACCEPTED vs REJECTED
+    // toast message but shares the same network call + error surface.
+    const result = await customerAcceptanceAction.runAction(async () => {
       const formData = new FormData();
       formData.append('status', status);
       if (acceptanceNotes) formData.append('notes', acceptanceNotes);
       if (acceptanceScreenshot) formData.append('acceptanceScreenshot', acceptanceScreenshot);
 
-      const response = await api.post(`/leads/delivery-team/${acceptanceLead.id}/customer-acceptance`, formData, {
+      return await api.post(`/leads/delivery-team/${acceptanceLead.id}/customer-acceptance`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
+    });
 
-      if (response.data) {
-        toast.success(status === 'ACCEPTED'
-          ? 'Customer accepted! Delivery completed.'
-          : 'Customer rejected. Lead marked for review.');
-        handleCloseAcceptanceModal();
-        fetchDeliveryQueue(activeTab);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to record acceptance');
-    } finally {
-      setIsSubmittingAcceptance(false);
-      setAcceptanceAction(null);
+    if (result?.success !== false && result?.data) {
+      toast.success(status === 'ACCEPTED'
+        ? 'Customer accepted! Delivery completed.'
+        : 'Customer rejected. Lead marked for review.');
+      handleCloseAcceptanceModal();
+      fetchDeliveryQueue(activeTab);
     }
+    setIsSubmittingAcceptance(false);
+    setAcceptanceAction(null);
   };
 
   // ========== MATERIAL REQUEST HANDLERS ==========
@@ -663,39 +667,31 @@ export default function DeliveryQueuePage() {
     // Validate items
     const validItems = requestItems.filter(item => item.productId && item.quantity > 0);
     if (validItems.length === 0) {
-      toast.error('Please add at least one item with a product selected');
-      return;
+      return materialRequestAction.fail('Please add at least one item with a product selected.');
     }
 
     setIsSubmittingRequest(true);
 
-    try {
-      const requestData = {
-        leadId: requestLead.id,
-        items: validItems.map(item => ({
-          productId: item.productId,
-          quantity: parseInt(item.quantity)
-        })),
-        latitude: gpsLocation.latitude,
-        longitude: gpsLocation.longitude,
-        deliveryAddress: requestLead.fullAddress || requestLead.campaignData?.address,
-        notes: requestNotes
-      };
+    const requestData = {
+      leadId: requestLead.id,
+      items: validItems.map(item => ({
+        productId: item.productId,
+        quantity: parseInt(item.quantity)
+      })),
+      latitude: gpsLocation.latitude,
+      longitude: gpsLocation.longitude,
+      deliveryAddress: requestLead.fullAddress || requestLead.campaignData?.address,
+      notes: requestNotes
+    };
 
-      const result = await createDeliveryRequest(requestData);
+    const result = await materialRequestAction.runAction(() => createDeliveryRequest(requestData));
 
-      if (result.success) {
-        toast.success(result.message || 'Delivery request submitted successfully!');
-        handleCloseRequestModal();
-        fetchDeliveryQueue(activeTab);
-      } else {
-        toast.error(result.error || 'Failed to submit request');
-      }
-    } catch (error) {
-      toast.error('Failed to submit request');
-    } finally {
-      setIsSubmittingRequest(false);
+    if (result.success) {
+      toast.success(result.message || 'Delivery request submitted successfully!');
+      handleCloseRequestModal();
+      fetchDeliveryQueue(activeTab);
     }
+    setIsSubmittingRequest(false);
   };
 
   // Get products filtered by type
@@ -804,12 +800,12 @@ export default function DeliveryQueuePage() {
       }))
     };
 
-    const result = await updateDeliveryProducts(selectedLead.id, {
+    const result = await saveDeliveryAction.runAction(() => updateDeliveryProducts(selectedLead.id, {
       products,
       notes: '',
       bandwidthRequirement: editableData.bandwidthRequirement || null,
       numberOfIPs: editableData.numberOfIPs ? parseInt(editableData.numberOfIPs) : null
-    });
+    }));
 
     if (result.success) {
       toast.success('Saved successfully');
@@ -822,8 +818,6 @@ export default function DeliveryQueuePage() {
         numberOfIPs: editableData.numberOfIPs ? parseInt(editableData.numberOfIPs) : null
       });
       setIsEditMode(false);
-    } else {
-      toast.error(result.error || 'Failed to save');
     }
     setIsSaving(false);
   };
@@ -1466,36 +1460,40 @@ export default function DeliveryQueuePage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 sm:rounded-b-xl">
-              <Button onClick={handleCloseSpeedTestModal} variant="outline">
-                Cancel
-              </Button>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={handleBypassSpeedTest}
-                  disabled={isUploadingSpeedTest}
-                  variant="outline"
-                  className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
-                >
-                  Bypass (Test)
+            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 sm:rounded-b-xl">
+              <InlineError message={speedTestAction.error} onDismiss={speedTestAction.clearError} className="mb-3" />
+              <InlineError message={bypassSpeedTestAction.error} onDismiss={bypassSpeedTestAction.clearError} className="mb-3" />
+              <div className="flex items-center justify-between">
+                <Button onClick={handleCloseSpeedTestModal} variant="outline">
+                  Cancel
                 </Button>
-                <Button
-                  onClick={handleUploadSpeedTest}
-                  disabled={isUploadingSpeedTest || !speedTestFiles.speedTest || !speedTestFiles.latencyTest}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                >
-                  {isUploadingSpeedTest ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload & Continue
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleBypassSpeedTest}
+                    disabled={isUploadingSpeedTest}
+                    variant="outline"
+                    className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                  >
+                    Bypass (Test)
+                  </Button>
+                  <Button
+                    onClick={handleUploadSpeedTest}
+                    disabled={isUploadingSpeedTest || !speedTestFiles.speedTest || !speedTestFiles.latencyTest}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                  >
+                    {isUploadingSpeedTest ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload & Continue
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -1643,31 +1641,34 @@ export default function DeliveryQueuePage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex-shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 sm:rounded-b-xl">
-              <Button
-                onClick={() => handleCustomerAcceptance('REJECTED')}
-                disabled={isSubmittingAcceptance}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {acceptanceAction === 'REJECTED' ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <ThumbsDown className="h-4 w-4 mr-2" />
-                )}
-                Reject
-              </Button>
-              <Button
-                onClick={() => handleCustomerAcceptance('ACCEPTED')}
-                disabled={isSubmittingAcceptance}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {acceptanceAction === 'ACCEPTED' ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <ThumbsUp className="h-4 w-4 mr-2" />
-                )}
-                Accept & Complete
-              </Button>
+            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 sm:rounded-b-xl">
+              <InlineError message={customerAcceptanceAction.error} onDismiss={customerAcceptanceAction.clearError} className="mb-3" />
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                <Button
+                  onClick={() => handleCustomerAcceptance('REJECTED')}
+                  disabled={isSubmittingAcceptance}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {acceptanceAction === 'REJECTED' ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <ThumbsDown className="h-4 w-4 mr-2" />
+                  )}
+                  Reject
+                </Button>
+                <Button
+                  onClick={() => handleCustomerAcceptance('ACCEPTED')}
+                  disabled={isSubmittingAcceptance}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {acceptanceAction === 'ACCEPTED' ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <ThumbsUp className="h-4 w-4 mr-2" />
+                  )}
+                  Accept & Complete
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -2040,20 +2041,25 @@ export default function DeliveryQueuePage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex-shrink-0 bg-white dark:bg-slate-900 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-2">
-                {!isBDMTeamLeader && getStageAction(selectedLead)}
-              </div>
+            <div className="flex-shrink-0 bg-white dark:bg-slate-900 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700">
               {!isBDMTeamLeader && isEditMode && (
-                <Button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="bg-orange-600 hover:bg-orange-700 text-white px-6"
-                >
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  Save Changes
-                </Button>
+                <InlineError message={saveDeliveryAction.error} onDismiss={saveDeliveryAction.clearError} className="mb-3" />
               )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {!isBDMTeamLeader && getStageAction(selectedLead)}
+                </div>
+                {!isBDMTeamLeader && isEditMode && (
+                  <Button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="bg-orange-600 hover:bg-orange-700 text-white px-6"
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                    Save Changes
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -2277,16 +2283,19 @@ export default function DeliveryQueuePage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex-shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-4 border-t bg-slate-50 dark:bg-slate-800/50 sm:rounded-b-xl">
-              <Button onClick={handleCloseRequestModal} variant="outline">Cancel</Button>
-              <Button
-                onClick={handleSubmitRequest}
-                disabled={isSubmittingRequest || requestItems.length === 0}
-                className="bg-orange-600 hover:bg-orange-700 text-white px-6"
-              >
-                {isSubmittingRequest ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                Submit Request
-              </Button>
+            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t bg-slate-50 dark:bg-slate-800/50 sm:rounded-b-xl">
+              <InlineError message={materialRequestAction.error} onDismiss={materialRequestAction.clearError} className="mb-3" />
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                <Button onClick={handleCloseRequestModal} variant="outline">Cancel</Button>
+                <Button
+                  onClick={handleSubmitRequest}
+                  disabled={isSubmittingRequest || requestItems.length === 0}
+                  className="bg-orange-600 hover:bg-orange-700 text-white px-6"
+                >
+                  {isSubmittingRequest ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                  Submit Request
+                </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -12,6 +12,8 @@ import api from '@/lib/api';
 import { Upload, X, Paperclip, ExternalLink, ArrowRight } from 'lucide-react';
 import { SERVICE_ORDER_TYPE_CONFIG } from '@/lib/statusConfig';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const typeBadgeColors = Object.fromEntries(
   Object.entries(SERVICE_ORDER_TYPE_CONFIG).map(([k, v]) => [k, v.color])
@@ -32,6 +34,9 @@ export default function NocOrderRequests() {
   const [speedTestFile, setSpeedTestFile] = useState(null);
   const [nocNotes, setNocNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Inline-error hook instance — one per action surface (independent error state).
+  const processOrderAction = useActionError();
 
   useEffect(() => {
     if (user && user.role !== 'NOC_TEAM' && user.role !== 'NOC' && user.role !== 'NOC_HEAD' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
@@ -75,34 +80,33 @@ export default function NocOrderRequests() {
 
   const handleProcess = async () => {
     if (!isDisconnection && !speedTestFile) {
-      toast.error('Speed test file is required.');
-      return;
+      return processOrderAction.fail('Speed test file is required.');
     }
     setIsSubmitting(true);
-    try {
-      const formData = new FormData();
-      // Speed test only applies to bandwidth changes; disconnection skips it.
-      if (speedTestFile) {
-        formData.append('speedTest', speedTestFile);
-      }
-      if (nocNotes.trim()) {
-        formData.append('nocNotes', nocNotes);
-      }
+    const formData = new FormData();
+    // Speed test only applies to bandwidth changes; disconnection skips it.
+    if (speedTestFile) {
+      formData.append('speedTest', speedTestFile);
+    }
+    if (nocNotes.trim()) {
+      formData.append('nocNotes', nocNotes);
+    }
 
-      await api.post(`/service-orders/${processOrder.id}/noc-process`, formData, {
+    const result = await processOrderAction.runAction(() =>
+      api.post(`/service-orders/${processOrder.id}/noc-process`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      })
+    );
+
+    if (result?.success !== false) {
       // Disconnection no longer short-circuits — NOC marks it physically
       // disconnected and Accounts handles the final billing + completion.
       toast.success(isDisconnection ? 'Disconnection sent to accounts for final billing.' : 'Order processed successfully!');
       setShowProcessModal(false);
       setProcessOrder(null);
       fetchOrders();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to process order');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const columns = [
@@ -330,23 +334,26 @@ export default function NocOrderRequests() {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowProcessModal(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleProcess}
-                disabled={isSubmitting || (!isDisconnection && !speedTestFile)}
-                className={`flex-1 ${isDisconnection ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
-              >
-                {isSubmitting
-                  ? (isDisconnection ? 'Sending…' : 'Processing…')
-                  : (isDisconnection ? 'Send to Accounts' : 'Complete NOC Processing')}
-              </Button>
+            <div>
+              <InlineError message={processOrderAction.error} onDismiss={processOrderAction.clearError} className="mb-3" />
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowProcessModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleProcess}
+                  disabled={isSubmitting || (!isDisconnection && !speedTestFile)}
+                  className={`flex-1 ${isDisconnection ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+                >
+                  {isSubmitting
+                    ? (isDisconnection ? 'Sending…' : 'Processing…')
+                    : (isDisconnection ? 'Send to Accounts' : 'Complete NOC Processing')}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

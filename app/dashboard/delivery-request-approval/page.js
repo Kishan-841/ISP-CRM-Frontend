@@ -32,6 +32,8 @@ import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { DELIVERY_APPROVAL_STATUS_CONFIG, DELIVERY_URGENCY_CONFIG, getStatusBadgeClass } from '@/lib/statusConfig';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 // Format date
 const formatDate = (date) => {
@@ -69,6 +71,10 @@ export default function DeliveryRequestApprovalPage() {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
 
+  // Inline-error hook instances — one per action surface (independent error state).
+  const approveAction = useActionError();
+  const rejectAction = useActionError();
+
   const isAuthorized = isSuperAdmin;
 
   // Modal accessibility: Escape-to-close, scroll lock, autofocus
@@ -95,16 +101,14 @@ export default function DeliveryRequestApprovalPage() {
 
   const handleApprove = async (request) => {
     setIsApproving(true);
-    const result = await approveDeliveryRequest(request.id);
-    setIsApproving(false);
+    const result = await approveAction.runAction(() => approveDeliveryRequest(request.id));
 
     if (result.success) {
       toast.success(result.message || 'Request approved successfully');
       handleCloseDetails();
       fetchPendingApprovalRequests();
-    } else {
-      toast.error(result.error || 'Failed to approve request');
     }
+    setIsApproving(false);
   };
 
   const handleOpenRejectModal = (request) => {
@@ -120,22 +124,19 @@ export default function DeliveryRequestApprovalPage() {
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      toast.error('Please provide a rejection reason');
-      return;
+      return rejectAction.fail('Please provide a rejection reason.');
     }
 
     setIsRejecting(true);
-    const result = await rejectDeliveryRequest(selectedRequest.id, rejectReason);
-    setIsRejecting(false);
+    const result = await rejectAction.runAction(() => rejectDeliveryRequest(selectedRequest.id, rejectReason));
 
     if (result.success) {
       toast.success('Request rejected');
       handleCloseRejectModal();
       handleCloseDetails();
       fetchPendingApprovalRequests();
-    } else {
-      toast.error(result.error || 'Failed to reject request');
     }
+    setIsRejecting(false);
   };
 
   const openGoogleMaps = (lat, lng) => {
@@ -168,6 +169,14 @@ export default function DeliveryRequestApprovalPage() {
         <StatCard color="emerald" icon={CheckCircle} label="Approved" value={deliveryRequestStats.approved || 0} />
         <StatCard color="red" icon={XCircle} label="Rejected" value={deliveryRequestStats.rejected || 0} />
       </div>
+
+      {/* Approve action banner — shared across per-row Approve buttons and the
+          details-modal Approve button (one hook instance, one banner). */}
+      {approveAction.error && (
+        <div className="mb-4">
+          <InlineError message={approveAction.error} onDismiss={approveAction.clearError} />
+        </div>
+      )}
 
       {/* Requests List */}
       <DataTable
@@ -536,27 +545,30 @@ export default function DeliveryRequestApprovalPage() {
                 className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
               />
             </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
-              <Button variant="outline" onClick={handleCloseRejectModal}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleReject}
-                disabled={isRejecting || !rejectReason.trim()}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {isRejecting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Rejecting...
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Reject Request
-                  </>
-                )}
-              </Button>
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+              <InlineError message={rejectAction.error} onDismiss={rejectAction.clearError} />
+              <div className="flex items-center justify-end gap-3">
+                <Button variant="outline" onClick={handleCloseRejectModal}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleReject}
+                  disabled={isRejecting || !rejectReason.trim()}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {isRejecting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Rejecting...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Reject Request
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

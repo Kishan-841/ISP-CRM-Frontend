@@ -12,6 +12,8 @@ import api from '@/lib/api';
 import { CheckCircle2, XCircle, Paperclip, ExternalLink } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { SERVICE_ORDER_TYPE_CONFIG, SERVICE_ORDER_STATUS_CONFIG } from '@/lib/statusConfig';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const typeBadgeColors = Object.fromEntries(
   Object.entries(SERVICE_ORDER_TYPE_CONFIG).map(([k, v]) => [k, v.color])
@@ -38,6 +40,11 @@ export default function DeliveryApprovals() {
   const [rejectOrderId, setRejectOrderId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Inline-error hook instances — one per action surface (independent error state).
+  // approveSoAction is shared across per-row Approve buttons (one banner above the table).
+  const approveSoAction = useActionError();
+  const rejectSoAction = useActionError();
 
   useEffect(() => {
     if (user && user.role !== 'DELIVERY_TEAM' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
@@ -74,15 +81,12 @@ export default function DeliveryApprovals() {
   const handleApprove = async (orderId, e) => {
     e.stopPropagation();
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${orderId}/delivery-approve`);
+    const result = await approveSoAction.runAction(() => api.post(`/service-orders/${orderId}/delivery-approve`));
+    if (result?.success !== false) {
       toast.success('Order approved — sent to Sales Director.');
       fetchOrders();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to approve');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const openRejectModal = (orderId, e) => {
@@ -94,20 +98,16 @@ export default function DeliveryApprovals() {
 
   const handleReject = async () => {
     if (!rejectionReason.trim()) {
-      toast.error('Rejection reason is required.');
-      return;
+      return rejectSoAction.fail('Rejection reason is required.');
     }
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${rejectOrderId}/reject`, { rejectionReason });
+    const result = await rejectSoAction.runAction(() => api.post(`/service-orders/${rejectOrderId}/reject`, { rejectionReason }));
+    if (result?.success !== false) {
       toast.success('Order rejected.');
       setShowRejectModal(false);
       fetchOrders();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to reject');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const formatDate = (date) =>
@@ -251,6 +251,14 @@ export default function DeliveryApprovals() {
         title="Delivery Approvals"
         description="Upgrade and downgrade orders awaiting your approval before they go to the Sales Director."
       />
+      {/* Approve action banner — shared across per-row Approve buttons. One hook
+          instance, so one banner above the table is the right surface (mirrors
+          the docs-verification sendBackToBDM pattern). */}
+      {approveSoAction.error && (
+        <div className="mb-4">
+          <InlineError message={approveSoAction.error} onDismiss={approveSoAction.clearError} />
+        </div>
+      )}
       <DataTable
         title="Delivery Approvals"
         totalCount={pagination.total}
@@ -283,17 +291,20 @@ export default function DeliveryApprovals() {
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
             />
-            <div className="flex gap-2 mt-3">
-              <Button variant="outline" onClick={() => setShowRejectModal(false)} className="flex-1">
-                Cancel
-              </Button>
-              <Button
-                onClick={handleReject}
-                disabled={isSubmitting}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-              >
-                {isSubmitting ? 'Rejecting...' : 'Reject'}
-              </Button>
+            <div className="mt-3 space-y-3">
+              <InlineError message={rejectSoAction.error} onDismiss={rejectSoAction.clearError} />
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowRejectModal(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleReject}
+                  disabled={isSubmitting}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {isSubmitting ? 'Rejecting...' : 'Reject'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

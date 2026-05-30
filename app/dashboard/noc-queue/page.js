@@ -34,6 +34,8 @@ import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { formatDate } from '@/lib/formatters';
 import TabBar from '@/components/TabBar';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function NocQueuePage() {
   const router = useRouter();
@@ -76,6 +78,12 @@ export default function NocQueuePage() {
   const [selectedNocUser, setSelectedNocUser] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
 
+  // Inline-error hook instances — one per action surface (independent error state).
+  const createCustomerAction = useActionError();
+  const assignIpAction = useActionError();
+  const generateCircuitAction = useActionError();
+  const assignNocAction = useActionError();
+
   // Redirect non-NOC users
   useEffect(() => {
     if (user && !isNOC && !isAdmin && !isBDMTeamLeader) {
@@ -91,20 +99,21 @@ export default function NocQueuePage() {
   }, [isNOCHead, isAdmin]);
 
   const handleAssignToNoc = async () => {
-    if (!assignLeadId || !selectedNocUser) return;
+    if (!assignLeadId || !selectedNocUser) {
+      return assignNocAction.fail('Please select a NOC user.');
+    }
     setIsAssigning(true);
-    try {
-      await api.post(`/leads/noc/${assignLeadId}/assign`, { nocUserId: selectedNocUser });
+    const result = await assignNocAction.runAction(() =>
+      api.post(`/leads/noc/${assignLeadId}/assign`, { nocUserId: selectedNocUser })
+    );
+    if (result?.success !== false) {
       toast.success('Lead assigned to NOC user');
       setShowAssignModal(false);
       setAssignLeadId(null);
       setSelectedNocUser('');
       fetchNocQueue(activeTab);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to assign');
-    } finally {
-      setIsAssigning(false);
     }
+    setIsAssigning(false);
   };
 
   useSocketRefresh(() => fetchNocQueue(activeTab), { enabled: isNOC || isAdmin || isBDMTeamLeader });
@@ -159,22 +168,19 @@ export default function NocQueuePage() {
     if (!selectedLead) return;
 
     if (!customerFormData.username.trim() || !customerFormData.password.trim()) {
-      toast.error('Username and Password are required');
-      return;
+      return createCustomerAction.fail('Username and Password are required.');
     }
 
     setIsCreatingCustomer(true);
-    const result = await nocCreateCustomerAccount(selectedLead.id, {
+    const result = await createCustomerAction.runAction(() => nocCreateCustomerAccount(selectedLead.id, {
       username: customerFormData.username.trim(),
       password: customerFormData.password.trim()
-    });
+    }));
 
     if (result.success) {
       toast.success('Customer account created! Lead moved to IP Assignment.');
       handleCloseModal();
       fetchNocQueue(activeTab);
-    } else {
-      toast.error(result.error || 'Failed to create customer account');
     }
     setIsCreatingCustomer(false);
   };
@@ -185,19 +191,16 @@ export default function NocQueuePage() {
 
     const validIPs = ipInputs.filter(ip => ip.trim());
     if (validIPs.length === 0) {
-      toast.error('Please enter at least one IP address');
-      return;
+      return assignIpAction.fail('Please enter at least one IP address.');
     }
 
     setIsAssigningIPs(true);
-    const result = await nocAssignIpAddresses(selectedLead.id, validIPs);
+    const result = await assignIpAction.runAction(() => nocAssignIpAddresses(selectedLead.id, validIPs));
 
     if (result.success) {
       toast.success('IP addresses assigned! Lead moved to Circuit Generation.');
       handleCloseModal();
       fetchNocQueue(activeTab);
-    } else {
-      toast.error(result.error || 'Failed to assign IP addresses');
     }
     setIsAssigningIPs(false);
   };
@@ -207,20 +210,17 @@ export default function NocQueuePage() {
     if (!selectedLead) return;
 
     if (!manualCircuitId.trim()) {
-      toast.error('Please enter a Circuit ID');
-      return;
+      return generateCircuitAction.fail('Please enter a Circuit ID.');
     }
 
     setIsGeneratingCircuit(true);
-    const result = await nocGenerateCircuitId(selectedLead.id, manualCircuitId.trim());
+    const result = await generateCircuitAction.runAction(() => nocGenerateCircuitId(selectedLead.id, manualCircuitId.trim()));
 
     if (result.success) {
       toast.success(result.message || `Circuit ID ${result.circuitId} saved and pushed to delivery!`);
       setManualCircuitId('');
       handleCloseModal();
       fetchNocQueue(activeTab);
-    } else {
-      toast.error(result.error || 'Failed to save circuit ID');
     }
     setIsGeneratingCircuit(false);
   };
@@ -592,17 +592,20 @@ export default function NocQueuePage() {
                       />
                     </div>
                     {!isBDMTeamLeader && (
-                      <Button
-                        onClick={handleCreateCustomer}
-                        disabled={isCreatingCustomer || !customerFormData.username.trim() || !customerFormData.password.trim()}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                      >
-                        {isCreatingCustomer ? (
-                          <><Loader2 className="h-4 w-4 animate-spin mr-2" />Creating...</>
-                        ) : (
-                          <><UserPlus className="h-4 w-4 mr-2" />Create Customer Account</>
-                        )}
-                      </Button>
+                      <>
+                        <Button
+                          onClick={handleCreateCustomer}
+                          disabled={isCreatingCustomer || !customerFormData.username.trim() || !customerFormData.password.trim()}
+                          className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                        >
+                          {isCreatingCustomer ? (
+                            <><Loader2 className="h-4 w-4 animate-spin mr-2" />Creating...</>
+                          ) : (
+                            <><UserPlus className="h-4 w-4 mr-2" />Create Customer Account</>
+                          )}
+                        </Button>
+                        <InlineError message={createCustomerAction.error} onDismiss={createCustomerAction.clearError} className="mt-3" />
+                      </>
                     )}
                   </div>
                 </div>
@@ -646,17 +649,20 @@ export default function NocQueuePage() {
                       </div>
                     ))}
                     {!isBDMTeamLeader && (
-                      <Button
-                        onClick={handleAssignIPs}
-                        disabled={isAssigningIPs || ipInputs.every(ip => !ip.trim())}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-2"
-                      >
-                        {isAssigningIPs ? (
-                          <><Loader2 className="h-4 w-4 animate-spin mr-2" />Assigning...</>
-                        ) : (
-                          <><Network className="h-4 w-4 mr-2" />Assign IP Addresses</>
-                        )}
-                      </Button>
+                      <>
+                        <Button
+                          onClick={handleAssignIPs}
+                          disabled={isAssigningIPs || ipInputs.every(ip => !ip.trim())}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-2"
+                        >
+                          {isAssigningIPs ? (
+                            <><Loader2 className="h-4 w-4 animate-spin mr-2" />Assigning...</>
+                          ) : (
+                            <><Network className="h-4 w-4 mr-2" />Assign IP Addresses</>
+                          )}
+                        </Button>
+                        <InlineError message={assignIpAction.error} onDismiss={assignIpAction.clearError} className="mt-3" />
+                      </>
                     )}
                   </div>
                 </div>
@@ -716,6 +722,7 @@ export default function NocQueuePage() {
                           <><Zap className="h-4 w-4 mr-2" />Save Circuit ID</>
                         )}
                       </Button>
+                      <InlineError message={generateCircuitAction.error} onDismiss={generateCircuitAction.clearError} className="mt-3" />
                     </div>
                   )}
                 </div>
@@ -851,12 +858,15 @@ export default function NocQueuePage() {
                 </select>
               </div>
             </div>
-            <div className="flex gap-3 p-5 border-t border-slate-200 dark:border-slate-800">
-              <Button variant="outline" className="flex-1" onClick={() => setShowAssignModal(false)}>Cancel</Button>
-              <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleAssignToNoc} disabled={!selectedNocUser || isAssigning}>
-                {isAssigning ? <Loader2 size={16} className="mr-1 animate-spin" /> : <Users size={16} className="mr-1" />}
-                Assign
-              </Button>
+            <div className="p-5 border-t border-slate-200 dark:border-slate-800">
+              <InlineError message={assignNocAction.error} onDismiss={assignNocAction.clearError} className="mb-3" />
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setShowAssignModal(false)}>Cancel</Button>
+                <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleAssignToNoc} disabled={!selectedNocUser || isAssigning}>
+                  {isAssigning ? <Loader2 size={16} className="mr-1 animate-spin" /> : <Users size={16} className="mr-1" />}
+                  Assign
+                </Button>
+              </div>
             </div>
           </div>
         </div>
