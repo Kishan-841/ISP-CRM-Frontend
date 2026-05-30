@@ -42,6 +42,8 @@ import toast from 'react-hot-toast';
 import DataTable from '@/components/DataTable';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { INVOICE_STATUS_CONFIG, getStatusBadgeClass } from '@/lib/statusConfig';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 // Get status color
 const getStatusColor = (status) => getStatusBadgeClass(status, INVOICE_STATUS_CONFIG, 'bg-slate-100 text-slate-700');
@@ -129,6 +131,13 @@ export default function CustomerInvoiceDetailPage() {
   const [invoices, setInvoices] = useState([]);
   const [summary, setSummary] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+
+  // Inline-error hook instances — one per action surface (independent error state).
+  const addPaymentAction = useActionError();
+  const creditNoteAction = useActionError();
+  const advanceAction = useActionError();
+  const generateInvoiceAction = useActionError();
+
   const [selectedInvoices, setSelectedInvoices] = useState([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -364,43 +373,33 @@ export default function CustomerInvoiceDetailPage() {
 
   // Record advance payment
   const handleRecordAdvancePayment = async () => {
-    if (!advancePaymentForm.paymentMode) {
-      toast.error('Please select payment mode');
-      return;
-    }
+    if (!advancePaymentForm.paymentMode) return advanceAction.fail('Please select payment mode.');
     if (!advancePaymentForm.paidAmount || parseFloat(advancePaymentForm.paidAmount) <= 0) {
-      toast.error('Please enter a valid amount');
-      return;
+      return advanceAction.fail('Please enter a valid amount.');
     }
     if (['CHEQUE', 'NEFT', 'ONLINE'].includes(advancePaymentForm.paymentMode) && !advancePaymentForm.bankAccount) {
-      toast.error('Please select bank account');
-      return;
+      return advanceAction.fail('Please select bank account.');
     }
     if (['CHEQUE', 'NEFT', 'ONLINE'].includes(advancePaymentForm.paymentMode) && !advancePaymentForm.provisionalReceiptNo?.trim()) {
-      toast.error('Reference / Transaction No is required');
-      return;
+      return advanceAction.fail('Reference / Transaction No is required.');
     }
 
     setIsProcessingAdvancePayment(true);
-    try {
-      const response = await api.post(`/invoices/customer/${leadId}/advance-payment`, {
-        paymentMode: advancePaymentForm.paymentMode,
-        bankAccount: advancePaymentForm.bankAccount || null,
-        provisionalReceiptNo: advancePaymentForm.provisionalReceiptNo || null,
-        amount: parseFloat(advancePaymentForm.paidAmount),
-        transactionDate: advancePaymentForm.transactionDate || null,
-        remark: advancePaymentForm.paymentRemark || null
-      });
-
+    const result = await advanceAction.runAction(() => api.post(`/invoices/customer/${leadId}/advance-payment`, {
+      paymentMode: advancePaymentForm.paymentMode,
+      bankAccount: advancePaymentForm.bankAccount || null,
+      provisionalReceiptNo: advancePaymentForm.provisionalReceiptNo || null,
+      amount: parseFloat(advancePaymentForm.paidAmount),
+      transactionDate: advancePaymentForm.transactionDate || null,
+      remark: advancePaymentForm.paymentRemark || null,
+    }));
+    if (result?.success !== false) {
       toast.success(`Advance payment of ${formatCurrency(parseFloat(advancePaymentForm.paidAmount))} recorded successfully`);
       setShowAdvancePaymentModal(false);
-      fetchCustomerDetail(); // Refresh data
-      fetchAdvanceBalance(); // Refresh advance balance
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to record advance payment');
-    } finally {
-      setIsProcessingAdvancePayment(false);
+      fetchCustomerDetail();
+      fetchAdvanceBalance();
     }
+    setIsProcessingAdvancePayment(false);
   };
 
   // Manual invoice generator handlers
@@ -417,31 +416,23 @@ export default function CustomerInvoiceDetailPage() {
 
   const handleGenerateInvoiceSubmit = async () => {
     const days = parseInt(generateDays);
-    if (!days || days <= 0 || days > 365) {
-      toast.error('Days must be between 1 and 365.');
-      return;
-    }
+    if (!days || days <= 0 || days > 365) return generateInvoiceAction.fail('Days must be between 1 and 365.');
     if (!generateReason.trim() || generateReason.trim().length < 5) {
-      toast.error('Reason is required (minimum 5 characters).');
-      return;
+      return generateInvoiceAction.fail('Reason is required (minimum 5 characters).');
     }
 
     setIsGeneratingInvoice(true);
-    try {
-      const res = await api.post(`/invoices/generate-manual/${leadId}`, {
-        days,
-        reason: generateReason.trim()
-      });
-      toast.success(res.data?.message || 'Manual invoice generated.');
+    const res = await generateInvoiceAction.runAction(() => api.post(`/invoices/generate-manual/${leadId}`, {
+      days,
+      reason: generateReason.trim(),
+    }));
+    if (res?.success !== false) {
+      toast.success(res?.data?.message || 'Manual invoice generated.');
       setShowGenerateInvoiceModal(false);
-      // Match the advance-payment refresh pattern
       fetchCustomerDetail();
       fetchAdvanceBalance();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to generate invoice.');
-    } finally {
-      setIsGeneratingInvoice(false);
     }
+    setIsGeneratingInvoice(false);
   };
 
   // Open payment modal
@@ -528,51 +519,34 @@ export default function CustomerInvoiceDetailPage() {
 
   // Add payment for current invoice (supports partial payments and advance settlement)
   const handleAddPayment = async () => {
-    if (!currentInvoiceId) {
-      toast.error('Please select an invoice');
-      return;
-    }
+    if (!currentInvoiceId) return addPaymentAction.fail('Please select an invoice.');
 
     const useAdvance = paymentForm.useAdvancePayment && parseFloat(paymentForm.advanceAmount) > 0;
     const hasRegularPayment = parseFloat(paymentForm.paidAmount) > 0 || parseFloat(paymentForm.tdsAmount) > 0;
 
-    // If only using advance payment, no payment mode needed
-    if (!useAdvance && !paymentForm.paymentMode) {
-      toast.error('Please select payment mode');
-      return;
-    }
-    // Validate bank account for CHEQUE/NEFT/ONLINE
+    if (!useAdvance && !paymentForm.paymentMode) return addPaymentAction.fail('Please select payment mode.');
     if (!useAdvance && ['CHEQUE', 'NEFT', 'ONLINE'].includes(paymentForm.paymentMode) && !paymentForm.bankAccount) {
-      toast.error('Please select bank account');
-      return;
+      return addPaymentAction.fail('Please select bank account.');
     }
-    // Validate reference number for CHEQUE/NEFT/ONLINE
     if (!useAdvance && ['CHEQUE', 'NEFT', 'ONLINE'].includes(paymentForm.paymentMode) && !paymentForm.provisionalReceiptNo?.trim()) {
-      toast.error('Reference / Transaction No is required');
-      return;
+      return addPaymentAction.fail('Reference / Transaction No is required.');
     }
-    // For TDS, only tdsAmount is required; for others, paidAmount is required (unless using advance)
     const isTdsMode = paymentForm.paymentMode === 'TDS';
     if (!useAdvance && !isTdsMode && (!paymentForm.paidAmount || parseFloat(paymentForm.paidAmount) <= 0)) {
-      toast.error('Please enter a valid amount');
-      return;
+      return addPaymentAction.fail('Please enter a valid amount.');
     }
     if (isTdsMode && (!paymentForm.tdsAmount || parseFloat(paymentForm.tdsAmount) <= 0)) {
-      toast.error('Please enter TDS amount');
-      return;
+      return addPaymentAction.fail('Please enter TDS amount.');
     }
     if (paymentValidation.exceedsRemaining) {
-      toast.error(`Payment exceeds remaining balance of ${formatCurrency(currentInvoiceRemaining)}`);
-      return;
+      return addPaymentAction.fail(`Payment exceeds remaining balance of ${formatCurrency(currentInvoiceRemaining)}`);
     }
-    // Validate advance amount
     if (useAdvance && parseFloat(paymentForm.advanceAmount) > advanceBalance.advanceAvailable) {
-      toast.error('Advance amount exceeds available balance');
-      return;
+      return addPaymentAction.fail('Advance amount exceeds available balance.');
     }
 
     setIsProcessingPayment(true);
-    try {
+    await addPaymentAction.runAction(async () => {
       const invoice = invoices.find(inv => inv.id === currentInvoiceId);
       let advanceSettled = false;
       let regularPaymentMade = false;
@@ -652,11 +626,8 @@ export default function CustomerInvoiceDetailPage() {
           setCurrentInvoiceId(nextUnpaid);
         }
       }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add payment');
-    } finally {
-      setIsProcessingPayment(false);
-    }
+    });
+    setIsProcessingPayment(false);
   };
 
   // Close payment modal and clear selection
@@ -750,32 +721,23 @@ export default function CustomerInvoiceDetailPage() {
     if (!creditNoteInvoice) return;
 
     if (!creditNoteForm.baseAmount || parseFloat(creditNoteForm.baseAmount) <= 0) {
-      toast.error('Please enter a valid base amount');
-      return;
+      return creditNoteAction.fail('Please enter a valid base amount.');
     }
-    if (!creditNoteForm.reason) {
-      toast.error('Please select a reason');
-      return;
-    }
+    if (!creditNoteForm.reason) return creditNoteAction.fail('Please select a reason.');
 
     setIsCreatingCreditNote(true);
-    try {
-      const response = await api.post(`/credit-notes/invoice/${creditNoteInvoice.id}`, {
-        baseAmount: parseFloat(creditNoteForm.baseAmount),
-        reason: creditNoteForm.reason,
-        remarks: creditNoteForm.remarks
-      });
-
+    const response = await creditNoteAction.runAction(() => api.post(`/credit-notes/invoice/${creditNoteInvoice.id}`, {
+      baseAmount: parseFloat(creditNoteForm.baseAmount),
+      reason: creditNoteForm.reason,
+      remarks: creditNoteForm.remarks,
+    }));
+    if (response?.success !== false) {
       toast.success(`Credit Note ${response.data.creditNote.creditNoteNumber} created and sent for admin approval`);
-
       setShowCreditNoteModal(false);
-      fetchCustomerDetail(); // Refresh invoice data
-      fetchAdvanceBalance(); // Refresh advance balance to show credit note amount
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to create credit note');
-    } finally {
-      setIsCreatingCreditNote(false);
+      fetchCustomerDetail();
+      fetchAdvanceBalance();
     }
+    setIsCreatingCreditNote(false);
   };
 
   // View credit notes for invoice
@@ -1856,6 +1818,12 @@ export default function CustomerInvoiceDetailPage() {
                     )}
                   </div>
 
+                  <InlineError
+                    message={addPaymentAction.error}
+                    onDismiss={addPaymentAction.clearError}
+                    className="mb-2"
+                  />
+
                   {/* Add Payment Button */}
                   <Button
                     onClick={handleAddPayment}
@@ -2668,22 +2636,29 @@ export default function CustomerInvoiceDetailPage() {
               </div>
             </div>
 
-            <div className="flex-shrink-0 flex items-center justify-end gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700">
-              <Button size="sm" variant="outline" onClick={() => setShowCreditNoteModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleCreateCreditNote}
-                disabled={isCreatingCreditNote || !creditNoteForm.reason || !creditNoteForm.baseAmount || exceedsMaxCredit(creditNoteForm.baseAmount, creditNoteInvoice)}
-                className="bg-red-600 text-white hover:bg-red-700"
-              >
-                {isCreatingCreditNote ? (
-                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Creating...</>
-                ) : (
-                  <><MinusCircle className="h-4 w-4 mr-2" /> Create Credit Note</>
-                )}
-              </Button>
+            <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-700">
+              <InlineError
+                message={creditNoteAction.error}
+                onDismiss={creditNoteAction.clearError}
+                className="mx-4 sm:mx-6 mt-3"
+              />
+              <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-3 sm:py-4">
+                <Button size="sm" variant="outline" onClick={() => setShowCreditNoteModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleCreateCreditNote}
+                  disabled={isCreatingCreditNote || !creditNoteForm.reason || !creditNoteForm.baseAmount || exceedsMaxCredit(creditNoteForm.baseAmount, creditNoteInvoice)}
+                  className="bg-red-600 text-white hover:bg-red-700"
+                >
+                  {isCreatingCreditNote ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Creating...</>
+                  ) : (
+                    <><MinusCircle className="h-4 w-4 mr-2" /> Create Credit Note</>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -3117,22 +3092,29 @@ export default function CustomerInvoiceDetailPage() {
               </div>
             </div>
 
-            <div className="flex-shrink-0 flex items-center justify-end gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700">
-              <Button size="sm" variant="outline" onClick={() => setShowAdvancePaymentModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleRecordAdvancePayment}
-                disabled={isProcessingAdvancePayment || !advancePaymentForm.paymentMode || !advancePaymentForm.paidAmount}
-                className="bg-blue-600 text-white hover:bg-blue-700"
-              >
-                {isProcessingAdvancePayment ? (
-                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
-                ) : (
-                  <><Wallet className="h-4 w-4 mr-2" /> Record Advance</>
-                )}
-              </Button>
+            <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-700">
+              <InlineError
+                message={advanceAction.error}
+                onDismiss={advanceAction.clearError}
+                className="mx-4 sm:mx-6 mt-3"
+              />
+              <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-3 sm:py-4">
+                <Button size="sm" variant="outline" onClick={() => setShowAdvancePaymentModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleRecordAdvancePayment}
+                  disabled={isProcessingAdvancePayment || !advancePaymentForm.paymentMode || !advancePaymentForm.paidAmount}
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  {isProcessingAdvancePayment ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
+                  ) : (
+                    <><Wallet className="h-4 w-4 mr-2" /> Record Advance</>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -3225,6 +3207,12 @@ export default function CustomerInvoiceDetailPage() {
                 </p>
               </div>
             </div>
+
+            <InlineError
+              message={generateInvoiceAction.error}
+              onDismiss={generateInvoiceAction.clearError}
+              className="mb-2"
+            />
 
             <div className="flex gap-2">
               <Button
