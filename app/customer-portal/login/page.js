@@ -5,15 +5,19 @@ import { useRouter } from 'next/navigation';
 import { useCustomerAuthStore } from '@/lib/customerStore';
 import { Eye, EyeOff, Sun, Moon, Wifi, Shield, Zap, Headphones, Loader2, User, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function CustomerLoginPage() {
   const router = useRouter();
   const { login, isAuthenticated, initialize } = useCustomerAuthStore();
 
+  // Inline-error hook instance for the sign-in surface.
+  const loginAction = useActionError();
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState('light');
   const [focused, setFocused] = useState('');
@@ -40,17 +44,13 @@ export default function CustomerLoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
-    const result = await login(username, password);
+    const result = await loginAction.runAction(() => login(username, password));
 
     if (result.success) {
       toast.success('Login successful!');
       router.push('/customer-portal/dashboard');
-    } else {
-      setError(result.error);
-      toast.error(result.error || 'Login failed');
     }
 
     setLoading(false);
@@ -208,14 +208,7 @@ export default function CustomerLoginPage() {
               </div>
 
               {/* Error */}
-              {error && (
-                <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl px-4 py-3">
-                  <div className="shrink-0 mt-0.5 w-4 h-4 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-red-600 dark:text-red-400">!</span>
-                  </div>
-                  {error}
-                </div>
-              )}
+              <InlineError message={loginAction.error} onDismiss={loginAction.clearError} />
 
               {/* Submit */}
               <button

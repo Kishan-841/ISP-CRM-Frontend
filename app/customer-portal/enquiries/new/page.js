@@ -17,6 +17,8 @@ import {
   AlignLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 function SectionHeader({ icon: Icon, title, step, subtitle }) {
   return (
@@ -39,6 +41,9 @@ export default function NewEnquiryPage() {
   const router = useRouter();
   const { submitEnquiry, submitting } = useCustomerEnquiryStore();
 
+  // Inline-error hook for the submit-enquiry action surface.
+  const submitEnquiryAction = useActionError();
+
   const [form, setForm] = useState({
     companyName: '',
     contactName: '',
@@ -55,16 +60,15 @@ export default function NewEnquiryPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.companyName.trim()) { toast.error('Company name is required'); return; }
-    if (!form.contactName.trim()) { toast.error('Contact person is required'); return; }
-    if (!form.phone.trim()) { toast.error('Phone number is required'); return; }
-    if (form.phone.replace(/\D/g, '').length < 10) { toast.error('Phone must be at least 10 digits'); return; }
+    if (!form.companyName.trim()) return submitEnquiryAction.fail('Please share your company name.');
+    if (!form.contactName.trim()) return submitEnquiryAction.fail('Please share the contact person’s name.');
+    if (!form.phone.trim()) return submitEnquiryAction.fail('Please share a phone number we can reach you on.');
+    if (form.phone.replace(/\D/g, '').length < 10) return submitEnquiryAction.fail('Please enter a valid phone number with at least 10 digits.');
     if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      toast.error('Invalid email format');
-      return;
+      return submitEnquiryAction.fail('That email address doesn’t look right. Please double-check it.');
     }
 
-    const result = await submitEnquiry({
+    const result = await submitEnquiryAction.runAction(() => submitEnquiry({
       companyName: form.companyName.trim(),
       contactName: form.contactName.trim(),
       phone: form.phone.trim(),
@@ -73,15 +77,12 @@ export default function NewEnquiryPage() {
       city: form.city.trim() || undefined,
       state: form.state.trim() || undefined,
       requirements: form.requirements.trim() || undefined,
-    });
+    }));
 
-    if (!result.success) {
-      toast.error(result.error || 'Failed to submit enquiry');
-      return;
+    if (result.success) {
+      toast.success('Enquiry submitted successfully!');
+      router.push('/customer-portal/enquiries');
     }
-
-    toast.success('Enquiry submitted successfully!');
-    router.push('/customer-portal/enquiries');
   };
 
   const inputClass = "h-11 rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 transition-colors";
@@ -257,6 +258,13 @@ export default function NewEnquiryPage() {
               >
                 Cancel
               </Button>
+            </div>
+            <div className="pl-11">
+              <InlineError
+                message={submitEnquiryAction.error}
+                onDismiss={submitEnquiryAction.clearError}
+                className="mt-3"
+              />
             </div>
           </div>
         </form>

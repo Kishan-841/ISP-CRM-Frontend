@@ -27,6 +27,8 @@ import {
   Paperclip,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -78,6 +80,9 @@ export default function NewComplaintPage() {
   const [submitting, setSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
+  // Inline-error hook for the submit-complaint action surface.
+  const submitComplaintAction = useActionError();
+
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
@@ -126,33 +131,31 @@ export default function NewComplaintPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!categoryId) { toast.error('Please select a category'); return; }
-    if (!subCategoryId) { toast.error('Please select a sub-category'); return; }
-    if (!description.trim()) { toast.error('Please enter a description'); return; }
+    if (!categoryId) return submitComplaintAction.fail('Please choose a category for your complaint.');
+    if (!subCategoryId) return submitComplaintAction.fail('Please choose a sub-category that matches your issue.');
+    if (!description.trim()) return submitComplaintAction.fail('Please describe the issue you are facing.');
 
     setSubmitting(true);
 
-    const result = await submitComplaint({
+    const result = await submitComplaintAction.runAction(() => submitComplaint({
       categoryId,
       subCategoryId,
       description: description.trim(),
-    });
+    }));
 
-    if (!result.success) {
-      toast.error(result.error || 'Failed to submit complaint');
-      setSubmitting(false);
+    if (result.success) {
+      if (files.length > 0 && result.data?.id) {
+        const uploadResult = await uploadAttachments(result.data.id, files);
+        if (!uploadResult.success) {
+          toast.error('Complaint submitted but file upload failed. You can retry later.');
+        }
+      }
+
+      toast.success('Complaint submitted successfully!');
+      router.push('/customer-portal/complaints');
       return;
     }
-
-    if (files.length > 0 && result.data?.id) {
-      const uploadResult = await uploadAttachments(result.data.id, files);
-      if (!uploadResult.success) {
-        toast.error('Complaint submitted but file upload failed. You can retry later.');
-      }
-    }
-
-    toast.success('Complaint submitted successfully!');
-    router.push('/customer-portal/complaints');
+    setSubmitting(false);
   };
 
   return (
@@ -334,6 +337,13 @@ export default function NewComplaintPage() {
               >
                 Cancel
               </Button>
+            </div>
+            <div className="pl-11">
+              <InlineError
+                message={submitComplaintAction.error}
+                onDismiss={submitComplaintAction.clearError}
+                className="mt-3"
+              />
             </div>
           </div>
         </form>

@@ -25,6 +25,8 @@ import {
   Send
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
@@ -33,11 +35,17 @@ export default function CustomerUploadPage() {
   const token = params.token;
 
   const [isLoading, setIsLoading] = useState(true);
+  // Page-load error (token validation, fetch failure) — distinct from the
+  // submit-action error below. Stays as local state because it gates the
+  // entire page render, not just an inline message.
   const [error, setError] = useState(null);
   const [linkData, setLinkData] = useState(null);
   const [uploadingType, setUploadingType] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Inline-error hook for the submit-documents action surface.
+  const submitDocumentsAction = useActionError();
 
   // Fetch link data and validate token
   const fetchLinkData = useCallback(async () => {
@@ -160,7 +168,7 @@ export default function CustomerUploadPage() {
   // Handle submit/notify completion
   const handleSubmitDocuments = async () => {
     setIsSubmitting(true);
-    try {
+    const result = await submitDocumentsAction.runAction(async () => {
       const response = await fetch(`${API_BASE}/public/upload/${token}/complete`, {
         method: 'POST'
       });
@@ -168,16 +176,17 @@ export default function CustomerUploadPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to submit');
+        // Throwing lets the hook capture the friendly server message.
+        throw new Error(data.message || 'We couldn’t submit your documents. Please try again.');
       }
 
+      return { success: true, data };
+    });
+
+    if (result?.success !== false) {
       toast.success('Documents submitted successfully! The team has been notified.');
-    } catch (err) {
-      console.error('Submit error:', err);
-      toast.error(err.message || 'Failed to submit documents');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   // Format file size
@@ -424,7 +433,7 @@ export default function CustomerUploadPage() {
         </div>
 
         {/* Submit Button */}
-        <div className="mt-8 flex justify-center">
+        <div className="mt-8 flex flex-col items-center gap-3">
           <Button
             size="lg"
             onClick={handleSubmitDocuments}
@@ -443,6 +452,11 @@ export default function CustomerUploadPage() {
               </>
             )}
           </Button>
+          <InlineError
+            message={submitDocumentsAction.error}
+            onDismiss={submitDocumentsAction.clearError}
+            className="max-w-md w-full"
+          />
         </div>
 
         {/* Help Text */}

@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sun, Moon, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const inputClass = "h-10 sm:h-11 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:ring-orange-600 focus:border-orange-600";
 
@@ -43,11 +45,14 @@ export default function LoginPage() {
 
   const [view, setView] = useState('login'); // 'login' or 'reset'
 
+  // Inline-error hook instances — one per action surface (independent error state).
+  const loginAction = useActionError();
+  const resetPasswordAction = useActionError();
+
   // Login state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Reset password state
@@ -58,7 +63,6 @@ export default function LoginPage() {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
@@ -81,18 +85,14 @@ export default function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
-    const result = await login(email, password);
+    const result = await loginAction.runAction(() => login(email, password));
 
     if (result.success) {
       toast.success('Login successful! Redirecting...');
       const user = useAuthStore.getState().user;
       router.push(getRoleLandingPage(user?.role));
-    } else {
-      setError(result.error);
-      toast.error(result.error || 'Login failed');
     }
 
     setLoading(false);
@@ -100,26 +100,24 @@ export default function LoginPage() {
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    setResetError('');
 
     if (newPassword.length < 6) {
-      setResetError('New password must be at least 6 characters.');
-      return;
+      return resetPasswordAction.fail('New password must be at least 6 characters.');
     }
 
     if (newPassword !== confirmPassword) {
-      setResetError('New password and confirm password do not match.');
-      return;
+      return resetPasswordAction.fail('New password and confirm password do not match.');
     }
 
     setResetLoading(true);
-    try {
-      const res = await api.post('/auth/reset-password', {
-        email: resetEmail,
-        oldPassword,
-        newPassword,
-      });
-      toast.success(res.data.message || 'Password reset successfully!');
+    const result = await resetPasswordAction.runAction(() => api.post('/auth/reset-password', {
+      email: resetEmail,
+      oldPassword,
+      newPassword,
+    }));
+
+    if (result?.success !== false) {
+      toast.success(result?.data?.message || 'Password reset successfully!');
       // Switch back to login with email pre-filled
       setEmail(resetEmail);
       setPassword('');
@@ -128,13 +126,8 @@ export default function LoginPage() {
       setNewPassword('');
       setConfirmPassword('');
       setView('login');
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to reset password.';
-      setResetError(msg);
-      toast.error(msg);
-    } finally {
-      setResetLoading(false);
     }
+    setResetLoading(false);
   };
 
   return (
@@ -206,11 +199,7 @@ export default function LoginPage() {
                 <CardDescription className="text-slate-600 dark:text-slate-400">Sign in to your account to continue</CardDescription>
               </CardHeader>
               <CardContent className="pt-4">
-                {error && (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg mb-6 text-sm text-center">
-                    {error}
-                  </div>
-                )}
+                <InlineError message={loginAction.error} onDismiss={loginAction.clearError} className="mb-4" />
 
                 <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
                   <div className="space-y-2">
@@ -256,7 +245,7 @@ export default function LoginPage() {
                 </form>
 
                 <button
-                  onClick={() => { setView('reset'); setError(''); setResetError(''); setResetEmail(email); }}
+                  onClick={() => { setView('reset'); loginAction.clearError(); resetPasswordAction.clearError(); setResetEmail(email); }}
                   className="block w-full text-center text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 text-sm font-medium mt-5 transition-colors"
                 >
                   Forgot / Reset Password?
@@ -270,7 +259,7 @@ export default function LoginPage() {
             <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
               <CardHeader className="pb-2">
                 <button
-                  onClick={() => { setView('login'); setResetError(''); }}
+                  onClick={() => { setView('login'); resetPasswordAction.clearError(); }}
                   className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors mb-2"
                 >
                   <ArrowLeft size={16} />
@@ -280,11 +269,7 @@ export default function LoginPage() {
                 <CardDescription className="text-slate-600 dark:text-slate-400">Enter your email, current password, and new password</CardDescription>
               </CardHeader>
               <CardContent className="pt-4">
-                {resetError && (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg mb-6 text-sm text-center">
-                    {resetError}
-                  </div>
-                )}
+                <InlineError message={resetPasswordAction.error} onDismiss={resetPasswordAction.clearError} className="mb-4" />
 
                 <form onSubmit={handleResetPassword} className="space-y-4">
                   <div className="space-y-2">
