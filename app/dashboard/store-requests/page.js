@@ -29,6 +29,8 @@ import { useModal } from '@/lib/useModal';
 import { STORE_REQUEST_STATUS_CONFIG, getStatusBadgeClass } from '@/lib/statusConfig';
 import TabBar from '@/components/TabBar';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 // Format date
 const formatDate = (date) => {
@@ -67,6 +69,9 @@ export default function StoreRequestsPage() {
   const [assignments, setAssignments] = useState({});
   const [expandedItems, setExpandedItems] = useState({});
   const [isAssigning, setIsAssigning] = useState(false);
+
+  // Inline-error hook instance for the Assign Items surface.
+  const assignItemsAction = useActionError();
 
   // Serial number search states
   const [expandedSerialDropdown, setExpandedSerialDropdown] = useState(null); // Format: "itemId-invId"
@@ -207,20 +212,17 @@ export default function StoreRequestsPage() {
     }).filter(a => a && (a.serialNumbers.length > 0 || a.bulkQuantity > 0));
 
     if (assignmentData.length === 0) {
-      toast.error('Please select items to assign');
-      return;
+      return assignItemsAction.fail('Please select items to assign.');
     }
 
     setIsAssigning(true);
-    const result = await assignItemsToRequest(selectedRequest.id, assignmentData);
+    const result = await assignItemsAction.runAction(() => assignItemsToRequest(selectedRequest.id, assignmentData));
     setIsAssigning(false);
 
     if (result.success) {
       toast.success(result.message || 'Items assigned successfully');
       handleCloseAssignModal();
       fetchApprovedRequestsForStore(activeTab);
-    } else {
-      toast.error(result.error || 'Failed to assign items');
     }
   };
 
@@ -838,27 +840,34 @@ export default function StoreRequestsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex-shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-              <Button variant="outline" onClick={handleCloseAssignModal}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAssignItems}
-                disabled={isAssigning || Object.keys(assignments).length === 0}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {isAssigning ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Assigning...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Confirm Assignment
-                  </>
-                )}
-              </Button>
+            <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+              <InlineError
+                message={assignItemsAction.error}
+                onDismiss={assignItemsAction.clearError}
+                className="mx-4 sm:mx-6 mt-3"
+              />
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-4">
+                <Button variant="outline" onClick={handleCloseAssignModal}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAssignItems}
+                  disabled={isAssigning || Object.keys(assignments).length === 0}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {isAssigning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Assigning...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Confirm Assignment
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

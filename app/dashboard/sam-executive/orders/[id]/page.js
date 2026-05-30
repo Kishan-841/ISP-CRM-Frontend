@@ -10,6 +10,8 @@ import api from '@/lib/api';
 import { ArrowLeft, CheckCircle2, XCircle, FileText, ExternalLink, Clock, Check, ArrowUp, ArrowDown, RefreshCw, PowerOff, Lock } from 'lucide-react';
 import { SERVICE_ORDER_TYPE_CONFIG, SERVICE_ORDER_STATUS_CONFIG } from '@/lib/statusConfig';
 import EventTimeline from '@/components/audit/EventTimeline';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const typeBadgeColors = Object.fromEntries(
   Object.entries(SERVICE_ORDER_TYPE_CONFIG).map(([k, v]) => [k, v.color])
@@ -144,6 +146,11 @@ export default function ServiceOrderDetail() {
   // Speed test image viewer
   const [showSpeedTest, setShowSpeedTest] = useState(false);
 
+  // Inline-error hook instances — one per action surface.
+  const approveSoAction = useActionError();
+  const rejectSoAction = useActionError();
+  const processSoAction = useActionError();
+
   // Determine back link based on route path
   const getBackPath = () => {
     if (pathname.includes('/sam-head/')) return '/dashboard/sam-head/orders';
@@ -173,47 +180,41 @@ export default function ServiceOrderDetail() {
 
   const handleApprove = async () => {
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${params.id}/approve`);
+    const result = await approveSoAction.runAction(() => api.post(`/service-orders/${params.id}/approve`));
+    if (result?.success !== false) {
       toast.success('Service order approved!');
       fetchOrder();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to approve order');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const handleReject = async () => {
     if (!rejectionReason.trim()) {
-      toast.error('Rejection reason is required.');
-      return;
+      return rejectSoAction.fail('Rejection reason is required.');
     }
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${params.id}/reject`, { rejectionReason });
+    const result = await rejectSoAction.runAction(() =>
+      api.post(`/service-orders/${params.id}/reject`, { rejectionReason })
+    );
+    if (result?.success !== false) {
       toast.success('Service order rejected.');
       setShowRejectModal(false);
       fetchOrder();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to reject order');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const handleProcess = async () => {
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${params.id}/process`, { processNotes });
+    const result = await processSoAction.runAction(() =>
+      api.post(`/service-orders/${params.id}/process`, { processNotes })
+    );
+    if (result?.success !== false) {
       toast.success('Service order processed!');
       setShowProcessModal(false);
       fetchOrder();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to process order');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   if (isLoading) {
@@ -597,6 +598,7 @@ export default function ServiceOrderDetail() {
       )}
 
       {/* Action Buttons */}
+      <div className="space-y-3">
       <div className="flex gap-3">
         {/* Super Admin: Approve / Reject (Disconnection flow) */}
         {isSuperAdmin && order.status === 'PENDING_APPROVAL' && (
@@ -646,6 +648,11 @@ export default function ServiceOrderDetail() {
             Activation date is no longer set here — billing kicks in when
             Accounts processes the order. */}
       </div>
+        <InlineError
+          message={approveSoAction.error}
+          onDismiss={approveSoAction.clearError}
+        />
+      </div>
 
       {/* History Section */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
@@ -664,8 +671,17 @@ export default function ServiceOrderDetail() {
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
             />
+            <InlineError
+              message={rejectSoAction.error}
+              onDismiss={rejectSoAction.clearError}
+              className="mt-3"
+            />
             <div className="flex gap-2 mt-3">
-              <Button variant="outline" onClick={() => setShowRejectModal(false)} className="flex-1">
+              <Button
+                variant="outline"
+                onClick={() => { setShowRejectModal(false); rejectSoAction.clearError(); }}
+                className="flex-1"
+              >
                 Cancel
               </Button>
               <Button
@@ -691,8 +707,17 @@ export default function ServiceOrderDetail() {
               value={processNotes}
               onChange={(e) => setProcessNotes(e.target.value)}
             />
+            <InlineError
+              message={processSoAction.error}
+              onDismiss={processSoAction.clearError}
+              className="mt-3"
+            />
             <div className="flex gap-2 mt-3">
-              <Button variant="outline" onClick={() => setShowProcessModal(false)} className="flex-1">
+              <Button
+                variant="outline"
+                onClick={() => { setShowProcessModal(false); processSoAction.clearError(); }}
+                className="flex-1"
+              >
                 Cancel
               </Button>
               <Button

@@ -26,6 +26,8 @@ import api from '@/lib/api';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { formatDate } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const CATEGORY_LABELS = {
   SWITCH: 'Switch',
@@ -62,6 +64,9 @@ export default function StoreInventoryPage() {
   const [addForm, setAddForm] = useState({ productId: '', serialText: '', quantity: '', unitPrice: '' });
   const [isAdding, setIsAdding] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+
+  // Inline-error hook instance for the Add Material surface.
+  const addMaterialAction = useActionError();
 
   // Serial numbers dropdown state. dropdownCoords holds the fixed-position
   // coordinates we compute from the button's getBoundingClientRect on open —
@@ -213,44 +218,32 @@ export default function StoreInventoryPage() {
   const isBulkProduct = selectedProduct && (selectedProduct.category === 'FIBER' || selectedProduct.unit === 'mtrs');
 
   const handleSubmitAdd = async () => {
-    if (!addForm.productId) {
-      toast.error('Please select a product');
-      return;
-    }
+    if (!addForm.productId) return addMaterialAction.fail('Please select a product.');
     const payload = {
       productId: addForm.productId,
       unitPrice: addForm.unitPrice ? parseFloat(addForm.unitPrice) : null
     };
     if (isBulkProduct) {
       const qty = parseInt(addForm.quantity, 10);
-      if (!qty || qty <= 0) {
-        toast.error('Enter a valid quantity');
-        return;
-      }
+      if (!qty || qty <= 0) return addMaterialAction.fail('Enter a valid quantity.');
       payload.quantity = qty;
     } else {
       const serials = addForm.serialText
         .split(/[\n,]+/)
         .map(s => s.trim())
         .filter(Boolean);
-      if (serials.length === 0) {
-        toast.error('Enter at least one serial number');
-        return;
-      }
+      if (serials.length === 0) return addMaterialAction.fail('Enter at least one serial number.');
       payload.serialNumbers = serials;
     }
     setIsAdding(true);
-    try {
-      const response = await api.post('/store/inventory/direct-add', payload);
-      toast.success(response.data.message || 'Material added');
+    const result = await addMaterialAction.runAction(() => api.post('/store/inventory/direct-add', payload));
+    if (result?.success !== false) {
+      toast.success(result.data?.message || 'Material added');
       setShowAddModal(false);
       fetchInventory();
       fetchStats();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add material');
-    } finally {
-      setIsAdding(false);
     }
+    setIsAdding(false);
   };
 
   const getCategoryLabel = (category) => CATEGORY_LABELS[category] || category;
@@ -789,21 +782,28 @@ export default function StoreInventoryPage() {
               )}
             </div>
 
-            <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 flex-shrink-0">
-              <Button variant="outline" onClick={() => setShowAddModal(false)} disabled={isAdding}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitAdd}
-                disabled={isAdding || !addForm.productId}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {isAdding ? (
-                  <><Loader2 size={14} className="mr-2 animate-spin" /> Adding...</>
-                ) : (
-                  <><Plus size={14} className="mr-2" /> Add to Inventory</>
-                )}
-              </Button>
+            <div className="border-t border-slate-200 dark:border-slate-800 flex-shrink-0">
+              <InlineError
+                message={addMaterialAction.error}
+                onDismiss={addMaterialAction.clearError}
+                className="mx-5 mt-3"
+              />
+              <div className="px-5 py-3 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowAddModal(false)} disabled={isAdding}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitAdd}
+                  disabled={isAdding || !addForm.productId}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {isAdding ? (
+                    <><Loader2 size={14} className="mr-2 animate-spin" /> Adding...</>
+                  ) : (
+                    <><Plus size={14} className="mr-2" /> Add to Inventory</>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

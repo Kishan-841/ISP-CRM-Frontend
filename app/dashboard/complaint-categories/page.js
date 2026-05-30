@@ -21,6 +21,8 @@ import {
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function ComplaintCategoriesPage() {
   const router = useRouter();
@@ -54,6 +56,12 @@ export default function ComplaintCategoriesPage() {
 
   // Toggle loading for inline status toggles
   const [togglingId, setTogglingId] = useState(null);
+
+  // Inline-error hook instances — one per modal (the same modal handles
+  // both create + edit, since validation/API failures should surface in the
+  // same spot regardless of mode).
+  const categoryFormAction = useActionError();
+  const subCategoryFormAction = useActionError();
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER';
 
@@ -103,34 +111,32 @@ export default function ComplaintCategoriesPage() {
   const closeCategoryModal = () => {
     setShowCategoryModal(false);
     setEditingCategory(null);
+    categoryFormAction.clearError();
   };
 
   const handleSaveCategory = async (e) => {
     e.preventDefault();
     if (!categoryForm.name.trim()) {
-      toast.error('Category name is required');
-      return;
+      return categoryFormAction.fail('Category name is required.');
     }
     setSavingCategory(true);
-    let result;
-    if (editingCategory) {
-      result = await updateCategory(editingCategory.id, {
+    const result = await categoryFormAction.runAction(() => {
+      if (editingCategory) {
+        return updateCategory(editingCategory.id, {
+          name: categoryForm.name.trim(),
+          description: categoryForm.description.trim() || null,
+          isActive: categoryFormActive,
+        });
+      }
+      return createCategory({
         name: categoryForm.name.trim(),
         description: categoryForm.description.trim() || null,
-        isActive: categoryFormActive,
       });
-    } else {
-      result = await createCategory({
-        name: categoryForm.name.trim(),
-        description: categoryForm.description.trim() || null,
-      });
-    }
+    });
     if (result.success) {
       toast.success(editingCategory ? 'Category updated' : 'Category created');
       closeCategoryModal();
       await fetchAllCategories();
-    } else {
-      toast.error(result.error || 'Failed to save category');
     }
     setSavingCategory(false);
   };
@@ -173,40 +179,37 @@ export default function ComplaintCategoriesPage() {
     setShowSubCategoryModal(false);
     setEditingSubCategory(null);
     setSubCategoryParentId(null);
+    subCategoryFormAction.clearError();
   };
 
   const handleSaveSubCategory = async (e) => {
     e.preventDefault();
     if (!subCategoryForm.name.trim()) {
-      toast.error('Sub-category name is required');
-      return;
+      return subCategoryFormAction.fail('Sub-category name is required.');
     }
     if (!subCategoryForm.defaultTATHours || subCategoryForm.defaultTATHours < 1) {
-      toast.error('Default TAT must be at least 1 hour');
-      return;
+      return subCategoryFormAction.fail('Default TAT must be at least 1 hour.');
     }
     setSavingSubCategory(true);
-    let result;
-    if (editingSubCategory) {
-      result = await updateSubCategory(editingSubCategory.id, {
+    const result = await subCategoryFormAction.runAction(() => {
+      if (editingSubCategory) {
+        return updateSubCategory(editingSubCategory.id, {
+          name: subCategoryForm.name.trim(),
+          description: subCategoryForm.description.trim() || null,
+          defaultTATHours: Number(subCategoryForm.defaultTATHours),
+          isActive: subCategoryFormActive,
+        });
+      }
+      return createSubCategory(subCategoryParentId, {
         name: subCategoryForm.name.trim(),
         description: subCategoryForm.description.trim() || null,
         defaultTATHours: Number(subCategoryForm.defaultTATHours),
-        isActive: subCategoryFormActive,
       });
-    } else {
-      result = await createSubCategory(subCategoryParentId, {
-        name: subCategoryForm.name.trim(),
-        description: subCategoryForm.description.trim() || null,
-        defaultTATHours: Number(subCategoryForm.defaultTATHours),
-      });
-    }
+    });
     if (result.success) {
       toast.success(editingSubCategory ? 'Sub-category updated' : 'Sub-category created');
       closeSubCategoryModal();
       await fetchAllCategories();
-    } else {
-      toast.error(result.error || 'Failed to save sub-category');
     }
     setSavingSubCategory(false);
   };
@@ -552,33 +555,40 @@ export default function ComplaintCategoriesPage() {
             </form>
 
             {/* Footer */}
-            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
-              <Button
-                type="button"
-                onClick={closeCategoryModal}
-                variant="outline"
-                size="sm"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveCategory}
-                disabled={savingCategory || !categoryForm.name.trim()}
-                size="sm"
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {savingCategory ? (
-                  <>
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                    Saving...
-                  </>
-                ) : editingCategory ? (
-                  'Update Category'
-                ) : (
-                  'Create Category'
-                )}
-              </Button>
+            <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+              <InlineError
+                message={categoryFormAction.error}
+                onDismiss={categoryFormAction.clearError}
+                className="mx-4 sm:mx-6 mt-3"
+              />
+              <div className="px-4 sm:px-6 py-3 sm:py-4 flex gap-3">
+                <Button
+                  type="button"
+                  onClick={closeCategoryModal}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveCategory}
+                  disabled={savingCategory || !categoryForm.name.trim()}
+                  size="sm"
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {savingCategory ? (
+                    <>
+                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                      Saving...
+                    </>
+                  ) : editingCategory ? (
+                    'Update Category'
+                  ) : (
+                    'Create Category'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -670,33 +680,40 @@ export default function ComplaintCategoriesPage() {
             </form>
 
             {/* Footer */}
-            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
-              <Button
-                type="button"
-                onClick={closeSubCategoryModal}
-                variant="outline"
-                size="sm"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveSubCategory}
-                disabled={savingSubCategory || !subCategoryForm.name.trim() || !subCategoryForm.defaultTATHours}
-                size="sm"
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {savingSubCategory ? (
-                  <>
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                    Saving...
-                  </>
-                ) : editingSubCategory ? (
-                  'Update Sub-Category'
-                ) : (
-                  'Create Sub-Category'
-                )}
-              </Button>
+            <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+              <InlineError
+                message={subCategoryFormAction.error}
+                onDismiss={subCategoryFormAction.clearError}
+                className="mx-4 sm:mx-6 mt-3"
+              />
+              <div className="px-4 sm:px-6 py-3 sm:py-4 flex gap-3">
+                <Button
+                  type="button"
+                  onClick={closeSubCategoryModal}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveSubCategory}
+                  disabled={savingSubCategory || !subCategoryForm.name.trim() || !subCategoryForm.defaultTATHours}
+                  size="sm"
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {savingSubCategory ? (
+                    <>
+                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                      Saving...
+                    </>
+                  ) : editingSubCategory ? (
+                    'Update Sub-Category'
+                  ) : (
+                    'Create Sub-Category'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

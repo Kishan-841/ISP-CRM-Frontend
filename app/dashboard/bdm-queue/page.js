@@ -38,6 +38,8 @@ import { useModal } from '@/lib/useModal';
 import { PageHeader } from '@/components/PageHeader';
 import SearchableCampaignSelect from '@/components/SearchableCampaignSelect';
 import SamSourceBadge from '@/components/SamSourceBadge';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function BDMQueuePage() {
   const router = useRouter();
@@ -146,6 +148,14 @@ export default function BDMQueuePage() {
   useModal(showTransferModal, () => !isTransferring && setShowTransferModal(false));
   useModal(showAddLeadModal, () => !isAddingLead && setShowAddLeadModal(false));
 
+  // Inline-error hook instances — one per action surface (independent error state).
+  const addLeadAction = useActionError();
+  const endCallAction = useActionError();
+  const momAction = useActionError();
+  const reassignAction = useActionError();
+  const bulkAssignAction = useActionError();
+  const transferAction = useActionError();
+
   const canAccess = isBDM || isBDMCP || isBDMTeamLeader || isAdmin;
 
   // Redirect users who cannot access
@@ -227,20 +237,19 @@ export default function BDMQueuePage() {
 
   const handleSubmitAddLead = async () => {
     const { name, company, phone, email } = addLeadForm;
-    if (!name.trim()) return toast.error('Full name is required');
-    if (!company.trim()) return toast.error('Company is required');
+    if (!name.trim()) return addLeadAction.fail('Full name is required.');
+    if (!company.trim()) return addLeadAction.fail('Company is required.');
     const phoneDigits = phone.replace(/\D/g, '');
-    if (phoneDigits.length !== 10) return toast.error('Phone must be exactly 10 digits');
-    if (!email.trim()) return toast.error('Email is required');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return toast.error('Please enter a valid email address');
+    if (phoneDigits.length !== 10) return addLeadAction.fail('Phone must be exactly 10 digits.');
+    if (!email.trim()) return addLeadAction.fail('Email is required.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return addLeadAction.fail('Please enter a valid email address.');
 
     setIsAddingLead(true);
-    const result = await createDirectLead({
+    const result = await addLeadAction.runAction(() => createDirectLead({
       ...addLeadForm,
       phone: phoneDigits,
       productIds: addLeadProductIds,
-    });
-    setIsAddingLead(false);
+    }));
 
     if (result.success) {
       toast.success('Lead added successfully');
@@ -248,9 +257,8 @@ export default function BDMQueuePage() {
       setAddLeadForm(emptyAddLeadForm);
       setAddLeadProductIds([]);
       fetchBDMQueue(selectedCampaignId || null);
-    } else {
-      toast.error(result.error || 'Failed to add lead');
     }
+    setIsAddingLead(false);
   };
 
   const resetDisposition = () => {
@@ -300,29 +308,24 @@ export default function BDMQueuePage() {
 
   const handleEndCall = async () => {
     if (!activeCall || !disposition) {
-      toast.error('Please select a disposition');
-      return;
+      return endCallAction.fail('Please select a disposition.');
     }
 
     if (disposition === 'FOLLOW_UP' && (!callLaterDate || !callLaterTime)) {
-      toast.error('Please select follow-up date and time');
-      return;
+      return endCallAction.fail('Please select follow-up date and time.');
     }
 
     if (disposition === 'MEETING_SCHEDULED') {
       if (!meetingDate || !meetingTime) {
-        toast.error('Please select meeting date and time');
-        return;
+        return endCallAction.fail('Please select meeting date and time.');
       }
       if (!meetingPlace.trim()) {
-        toast.error('Please enter meeting place');
-        return;
+        return endCallAction.fail('Please enter meeting place.');
       }
     }
 
     if (disposition === 'DROPPED' && !dropReason.trim()) {
-      toast.error('Please provide a reason for dropping');
-      return;
+      return endCallAction.fail('Please provide a reason for dropping.');
     }
 
     setIsSaving(true);
@@ -341,7 +344,7 @@ export default function BDMQueuePage() {
       ? new Date(`${meetingDate}T${meetingTime}`).toISOString()
       : null;
 
-    const result = await bdmDisposition(selectedLead.id, {
+    const result = await endCallAction.runAction(() => bdmDisposition(selectedLead.id, {
       disposition: actualDisposition,
       notes: isNotReachable ? (notes ? `Not Reachable/Ringing. ${notes}` : 'Not Reachable/Ringing') : notes,
       callLaterAt,
@@ -350,7 +353,7 @@ export default function BDMQueuePage() {
       meetingDate: meetingDateTime,
       meetingPlace: disposition === 'MEETING_SCHEDULED' ? meetingPlace.trim() : null,
       meetingNotes: disposition === 'MEETING_SCHEDULED' ? meetingNotes.trim() : null
-    });
+    }));
 
     if (result.success) {
       setActiveCall(null);
@@ -359,14 +362,13 @@ export default function BDMQueuePage() {
       toast.success(isNotReachable ? 'Marked as not reachable. Follow-up scheduled in 1 hour.' : (result.message || 'Disposition saved'));
 
       if (isNotReachable) {
+        setIsSaving(false);
         router.push('/dashboard/bdm-follow-ups');
         return;
       }
 
       // Move to next or clear
       moveToNext();
-    } else {
-      toast.error(result.error || 'Failed to save disposition');
     }
 
     setIsSaving(false);
@@ -400,15 +402,14 @@ export default function BDMQueuePage() {
 
   const handleSaveMOM = async () => {
     if (!momData.discussion.trim()) {
-      toast.error('Discussion points are required');
-      return;
+      return momAction.fail('Discussion points are required.');
     }
 
-    const result = await addMOM(selectedLead.id, {
+    const result = await momAction.runAction(() => addMOM(selectedLead.id, {
       ...momData,
       meetingDate: momData.meetingDate || new Date().toISOString(),
       followUpDate: momData.followUpDate || null
-    });
+    }));
 
     if (result.success) {
       toast.success('MOM added successfully');
@@ -421,8 +422,6 @@ export default function BDMQueuePage() {
         nextSteps: '',
         followUpDate: ''
       });
-    } else {
-      toast.error(result.error || 'Failed to add MOM');
     }
   };
 
@@ -458,18 +457,15 @@ export default function BDMQueuePage() {
   // Handle reassign (team leader)
   const handleReassign = async (leadId) => {
     if (!reassignBDMId) {
-      toast.error('Please select a BDM');
-      return;
+      return reassignAction.fail('Please select a BDM.');
     }
     setIsReassigning(true);
-    const result = await reassignLeadToBDM(leadId, reassignBDMId);
+    const result = await reassignAction.runAction(() => reassignLeadToBDM(leadId, reassignBDMId));
     if (result.success) {
       toast.success('Lead reassigned successfully');
       setReassignBDMId('');
       fetchBDMQueue(selectedCampaignId || null);
       setSelectedLead(null);
-    } else {
-      toast.error(result.error || 'Failed to reassign lead');
     }
     setIsReassigning(false);
   };
@@ -477,22 +473,20 @@ export default function BDMQueuePage() {
   // Handle bulk assign (team leader)
   const handleBulkAssign = async () => {
     if (!bulkBDMId) {
-      toast.error('Please select a BDM');
-      return;
+      return bulkAssignAction.fail('Please select a BDM.');
     }
     if (selectedLeadIds.size === 0) {
-      toast.error('No leads selected');
-      return;
+      return bulkAssignAction.fail('No leads selected.');
     }
     setIsBulkAssigning(true);
-    const result = await bulkReassignLeadsToBDM(Array.from(selectedLeadIds), bulkBDMId);
+    const result = await bulkAssignAction.runAction(() =>
+      bulkReassignLeadsToBDM(Array.from(selectedLeadIds), bulkBDMId)
+    );
     if (result.success) {
       toast.success(result.data?.message || `${selectedLeadIds.size} lead(s) assigned`);
       setSelectedLeadIds(new Set());
       setBulkBDMId('');
       fetchBDMQueue(selectedCampaignId || null);
-    } else {
-      toast.error(result.error || 'Failed to assign leads');
     }
     setIsBulkAssigning(false);
   };
@@ -500,20 +494,19 @@ export default function BDMQueuePage() {
   // Handle transfer all leads
   const handleTransferAll = async () => {
     if (!transferFromBdmId || !transferToBdmId) {
-      toast.error('Please select both source and target BDM');
-      return;
+      return transferAction.fail('Please select both source and target BDM.');
     }
     if (transferFromBdmId === transferToBdmId) {
-      toast.error('Source and target BDM cannot be the same');
-      return;
+      return transferAction.fail('Source and target BDM cannot be the same.');
     }
     const fromBdm = bdmUsers.find(b => b.id === transferFromBdmId);
     if (transferConfirmText !== fromBdm?.name) {
-      toast.error(`Please type "${fromBdm?.name}" to confirm`);
-      return;
+      return transferAction.fail(`Please type "${fromBdm?.name}" to confirm.`);
     }
     setIsTransferring(true);
-    const result = await transferAllLeads(transferFromBdmId, transferToBdmId);
+    const result = await transferAction.runAction(() =>
+      transferAllLeads(transferFromBdmId, transferToBdmId)
+    );
     if (result.success) {
       toast.success(result.data?.message || 'Leads transferred successfully');
       setShowTransferModal(false);
@@ -521,8 +514,6 @@ export default function BDMQueuePage() {
       setTransferToBdmId('');
       setTransferConfirmText('');
       fetchBDMQueue(selectedCampaignId || null);
-    } else {
-      toast.error(result.error || 'Failed to transfer leads');
     }
     setIsTransferring(false);
   };
@@ -647,38 +638,45 @@ export default function BDMQueuePage() {
           )}
         </div>
 
-        <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex gap-3">
-          <Button
-            onClick={() => {
-              setShowTransferModal(false);
-              setTransferFromBdmId('');
-              setTransferToBdmId('');
-              setTransferConfirmText('');
-            }}
-            variant="outline"
-            className="flex-1 border-slate-200 dark:border-slate-700"
-            disabled={isTransferring}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleTransferAll}
-            disabled={
-              isTransferring ||
-              !transferFromBdmId ||
-              !transferToBdmId ||
-              transferFromBdmId === transferToBdmId ||
-              transferConfirmText !== bdmUsers.find(b => b.id === transferFromBdmId)?.name
-            }
-            className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            {isTransferring ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-            ) : (
-              <ArrowRightLeft size={16} className="mr-2" />
-            )}
-            {isTransferring ? 'Transferring...' : 'Transfer All'}
-          </Button>
+        <div className="border-t border-slate-200 dark:border-slate-800">
+          <InlineError
+            message={transferAction.error}
+            onDismiss={transferAction.clearError}
+            className="mx-6 mt-3"
+          />
+          <div className="p-6 flex gap-3">
+            <Button
+              onClick={() => {
+                setShowTransferModal(false);
+                setTransferFromBdmId('');
+                setTransferToBdmId('');
+                setTransferConfirmText('');
+              }}
+              variant="outline"
+              className="flex-1 border-slate-200 dark:border-slate-700"
+              disabled={isTransferring}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleTransferAll}
+              disabled={
+                isTransferring ||
+                !transferFromBdmId ||
+                !transferToBdmId ||
+                transferFromBdmId === transferToBdmId ||
+                transferConfirmText !== bdmUsers.find(b => b.id === transferFromBdmId)?.name
+              }
+              className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {isTransferring ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+              ) : (
+                <ArrowRightLeft size={16} className="mr-2" />
+              )}
+              {isTransferring ? 'Transferring...' : 'Transfer All'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -803,6 +801,19 @@ export default function BDMQueuePage() {
           {/* Unassigned Tab */}
           {tlTab === 'unassigned' && (
             <div className="p-0">
+              {/* Inline errors for bulk assign + per-lead reassign */}
+              {(bulkAssignAction.error || reassignAction.error) && (
+                <div className="px-4 sm:px-6 pt-3 space-y-2">
+                  <InlineError
+                    message={bulkAssignAction.error}
+                    onDismiss={bulkAssignAction.clearError}
+                  />
+                  <InlineError
+                    message={reassignAction.error}
+                    onDismiss={reassignAction.clearError}
+                  />
+                </div>
+              )}
               {/* Bulk Action Bar */}
               {selectedLeadIds.size > 0 && (
                 <div className="px-4 sm:px-6 py-3 bg-orange-50 dark:bg-orange-950/20 border-b border-orange-200 dark:border-orange-900 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -1659,34 +1670,41 @@ export default function BDMQueuePage() {
               </div>
             </div>
 
-            <div className="p-5 border-t border-slate-200 dark:border-slate-800 flex gap-3">
-              <Button
-                onClick={() => setShowDispositionDialog(false)}
-                variant="outline"
-                className="flex-1 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleEndCall}
-                disabled={
-                  !disposition ||
-                  isSaving ||
-                  (disposition === 'FOLLOW_UP' && (!callLaterDate || !callLaterTime)) ||
-                  (disposition === 'DROPPED' && !dropReason.trim()) ||
-                  (disposition === 'MEETING_SCHEDULED' && (!meetingDate || !meetingTime || !meetingPlace.trim()))
-                }
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Saving...
-                  </>
-                ) : (
-                  'Save & End Call'
-                )}
-              </Button>
+            <div className="border-t border-slate-200 dark:border-slate-800">
+              <InlineError
+                message={endCallAction.error}
+                onDismiss={endCallAction.clearError}
+                className="mx-5 mt-3"
+              />
+              <div className="p-5 flex gap-3">
+                <Button
+                  onClick={() => setShowDispositionDialog(false)}
+                  variant="outline"
+                  className="flex-1 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleEndCall}
+                  disabled={
+                    !disposition ||
+                    isSaving ||
+                    (disposition === 'FOLLOW_UP' && (!callLaterDate || !callLaterTime)) ||
+                    (disposition === 'DROPPED' && !dropReason.trim()) ||
+                    (disposition === 'MEETING_SCHEDULED' && (!meetingDate || !meetingTime || !meetingPlace.trim()))
+                  }
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    'Save & End Call'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1797,6 +1815,10 @@ export default function BDMQueuePage() {
                     />
                   </div>
 
+                  <InlineError
+                    message={momAction.error}
+                    onDismiss={momAction.clearError}
+                  />
                   <Button
                     onClick={handleSaveMOM}
                     disabled={!momData.discussion.trim()}
@@ -2032,23 +2054,30 @@ export default function BDMQueuePage() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
-              <Button
-                onClick={() => setShowAddLeadModal(false)}
-                variant="outline"
-                size="sm"
-                disabled={isAddingLead}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitAddLead}
-                disabled={isAddingLead}
-                size="sm"
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {isAddingLead ? 'Adding...' : 'Add Lead'}
-              </Button>
+            <div className="border-t border-slate-200 dark:border-slate-800">
+              <InlineError
+                message={addLeadAction.error}
+                onDismiss={addLeadAction.clearError}
+                className="mx-6 mt-3"
+              />
+              <div className="px-6 py-4 flex items-center justify-end gap-2">
+                <Button
+                  onClick={() => setShowAddLeadModal(false)}
+                  variant="outline"
+                  size="sm"
+                  disabled={isAddingLead}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitAddLead}
+                  disabled={isAddingLead}
+                  size="sm"
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {isAddingLead ? 'Adding...' : 'Add Lead'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -39,6 +39,8 @@ import { useModal } from '@/lib/useModal';
 import { VENDOR_CATEGORY_CONFIG, VENDOR_APPROVAL_STATUS_CONFIG } from '@/lib/statusConfig';
 import TabBar from '@/components/TabBar';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const CATEGORY_LABELS = {
   FIBER: 'Fiber',
@@ -101,6 +103,13 @@ export default function VendorsPage() {
   });
   const [isUploadingDocs, setIsUploadingDocs] = useState(false);
 
+  // Inline-error hook instances — one per action surface (independent error state).
+  // vendorFormAction covers both edit and the resubmit-after-rejection flow that share the modal.
+  // approveVendorAction is shared across per-row Approve buttons (one banner above the table).
+  const vendorFormAction = useActionError();
+  const uploadDocsAction = useActionError();
+  const approveVendorAction = useActionError();
+  const rejectVendorAction = useActionError();
 
   // Edit form state. When editing a REJECTED vendor (resubmit flow), the
   // bank/doc/PAN/GST fields are also editable — pre-populated from the
@@ -205,8 +214,7 @@ export default function VendorsPage() {
     e.preventDefault();
     if (!editingVendor) return;
     if (!editFormData.companyName.trim()) {
-      toast.error('Company name is required');
-      return;
+      return vendorFormAction.fail('Company name is required.');
     }
 
     setIsSaving(true);
@@ -214,9 +222,11 @@ export default function VendorsPage() {
     // Resubmit path (REJECTED): the creator pushes the full payload through
     // upload-docs, which also flips approvalStatus back to PENDING_ACCOUNTS.
     // Admin/standard edit path: basic info only via updateVendor.
-    const result = isResubmitMode(editingVendor)
-      ? await uploadVendorDocs(editingVendor.id, editFormData)
-      : await updateVendor(editingVendor.id, editFormData);
+    const result = await vendorFormAction.runAction(() =>
+      isResubmitMode(editingVendor)
+        ? uploadVendorDocs(editingVendor.id, editFormData)
+        : updateVendor(editingVendor.id, editFormData)
+    );
 
     if (result.success) {
       toast.success(
@@ -228,8 +238,6 @@ export default function VendorsPage() {
       setEditingVendor(null);
       fetchVendors(searchTerm, undefined, getApprovalFilter());
       fetchVendorStats();
-    } else {
-      toast.error(result.error || 'Failed to update vendor');
     }
     setIsSaving(false);
   };
@@ -258,14 +266,12 @@ export default function VendorsPage() {
 
   const handleApprove = async (vendor) => {
     setIsApproving(vendor.id);
-    const result = await approveVendor(vendor.id);
+    const result = await approveVendorAction.runAction(() => approveVendor(vendor.id));
     if (result.success) {
       toast.success(result.message || 'Vendor approved');
       const approvalStatus = getApprovalFilter();
       fetchVendors(searchTerm, undefined, approvalStatus);
       fetchVendorStats();
-    } else {
-      toast.error(result.error || 'Failed to approve vendor');
     }
     setIsApproving(null);
   };
@@ -278,11 +284,10 @@ export default function VendorsPage() {
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      toast.error('Rejection reason is required');
-      return;
+      return rejectVendorAction.fail('Rejection reason is required.');
     }
     setIsSaving(true);
-    const result = await rejectVendor(rejectingVendor.id, rejectReason);
+    const result = await rejectVendorAction.runAction(() => rejectVendor(rejectingVendor.id, rejectReason));
     if (result.success) {
       toast.success(result.message || 'Vendor rejected');
       setShowRejectModal(false);
@@ -290,8 +295,6 @@ export default function VendorsPage() {
       const approvalStatus = getApprovalFilter();
       fetchVendors(searchTerm, undefined, approvalStatus);
       fetchVendorStats();
-    } else {
-      toast.error(result.error || 'Failed to reject vendor');
     }
     setIsSaving(false);
   };
@@ -332,21 +335,19 @@ export default function VendorsPage() {
   };
 
   const handleUploadDocs = async () => {
-    if (!uploadDocsData.panNumber.trim()) { toast.error('PAN Number is required'); return; }
-    if (!uploadDocsData.accountName.trim()) { toast.error('Account Name is required'); return; }
-    if (!uploadDocsData.accountNumber.trim()) { toast.error('Account Number is required'); return; }
-    if (!uploadDocsData.ifscCode.trim()) { toast.error('IFSC Code is required'); return; }
-    if (!uploadDocsData.bankName.trim()) { toast.error('Bank Name is required'); return; }
-    if (!uploadDocsData.branchName.trim()) { toast.error('Branch Name is required'); return; }
+    if (!uploadDocsData.panNumber.trim()) return uploadDocsAction.fail('PAN Number is required.');
+    if (!uploadDocsData.accountName.trim()) return uploadDocsAction.fail('Account Name is required.');
+    if (!uploadDocsData.accountNumber.trim()) return uploadDocsAction.fail('Account Number is required.');
+    if (!uploadDocsData.ifscCode.trim()) return uploadDocsAction.fail('IFSC Code is required.');
+    if (!uploadDocsData.bankName.trim()) return uploadDocsAction.fail('Bank Name is required.');
+    if (!uploadDocsData.branchName.trim()) return uploadDocsAction.fail('Branch Name is required.');
     setIsUploadingDocs(true);
-    const result = await uploadVendorDocs(uploadingDocsFor.id, uploadDocsData);
+    const result = await uploadDocsAction.runAction(() => uploadVendorDocs(uploadingDocsFor.id, uploadDocsData));
     if (result.success) {
       toast.success(result.message || 'Documents uploaded successfully');
       setShowUploadDocsModal(false);
       setUploadingDocsFor(null);
       fetchVendors(searchTerm, undefined, getApprovalFilter());
-    } else {
-      toast.error(result.error || 'Failed to upload documents');
     }
     setIsUploadingDocs(false);
   };
@@ -476,6 +477,13 @@ export default function VendorsPage() {
           </Button>
         )}
       </PageHeader>
+
+      {/* Approve action banner — shared across per-row Approve buttons. One hook
+          instance, so one banner above the table is the right surface. */}
+      <InlineError
+        message={approveVendorAction.error}
+        onDismiss={approveVendorAction.clearError}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -1198,31 +1206,37 @@ export default function VendorsPage() {
               )}
             </form>
 
-            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
-              <Button
-                type="button"
-                onClick={() => { setShowEditModal(false); setEditingVendor(null); }}
-                variant="outline"
-                size="sm"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleEdit}
-                disabled={isSaving || !editFormData.companyName.trim()}
-                size="sm"
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                    {resubmit ? 'Resubmitting...' : 'Saving...'}
-                  </>
-                ) : (
-                  resubmit ? 'Resubmit to Accounts' : 'Update Vendor'
-                )}
-              </Button>
+            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-3">
+              <InlineError
+                message={vendorFormAction.error}
+                onDismiss={vendorFormAction.clearError}
+              />
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setEditingVendor(null); }}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleEdit}
+                  disabled={isSaving || !editFormData.companyName.trim()}
+                  size="sm"
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                      {resubmit ? 'Resubmitting...' : 'Saving...'}
+                    </>
+                  ) : (
+                    resubmit ? 'Resubmit to Accounts' : 'Update Vendor'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1498,31 +1512,37 @@ export default function VendorsPage() {
               </div>
             </div>
 
-            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
-              <Button
-                type="button"
-                onClick={() => { setShowRejectModal(false); setRejectingVendor(null); }}
-                variant="outline"
-                size="sm"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleReject}
-                disabled={isSaving || !rejectReason.trim()}
-                size="sm"
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                    Rejecting...
-                  </>
-                ) : (
-                  'Reject Vendor'
-                )}
-              </Button>
+            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-3">
+              <InlineError
+                message={rejectVendorAction.error}
+                onDismiss={rejectVendorAction.clearError}
+              />
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => { setShowRejectModal(false); setRejectingVendor(null); }}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleReject}
+                  disabled={isSaving || !rejectReason.trim()}
+                  size="sm"
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                      Rejecting...
+                    </>
+                  ) : (
+                    'Reject Vendor'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1717,17 +1737,23 @@ export default function VendorsPage() {
               </div>
             </div>
 
-            <div className="flex-shrink-0 p-4 border-t border-slate-200 dark:border-slate-700 flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => { setShowUploadDocsModal(false); setUploadingDocsFor(null); }}>
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-                onClick={handleUploadDocs}
-                disabled={isUploadingDocs || !uploadDocsData.panNumber.trim() || !uploadDocsData.accountName.trim() || !uploadDocsData.accountNumber.trim() || !uploadDocsData.ifscCode.trim() || !uploadDocsData.bankName.trim() || !uploadDocsData.branchName.trim()}
-              >
-                {isUploadingDocs ? <><Loader2 size={16} className="animate-spin mr-2" />Uploading...</> : <><Upload size={16} className="mr-2" />Upload Documents</>}
-              </Button>
+            <div className="flex-shrink-0 p-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+              <InlineError
+                message={uploadDocsAction.error}
+                onDismiss={uploadDocsAction.clearError}
+              />
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => { setShowUploadDocsModal(false); setUploadingDocsFor(null); }}>
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                  onClick={handleUploadDocs}
+                  disabled={isUploadingDocs || !uploadDocsData.panNumber.trim() || !uploadDocsData.accountName.trim() || !uploadDocsData.accountNumber.trim() || !uploadDocsData.ifscCode.trim() || !uploadDocsData.bankName.trim() || !uploadDocsData.branchName.trim()}
+                >
+                  {isUploadingDocs ? <><Loader2 size={16} className="animate-spin mr-2" />Uploading...</> : <><Upload size={16} className="mr-2" />Upload Documents</>}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -12,6 +12,8 @@ import api from '@/lib/api';
 import { X, Search } from 'lucide-react';
 import { formatDate } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const emptyActionItem = () => ({
   srNo: 1,
@@ -48,6 +50,7 @@ export default function SAMExecutiveMeetings() {
   // Add MOM modal
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const addMomAction = useActionError();
   const [momForm, setMomForm] = useState({
     customerId: '',
     meetingDate: '',
@@ -160,36 +163,32 @@ export default function SAMExecutiveMeetings() {
   const handleCreateMOM = async (e) => {
     e.preventDefault();
     if (!momForm.customerId || !momForm.meetingDate || !momForm.meetingTime) {
-      toast.error('Please fill customer, date and time');
-      return;
+      return addMomAction.fail('Please fill customer, date and time.');
     }
 
     setIsSubmitting(true);
-    try {
-      const meetingDateTime = new Date(`${momForm.meetingDate}T${momForm.meetingTime}`);
-      const actionItems = momForm.actionItems.filter(item => item.discussionDescription.trim());
+    const meetingDateTime = new Date(`${momForm.meetingDate}T${momForm.meetingTime}`);
+    const actionItems = momForm.actionItems.filter(item => item.discussionDescription.trim());
 
-      const clientP = momForm.clientParticipants.filter(p => p.name.trim());
-      const gazonP = momForm.gazonParticipants.filter(p => p.name.trim());
+    const clientP = momForm.clientParticipants.filter(p => p.name.trim());
+    const gazonP = momForm.gazonParticipants.filter(p => p.name.trim());
 
-      await api.post('/sam/meetings', {
-        customerId: momForm.customerId,
-        meetingDate: meetingDateTime.toISOString(),
-        meetingType: momForm.meetingType,
-        location: momForm.location || null,
-        clientParticipants: clientP.length > 0 ? JSON.stringify(clientP) : null,
-        gazonParticipants: gazonP.length > 0 ? JSON.stringify(gazonP) : null,
-        actionItems: actionItems.length > 0 ? actionItems : null
-      });
+    const result = await addMomAction.runAction(() => api.post('/sam/meetings', {
+      customerId: momForm.customerId,
+      meetingDate: meetingDateTime.toISOString(),
+      meetingType: momForm.meetingType,
+      location: momForm.location || null,
+      clientParticipants: clientP.length > 0 ? JSON.stringify(clientP) : null,
+      gazonParticipants: gazonP.length > 0 ? JSON.stringify(gazonP) : null,
+      actionItems: actionItems.length > 0 ? actionItems : null
+    }));
 
+    if (result?.success !== false) {
       toast.success('MOM created successfully');
       setShowModal(false);
       fetchMeetings();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to create MOM');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const formatTime = (dateString) => {
@@ -692,17 +691,20 @@ export default function SAMExecutiveMeetings() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                  <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Saving...' : 'Save MOM'}
-                  </Button>
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <InlineError message={addMomAction.error} onDismiss={addMomAction.clearError} className="mb-3" />
+                  <div className="flex justify-end gap-3">
+                    <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
+                    >
+                      {isSubmitting ? 'Saving...' : 'Save MOM'}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </div>

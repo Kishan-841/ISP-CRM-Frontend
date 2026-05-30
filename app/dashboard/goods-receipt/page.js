@@ -39,6 +39,8 @@ import {
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import TabBar from '@/components/TabBar';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -78,6 +80,10 @@ export default function GoodsReceiptPage() {
   // Parsed serials uploaded per item in the Batch modal. Same shape as
   // verifySerials but for subsequent batches on partially-received POs.
   const [batchSerials, setBatchSerials] = useState({});
+
+  // Inline-error hook instances — one per action surface (independent error state).
+  const verifyAction = useActionError();
+  const submitBatchAction = useActionError();
 
 
   const isMaster = user?.role === 'MASTER';
@@ -325,23 +331,19 @@ export default function GoodsReceiptPage() {
   };
 
   const handleSubmitVerification = async () => {
-    if (!receiptStatus) {
-      toast.error('Please select a receipt status');
-      return;
-    }
-
-    if (!receiptRemark.trim()) {
-      toast.error('Please enter a remark');
-      return;
-    }
-
+    if (!receiptStatus) return verifyAction.fail('Please select a receipt status.');
+    if (!receiptRemark.trim()) return verifyAction.fail('Please enter a remark.');
     if (!testBypass && receiptStatus !== 'RECEIPT_REJECTED' && !invoiceFile) {
-      toast.error('Please upload the vendor invoice with signature');
-      return;
+      return verifyAction.fail('Please upload the vendor invoice with signature.');
     }
 
     setIsSaving(true);
-    try {
+    // Wrap the whole async body in runAction so its catch path replaces our
+    // old try/catch. The backend can return a list of per-item serial errors
+    // — we join them so the inline banner surfaces every one (toast already
+    // fires per error from the runAction failure path, but the banner gets a
+    // single combined message for persistence).
+    const result = await verifyAction.runAction(async () => {
       // Attach uploaded serials per item. Backend validates count matches
       // receivedQuantity and flips the item to IN_STORE in the same call.
       const itemsData = Object.entries(itemReceipts).map(([id, data]) => ({
@@ -369,48 +371,45 @@ export default function GoodsReceiptPage() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success(data.message || 'Verification completed');
-        setShowVerifyModal(false);
-        setSelectedPO(null);
-        fetchPurchaseOrders();
-        fetchStats();
-      } else if (Array.isArray(data.errors) && data.errors.length > 0) {
-        // Backend's per-item serial validation returns a list — show them all
-        // rather than just the generic message so the operator can fix each.
-        data.errors.slice(0, 5).forEach(err => toast.error(err));
-      } else {
-        toast.error(data.message || 'Verification failed');
+        return { success: true, data };
       }
-    } catch (error) {
-      toast.error('Failed to verify receipt');
-    } finally {
-      setIsSaving(false);
+      if (Array.isArray(data.errors) && data.errors.length > 0) {
+        // Backend's per-item serial validation returns a list — join them so
+        // the inline banner surfaces every one (rather than the truncated
+        // generic message).
+        return { success: false, error: data.errors.slice(0, 5).join(' | ') };
+      }
+      return { success: false, error: data.message || 'Verification failed' };
+    });
+
+    if (result?.success !== false) {
+      toast.success(result?.data?.message || 'Verification completed');
+      setShowVerifyModal(false);
+      setSelectedPO(null);
+      fetchPurchaseOrders();
+      fetchStats();
     }
+    setIsSaving(false);
   };
 
   const handleSubmitBatch = async () => {
     // Validate receipt status is selected
-    if (!batchReceiptStatus) {
-      toast.error('Please select a receipt status');
-      return;
-    }
+    if (!batchReceiptStatus) return submitBatchAction.fail('Please select a receipt status.');
 
     // For non-rejection, validate at least one item received
     if (batchReceiptStatus !== 'RECEIPT_REJECTED') {
       const hasReceived = Object.values(batchItems).some(item => item.receivedInBatch > 0);
       if (!hasReceived) {
-        toast.error('Please enter received quantity for at least one item');
-        return;
+        return submitBatchAction.fail('Please enter received quantity for at least one item.');
       }
     }
 
-    if (!batchRemark.trim()) {
-      toast.error('Please enter a remark for this batch');
-      return;
-    }
+    if (!batchRemark.trim()) return submitBatchAction.fail('Please enter a remark for this batch.');
 
     setIsSaving(true);
-    try {
+    // Wrap whole async body in runAction. Backend may return per-item errors
+    // as an array — join them so the inline banner shows every one.
+    const result = await submitBatchAction.runAction(async () => {
       // Same per-item serials pattern as the Verify modal — batch-scoped
       // serials extend (not replace) the item's existing serialNumbers.
       const itemsData = Object.entries(batchItems)
@@ -437,21 +436,22 @@ export default function GoodsReceiptPage() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success(data.message || 'Batch recorded');
-        setShowBatchModal(false);
-        setSelectedPO(null);
-        fetchPurchaseOrders();
-        fetchStats();
-      } else if (Array.isArray(data.errors) && data.errors.length > 0) {
-        data.errors.slice(0, 5).forEach(err => toast.error(err));
-      } else {
-        toast.error(data.message || 'Failed to record batch');
+        return { success: true, data };
       }
-    } catch (error) {
-      toast.error('Failed to record batch');
-    } finally {
-      setIsSaving(false);
+      if (Array.isArray(data.errors) && data.errors.length > 0) {
+        return { success: false, error: data.errors.slice(0, 5).join(' | ') };
+      }
+      return { success: false, error: data.message || 'Failed to record batch' };
+    });
+
+    if (result?.success !== false) {
+      toast.success(result?.data?.message || 'Batch recorded');
+      setShowBatchModal(false);
+      setSelectedPO(null);
+      fetchPurchaseOrders();
+      fetchStats();
     }
+    setIsSaving(false);
   };
 
   if (!canAccess) return null;
@@ -1114,24 +1114,31 @@ export default function GoodsReceiptPage() {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex gap-3">
-              <Button onClick={() => setShowVerifyModal(false)} variant="outline" className="flex-1">
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitVerification}
-                disabled={!receiptStatus || !receiptRemark.trim() || isSaving}
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  'Submit Verification'
-                )}
-              </Button>
+            <div className="border-t border-slate-200 dark:border-slate-800">
+              <InlineError
+                message={verifyAction.error}
+                onDismiss={verifyAction.clearError}
+                className="mx-6 mt-3"
+              />
+              <div className="px-6 py-4 flex gap-3">
+                <Button onClick={() => setShowVerifyModal(false)} variant="outline" className="flex-1">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitVerification}
+                  disabled={!receiptStatus || !receiptRemark.trim() || isSaving}
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Submit Verification'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1423,27 +1430,34 @@ export default function GoodsReceiptPage() {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex gap-3">
-              <Button onClick={() => setShowBatchModal(false)} variant="outline" className="flex-1">
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitBatch}
-                disabled={!batchReceiptStatus || !batchRemark.trim() || isSaving}
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <PackagePlus size={16} className="mr-2" />
-                    Record Batch
-                  </>
-                )}
-              </Button>
+            <div className="border-t border-slate-200 dark:border-slate-800">
+              <InlineError
+                message={submitBatchAction.error}
+                onDismiss={submitBatchAction.clearError}
+                className="mx-6 mt-3"
+              />
+              <div className="px-6 py-4 flex gap-3">
+                <Button onClick={() => setShowBatchModal(false)} variant="outline" className="flex-1">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitBatch}
+                  disabled={!batchReceiptStatus || !batchRemark.trim() || isSaving}
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <PackagePlus size={16} className="mr-2" />
+                      Record Batch
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

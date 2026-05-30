@@ -9,6 +9,8 @@ import { Users, X, Upload, Database, Megaphone, Phone } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function RawDataCampaignPage() {
   const { user } = useAuthStore();
@@ -36,6 +38,9 @@ export default function RawDataCampaignPage() {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [isAssigning, setIsAssigning] = useState(false);
   const [distributionResult, setDistributionResult] = useState(null);
+
+  // Inline-error hook for the Assign ISRs action surface.
+  const assignIsrsAction = useActionError();
 
   // Upload Data Modal State
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -94,12 +99,10 @@ export default function RawDataCampaignPage() {
   const handleAssignSubmit = async () => {
     if (!selectedCampaign) return;
     setIsAssigning(true);
-    const result = await assignUsers(selectedCampaign.id, selectedUsers);
+    const result = await assignIsrsAction.runAction(() => assignUsers(selectedCampaign.id, selectedUsers));
     if (result.success) {
       setDistributionResult(result.distribution);
       toast.success(result.message || 'ISRs assigned successfully');
-    } else {
-      toast.error(result.error || 'Failed to assign ISRs');
     }
     setIsAssigning(false);
   };
@@ -109,6 +112,7 @@ export default function RawDataCampaignPage() {
     setSelectedCampaign(null);
     setSelectedUsers([]);
     setDistributionResult(null);
+    assignIsrsAction.clearError();
   };
 
   // Upload modal handlers
@@ -514,19 +518,22 @@ export default function RawDataCampaignPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-800">
-              <Button onClick={handleCloseAssignModal} variant="outline">
-                {distributionResult ? 'Close' : 'Cancel'}
-              </Button>
-              {!distributionResult && (
-                <Button onClick={handleAssignSubmit} disabled={isAssigning} className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50">
-                  {isAssigning ? (
-                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Assigning...</>
-                  ) : (
-                    <><Users size={16} className="mr-2" />Assign &amp; Distribute</>
-                  )}
+            <div className="p-6 border-t border-slate-200 dark:border-slate-800">
+              <InlineError message={assignIsrsAction.error} onDismiss={assignIsrsAction.clearError} className="mb-3" />
+              <div className="flex items-center justify-end gap-3">
+                <Button onClick={handleCloseAssignModal} variant="outline">
+                  {distributionResult ? 'Close' : 'Cancel'}
                 </Button>
-              )}
+                {!distributionResult && (
+                  <Button onClick={handleAssignSubmit} disabled={isAssigning} className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50">
+                    {isAssigning ? (
+                      <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Assigning...</>
+                    ) : (
+                      <><Users size={16} className="mr-2" />Assign &amp; Distribute</>
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

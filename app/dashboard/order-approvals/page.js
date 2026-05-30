@@ -11,6 +11,8 @@ import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { CheckCircle2, XCircle, Paperclip, ExternalLink } from 'lucide-react';
 import { SERVICE_ORDER_TYPE_CONFIG, SERVICE_ORDER_STATUS_CONFIG } from '@/lib/statusConfig';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const typeBadgeColors = Object.fromEntries(
   Object.entries(SERVICE_ORDER_TYPE_CONFIG).map(([k, v]) => [k, v.color])
@@ -58,6 +60,12 @@ export default function OrderApprovals() {
   const [dateRejectOrderId, setDateRejectOrderId] = useState(null);
   const [dateRejectReason, setDateRejectReason] = useState('');
 
+  // Inline-error hook instances — one per action surface (4 independent).
+  const approveSoAction = useActionError();
+  const rejectSoAction = useActionError();
+  const approveDateChangeAction = useActionError();
+  const rejectDateChangeAction = useActionError();
+
   useEffect(() => {
     if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER' && user.role !== 'SALES_DIRECTOR') {
       router.push('/dashboard');
@@ -97,15 +105,12 @@ export default function OrderApprovals() {
   const handleApprove = async (orderId, e) => {
     e.stopPropagation();
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${orderId}/approve`);
+    const result = await approveSoAction.runAction(() => api.post(`/service-orders/${orderId}/approve`));
+    if (result?.success !== false) {
       toast.success('Order approved!');
       fetchOrders();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to approve');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const openRejectModal = (orderId, e) => {
@@ -117,20 +122,18 @@ export default function OrderApprovals() {
 
   const handleReject = async () => {
     if (!rejectionReason.trim()) {
-      toast.error('Rejection reason is required.');
-      return;
+      return rejectSoAction.fail('Rejection reason is required.');
     }
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${rejectOrderId}/reject`, { rejectionReason });
+    const result = await rejectSoAction.runAction(() =>
+      api.post(`/service-orders/${rejectOrderId}/reject`, { rejectionReason })
+    );
+    if (result?.success !== false) {
       toast.success('Order rejected.');
       setShowRejectModal(false);
       fetchOrders();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to reject');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   // Approve a date change proposed by Accounts. Different endpoint than the
@@ -139,15 +142,14 @@ export default function OrderApprovals() {
   const handleApproveDateChange = async (orderId, e) => {
     e.stopPropagation();
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${orderId}/approve-date-change`);
+    const result = await approveDateChangeAction.runAction(() =>
+      api.post(`/service-orders/${orderId}/approve-date-change`)
+    );
+    if (result?.success !== false) {
       toast.success('Date change approved. Order completed.');
       fetchOrders();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to approve date change');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const openDateRejectModal = (orderId, e) => {
@@ -159,22 +161,20 @@ export default function OrderApprovals() {
 
   const handleRejectDateChange = async () => {
     if (!dateRejectReason.trim() || dateRejectReason.trim().length < 5) {
-      toast.error('Rejection reason is required (min 5 chars).');
-      return;
+      return rejectDateChangeAction.fail('Rejection reason is required (min 5 chars).');
     }
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${dateRejectOrderId}/reject-date-change`, {
+    const result = await rejectDateChangeAction.runAction(() =>
+      api.post(`/service-orders/${dateRejectOrderId}/reject-date-change`, {
         rejectionReason: dateRejectReason,
-      });
+      })
+    );
+    if (result?.success !== false) {
       toast.success('Date change rejected. Order returned to Accounts.');
       setShowDateRejectModal(false);
       fetchOrders();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to reject date change');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const columns = [
@@ -371,7 +371,15 @@ export default function OrderApprovals() {
   );
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-4">
+      <InlineError
+        message={approveSoAction.error}
+        onDismiss={approveSoAction.clearError}
+      />
+      <InlineError
+        message={approveDateChangeAction.error}
+        onDismiss={approveDateChangeAction.clearError}
+      />
       <DataTable
         title="Sales Director Approvals"
         totalCount={pagination.total}
@@ -405,8 +413,17 @@ export default function OrderApprovals() {
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
             />
+            <InlineError
+              message={rejectSoAction.error}
+              onDismiss={rejectSoAction.clearError}
+              className="mt-3"
+            />
             <div className="flex gap-2 mt-3">
-              <Button variant="outline" onClick={() => setShowRejectModal(false)} className="flex-1">
+              <Button
+                variant="outline"
+                onClick={() => { setShowRejectModal(false); rejectSoAction.clearError(); }}
+                className="flex-1"
+              >
                 Cancel
               </Button>
               <Button
@@ -435,8 +452,17 @@ export default function OrderApprovals() {
               value={dateRejectReason}
               onChange={(e) => setDateRejectReason(e.target.value)}
             />
+            <InlineError
+              message={rejectDateChangeAction.error}
+              onDismiss={rejectDateChangeAction.clearError}
+              className="mt-3"
+            />
             <div className="flex gap-2 mt-3">
-              <Button variant="outline" onClick={() => setShowDateRejectModal(false)} className="flex-1">
+              <Button
+                variant="outline"
+                onClick={() => { setShowDateRejectModal(false); rejectDateChangeAction.clearError(); }}
+                className="flex-1"
+              >
                 Cancel
               </Button>
               <Button

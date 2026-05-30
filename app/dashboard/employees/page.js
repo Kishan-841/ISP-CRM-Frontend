@@ -8,12 +8,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { AlertTriangle } from 'lucide-react';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { Search, Eye, EyeOff, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModal } from '@/lib/useModal';
 import { formatDate } from '@/lib/formatters';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function EmployeesPage() {
   const router = useRouter();
@@ -45,10 +47,14 @@ export default function EmployeesPage() {
     isActive: true,
     teamLeaderId: '',
   });
-  const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, userId: null, userName: '' });
   const [isFormDirty, setIsFormDirty] = useState(false);
+
+  // Inline-error hook instances — one per action surface (independent error state).
+  // employeeFormAction covers both create and update since they share the modal.
+  const employeeFormAction = useActionError();
+  const deleteEmployeeAction = useActionError();
 
   // Password reveal state. Map of userId -> { value, timer }.
   const [revealedPasswords, setRevealedPasswords] = useState({});
@@ -127,7 +133,7 @@ export default function EmployeesPage() {
       isActive: true,
       teamLeaderId: '',
     });
-    setFormError('');
+    employeeFormAction.clearError();
     setIsFormDirty(false);
     setShowModal(true);
   };
@@ -143,7 +149,7 @@ export default function EmployeesPage() {
       isActive: userToEdit.isActive,
       teamLeaderId: userToEdit.teamLeaderId || '',
     });
-    setFormError('');
+    employeeFormAction.clearError();
     setIsFormDirty(false);
     setShowModal(true);
   };
@@ -151,11 +157,12 @@ export default function EmployeesPage() {
   const closeModal = () => {
     setShowModal(false);
     setEditingUser(null);
-    setFormError('');
+    employeeFormAction.clearError();
     setIsFormDirty(false);
   };
 
   useModal(showModal, () => !submitting && closeModal());
+  useModal(confirmDialog.open, () => setConfirmDialog((prev) => ({ ...prev, open: false })));
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -168,8 +175,6 @@ export default function EmployeesPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormError('');
-    setSubmitting(true);
 
     const data = { ...formData };
     if (editingUser && !data.password) {
@@ -182,44 +187,36 @@ export default function EmployeesPage() {
       data.teamLeaderId = null;
     }
 
-    let result;
-    if (editingUser) {
-      result = await updateUser(editingUser.id, data);
-    } else {
-      if (!data.password) {
-        setFormError('Password is required for new users.');
-        setSubmitting(false);
-        return;
-      }
-      result = await createUser(data);
+    if (!editingUser && !data.password) {
+      return employeeFormAction.fail('Password is required for new users.');
     }
+
+    setSubmitting(true);
+    const result = await employeeFormAction.runAction(() =>
+      editingUser ? updateUser(editingUser.id, data) : createUser(data)
+    );
 
     if (result.success) {
       toast.success(editingUser ? 'Employee updated successfully' : 'Employee created successfully');
       setIsFormDirty(false);
       closeModal();
       refetchCurrent();
-    } else {
-      setFormError(result.error);
-      toast.error(result.error || 'Operation failed');
     }
-
     setSubmitting(false);
   };
 
   const openDeleteConfirm = (userToDelete) => {
+    deleteEmployeeAction.clearError();
     setConfirmDialog({ open: true, userId: userToDelete.id, userName: userToDelete.name });
   };
 
   const handleDeleteConfirmed = async () => {
-    const result = await deleteUser(confirmDialog.userId);
+    const result = await deleteEmployeeAction.runAction(() => deleteUser(confirmDialog.userId));
     if (result.success) {
       toast.success('Employee deleted successfully');
+      setConfirmDialog({ open: false, userId: null, userName: '' });
       refetchCurrent();
-    } else {
-      toast.error(result.error || 'Failed to delete employee');
     }
-    setConfirmDialog({ open: false, userId: null, userName: '' });
   };
 
   // Filtering + pagination are now server-driven — the store gives us the
@@ -534,15 +531,47 @@ export default function EmployeesPage() {
         </CardContent>
       </Card>
 
-      <ConfirmDialog
-        open={confirmDialog.open}
-        onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
-        title="Delete User"
-        description={`Are you sure you want to delete "${confirmDialog.userName}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={handleDeleteConfirmed}
-      />
+      {confirmDialog.open && (
+        <div data-modal className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}
+          />
+          <div className="relative bg-white dark:bg-zinc-900 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 border border-zinc-200 dark:border-zinc-700">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold">Delete User</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Are you sure you want to delete &quot;{confirmDialog.userName}&quot;? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 space-y-3">
+              <InlineError
+                message={deleteEmployeeAction.error}
+                onDismiss={deleteEmployeeAction.clearError}
+              />
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}
+                  className="px-4 py-2 rounded-md border hover:bg-muted text-sm font-medium disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirmed}
+                  className="px-4 py-2 rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
@@ -562,12 +591,6 @@ export default function EmployeesPage() {
             </div>
 
             <div className="p-6">
-              {formError && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg mb-4 text-sm">
-                  {formError}
-                </div>
-              )}
-
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name" className="text-slate-700 dark:text-slate-300 text-sm font-medium">Full Name <span className="text-red-500">*</span></Label>
@@ -712,30 +735,36 @@ export default function EmployeesPage() {
                   </Label>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800 mt-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={closeModal}
-                    className="bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={submitting}
-                    className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-600"
-                  >
-                    {submitting ? (
-                      <span className="flex items-center gap-2">
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Saving...
-                      </span>
-                    ) : editingUser ? 'Update' : 'Create'}
-                  </Button>
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-800 mt-6 space-y-3">
+                  <InlineError
+                    message={employeeFormAction.error}
+                    onDismiss={employeeFormAction.clearError}
+                  />
+                  <div className="flex justify-end gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={closeModal}
+                      className="bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={submitting}
+                      className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-600"
+                    >
+                      {submitting ? (
+                        <span className="flex items-center gap-2">
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Saving...
+                        </span>
+                      ) : editingUser ? 'Update' : 'Create'}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </div>

@@ -13,6 +13,8 @@ import { X, Plus, Database, Phone, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/PageHeader';
 import { formatDate } from '@/lib/formatters';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function RawDataSelfDataPage() {
   const router = useRouter();
@@ -59,9 +61,12 @@ export default function RawDataSelfDataPage() {
   const [parsedData, setParsedData] = useState([]);
   const [detectedColumns, setDetectedColumns] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [uploadResult, setUploadResult] = useState(null);
+
+  // Inline-error hook for the Create Self Data action surface — single
+  // source of truth for both local validation and create-campaign errors.
+  const createSelfDataAction = useActionError();
 
   const loadData = async () => {
     if (user) {
@@ -147,19 +152,19 @@ export default function RawDataSelfDataPage() {
     const selectedFile = e.target.files[0];
     if (!selectedFile) { setFile(null); setParsedData([]); setDetectedColumns([]); return; }
     setFile(selectedFile);
-    setError('');
+    createSelfDataAction.clearError();
     const fileName = selectedFile.name.toLowerCase();
     try {
       let result;
       if (fileName.endsWith('.csv')) { result = parseCSV(await selectedFile.text()); }
       else if (fileName.endsWith('.txt')) { result = parseTXT(await selectedFile.text()); }
       else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) { result = parseExcel(await selectedFile.arrayBuffer()); }
-      else { setError('Unsupported file format. Please use .csv, .txt, or .xlsx files.'); setParsedData([]); setDetectedColumns([]); return; }
+      else { createSelfDataAction.fail('Unsupported file format. Please use .csv, .txt, or .xlsx files.'); setParsedData([]); setDetectedColumns([]); return; }
       setParsedData(result.data);
       setDetectedColumns(result.headers);
     } catch (err) {
       console.error('File parse error:', err);
-      setError('Failed to parse file.');
+      createSelfDataAction.fail('Failed to parse file.');
       setParsedData([]);
       setDetectedColumns([]);
     }
@@ -171,7 +176,7 @@ export default function RawDataSelfDataPage() {
     setFile(null);
     setParsedData([]);
     setDetectedColumns([]);
-    setError('');
+    createSelfDataAction.clearError();
     setInputMode('file');
     setAssignmentType('self');
     setSelectedISR('');
@@ -190,46 +195,45 @@ export default function RawDataSelfDataPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (inputMode === 'file' && parsedData.length === 0) { setError('Please upload a file with data.'); return; }
+    if (inputMode === 'file' && parsedData.length === 0) return createSelfDataAction.fail('Please upload a file with data.');
     if (inputMode === 'single') {
-      if (!singleData.name?.trim()) { setError('Full Name is required.'); return; }
-      if (!singleData.company?.trim()) { setError('Company is required.'); return; }
-      if (!singleData.phone?.trim()) { setError('Phone is required.'); return; }
-      if (!singleData.title?.trim()) { setError('Title is required.'); return; }
-      if (!singleData.email?.trim()) { setError('Email is required.'); return; }
+      if (!singleData.name?.trim()) return createSelfDataAction.fail('Full Name is required.');
+      if (!singleData.company?.trim()) return createSelfDataAction.fail('Company is required.');
+      if (!singleData.phone?.trim()) return createSelfDataAction.fail('Phone is required.');
+      if (!singleData.title?.trim()) return createSelfDataAction.fail('Title is required.');
+      if (!singleData.email?.trim()) return createSelfDataAction.fail('Email is required.');
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(singleData.email.trim())) {
-        setError('Please enter a valid email address.'); return;
+        return createSelfDataAction.fail('Please enter a valid email address.');
       }
     }
-    if (canAssignToOthers && assignmentType === 'isr' && !selectedISR) { setError('Please select an ISR.'); return; }
-    if (isBDMCP && !selectedCP) { setError('Please select a Channel Partner.'); return; }
+    if (canAssignToOthers && assignmentType === 'isr' && !selectedISR) return createSelfDataAction.fail('Please select an ISR.');
+    if (isBDMCP && !selectedCP) return createSelfDataAction.fail('Please select a Channel Partner.');
 
     setIsLoading(true);
-    setError('');
-    try {
-      const dataToSubmit = inputMode === 'file' ? parsedData : [{
-        name: singleData.name.trim(), company: singleData.company.trim(),
-        phone: singleData.phone.trim(), title: singleData.title.trim(),
-        email: singleData.email?.trim() || '', industry: singleData.industry?.trim() || '',
-        city: singleData.city?.trim() || ''
-      }];
-      const assignToId = (canAssignToOthers && assignmentType === 'isr') ? selectedISR : null;
-      let campaignName = formData.campaignName?.trim();
-      if (!campaignName) {
-        const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        if (inputMode === 'single' && singleData.company?.trim()) {
-          campaignName = `${singleData.company.trim()} - ${dateStr}`;
-        } else if (inputMode === 'file' && file) {
-          const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-          campaignName = `${fileNameWithoutExt} - ${dateStr}`;
-        } else {
-          campaignName = `Self Data - ${dateStr}`;
-        }
+    const dataToSubmit = inputMode === 'file' ? parsedData : [{
+      name: singleData.name.trim(), company: singleData.company.trim(),
+      phone: singleData.phone.trim(), title: singleData.title.trim(),
+      email: singleData.email?.trim() || '', industry: singleData.industry?.trim() || '',
+      city: singleData.city?.trim() || ''
+    }];
+    const assignToId = (canAssignToOthers && assignmentType === 'isr') ? selectedISR : null;
+    let campaignName = formData.campaignName?.trim();
+    if (!campaignName) {
+      const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      if (inputMode === 'single' && singleData.company?.trim()) {
+        campaignName = `${singleData.company.trim()} - ${dateStr}`;
+      } else if (inputMode === 'file' && file) {
+        const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+        campaignName = `${fileNameWithoutExt} - ${dateStr}`;
+      } else {
+        campaignName = `Self Data - ${dateStr}`;
       }
-      const cpVendorId = isBDMCP ? selectedCP : null;
-      const result = await createSelfCampaign(campaignName, formData.dataSource, dataToSubmit, assignToId, cpVendorId);
-      if (!result.success) { const errMsg = result.error || 'Failed to create self data.'; setError(errMsg); toast.error(errMsg); setIsLoading(false); return; }
-
+    }
+    const cpVendorId = isBDMCP ? selectedCP : null;
+    const result = await createSelfDataAction.runAction(() =>
+      createSelfCampaign(campaignName, formData.dataSource, dataToSubmit, assignToId, cpVendorId)
+    );
+    if (result.success) {
       loadData();
       const hasInvalid = (result.invalidRecords?.length || 0) > 0;
       if (hasInvalid) {
@@ -239,12 +243,8 @@ export default function RawDataSelfDataPage() {
         toast.success(`Self data added with ${result.count} record(s)!`);
         handleCloseModal();
       }
-    } catch (err) {
-      console.error('Create self campaign error:', err);
-      setError('An unexpected error occurred.');
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   const handleDelete = async (campaignId, campaignName) => {
@@ -440,12 +440,6 @@ export default function RawDataSelfDataPage() {
                 </div>
               ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
-                {error && (
-                  <div className={`p-3 rounded-md text-sm ${error.startsWith('Warning') ? 'bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400' : 'bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'}`}>
-                    {error}
-                  </div>
-                )}
-
                 {/* Campaign Name */}
                 <div className="space-y-2">
                   <Label htmlFor="campaignName" className="text-slate-700 dark:text-slate-300">Campaign Name</Label>
@@ -518,11 +512,11 @@ export default function RawDataSelfDataPage() {
                 <div className="space-y-2">
                   <Label className="text-slate-700 dark:text-slate-300">How to add data? <span className="text-red-500">*</span></Label>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => { setInputMode('file'); setError(''); }}
+                    <button type="button" onClick={() => { setInputMode('file'); createSelfDataAction.clearError(); }}
                       className={`flex-1 py-2.5 px-4 rounded-lg border-2 transition-all ${inputMode === 'file' ? 'border-orange-600 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
                       <div className="flex flex-col items-center gap-0.5"><span className="text-sm font-medium">Upload File</span><span className="text-xs opacity-70">CSV, Excel, TXT</span></div>
                     </button>
-                    <button type="button" onClick={() => { setInputMode('single'); setError(''); }}
+                    <button type="button" onClick={() => { setInputMode('single'); createSelfDataAction.clearError(); }}
                       className={`flex-1 py-2.5 px-4 rounded-lg border-2 transition-all ${inputMode === 'single' ? 'border-orange-600 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
                       <div className="flex flex-col items-center gap-0.5"><span className="text-sm font-medium">Single Entry</span><span className="text-xs opacity-70">Add one contact</span></div>
                     </button>
@@ -609,21 +603,26 @@ export default function RawDataSelfDataPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-800">
-              <Button onClick={handleCloseModal} variant="outline">{uploadResult ? 'Close' : 'Cancel'}</Button>
+            <div className="p-6 border-t border-slate-200 dark:border-slate-800">
               {!uploadResult && (
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isLoading || (inputMode === 'file' && parsedData.length === 0)}
-                  className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
-                >
-                  {isLoading ? (
-                    <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Adding...</>
-                  ) : (
-                    <><Plus size={16} className="mr-2" />Add Data</>
-                  )}
-                </Button>
+                <InlineError message={createSelfDataAction.error} onDismiss={createSelfDataAction.clearError} className="mb-3" />
               )}
+              <div className="flex items-center justify-end gap-3">
+                <Button onClick={handleCloseModal} variant="outline">{uploadResult ? 'Close' : 'Cancel'}</Button>
+                {!uploadResult && (
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={isLoading || (inputMode === 'file' && parsedData.length === 0)}
+                    className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
+                  >
+                    {isLoading ? (
+                      <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Adding...</>
+                    ) : (
+                      <><Plus size={16} className="mr-2" />Add Data</>
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

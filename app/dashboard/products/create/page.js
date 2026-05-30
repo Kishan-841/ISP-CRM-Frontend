@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function CreateProductPage() {
   const router = useRouter();
@@ -23,7 +25,9 @@ export default function CreateProductPage() {
     parentId: ''
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+
+  // Inline-error hook instance for the create-product form.
+  const createProductAction = useActionError();
 
   useEffect(() => {
     fetchParentProducts();
@@ -45,12 +49,10 @@ export default function CreateProductPage() {
     e.preventDefault();
 
     if (!formData.title.trim()) {
-      setError('Product title is required.');
-      return;
+      return createProductAction.fail('Product title is required.');
     }
 
     setIsLoading(true);
-    setError('');
 
     const submitData = {
       title: formData.title,
@@ -60,12 +62,11 @@ export default function CreateProductPage() {
       parentId: formData.parentId || null
     };
 
-    const result = await createProduct(submitData);
+    const result = await createProductAction.runAction(() => createProduct(submitData));
 
     if (result.success) {
       router.push('/dashboard/products');
     } else {
-      setError(result.error || 'Failed to create product.');
       setIsLoading(false);
     }
   };
@@ -94,12 +95,6 @@ export default function CreateProductPage() {
 
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="p-3 rounded-md text-sm bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400">
-                {error}
-              </div>
-            )}
-
             {/* Product Title */}
             <div className="space-y-2">
               <Label htmlFor="title" className="text-slate-700 dark:text-slate-300">
@@ -200,6 +195,11 @@ export default function CreateProductPage() {
                 <option value="INACTIVE">Inactive</option>
               </select>
             </div>
+
+            <InlineError
+              message={createProductAction.error}
+              onDismiss={createProductAction.clearError}
+            />
 
             {/* Submit Button */}
             <div className="flex gap-4 pt-4">

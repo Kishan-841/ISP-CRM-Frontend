@@ -36,6 +36,8 @@ import {
 } from 'lucide-react';
 import { formatDate } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const VISIT_TYPES = [
   { value: 'REGULAR', label: 'Regular Visit', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
@@ -77,6 +79,11 @@ export default function SAMVisitsPage() {
   const [filter, setFilter] = useState({ status: '', startDate: '', endDate: '' });
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancellingVisitId, setCancellingVisitId] = useState(null);
+
+  // Inline-error hooks — one per action surface.
+  const scheduleVisitAction = useActionError();
+  const completeVisitAction = useActionError();
+  const cancelVisitAction = useActionError();
 
   const [createForm, setCreateForm] = useState({
     customerId: '',
@@ -150,13 +157,13 @@ export default function SAMVisitsPage() {
   const handleCreateVisit = async (e) => {
     e.preventDefault();
     if (!createForm.customerId || !createForm.visitDate) {
-      toast.error('Please select customer and visit date');
-      return;
+      return scheduleVisitAction.fail('Please select customer and visit date.');
     }
 
     setIsSubmitting(true);
-    try {
-      await api.post('/sam/visits', createForm);
+    const result = await scheduleVisitAction.runAction(() => api.post('/sam/visits', createForm));
+
+    if (result?.success !== false) {
       toast.success('Visit scheduled successfully');
       setShowCreateModal(false);
       setCreateForm({
@@ -168,11 +175,8 @@ export default function SAMVisitsPage() {
       });
       fetchVisits();
       fetchStats();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to create visit');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   // Complete visit
@@ -181,8 +185,9 @@ export default function SAMVisitsPage() {
     if (!selectedVisit) return;
 
     setIsSubmitting(true);
-    try {
-      await api.post(`/sam/visits/${selectedVisit.id}/complete`, completeForm);
+    const result = await completeVisitAction.runAction(() => api.post(`/sam/visits/${selectedVisit.id}/complete`, completeForm));
+
+    if (result?.success !== false) {
       toast.success('Visit completed successfully');
       setShowCompleteModal(false);
       setSelectedVisit(null);
@@ -197,26 +202,22 @@ export default function SAMVisitsPage() {
       });
       fetchVisits();
       fetchStats();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to complete visit');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   // Cancel visit
   const handleCancelVisit = async () => {
     if (!cancellingVisitId) return;
 
-    try {
-      await api.post(`/sam/visits/${cancellingVisitId}/cancel`);
+    const result = await cancelVisitAction.runAction(() => api.post(`/sam/visits/${cancellingVisitId}/cancel`));
+
+    if (result?.success !== false) {
       toast.success('Visit cancelled');
       setShowCancelConfirm(false);
       setCancellingVisitId(null);
       fetchVisits();
       fetchStats();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to cancel visit');
     }
   };
 
@@ -308,6 +309,10 @@ export default function SAMVisitsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Cancel-visit error banner — per-row Cancel uses ConfirmDialog which
+          doesn't accept children, so the inline error surfaces here above the list. */}
+      <InlineError message={cancelVisitAction.error} onDismiss={cancelVisitAction.clearError} className="mb-3" />
 
       {/* Visits List */}
       <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
@@ -594,14 +599,17 @@ export default function SAMVisitsPage() {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting} className="bg-orange-600 hover:bg-orange-700 text-white">
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                  Schedule Visit
-                </Button>
+              <div className="pt-4">
+                <InlineError message={scheduleVisitAction.error} onDismiss={scheduleVisitAction.clearError} className="mb-3" />
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting} className="bg-orange-600 hover:bg-orange-700 text-white">
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                    Schedule Visit
+                  </Button>
+                </div>
               </div>
             </form>
           </div>
@@ -707,14 +715,17 @@ export default function SAMVisitsPage() {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowCompleteModal(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting} className="bg-green-600 hover:bg-green-700 text-white">
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                  Complete Visit
-                </Button>
+              <div className="pt-4">
+                <InlineError message={completeVisitAction.error} onDismiss={completeVisitAction.clearError} className="mb-3" />
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" onClick={() => setShowCompleteModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting} className="bg-green-600 hover:bg-green-700 text-white">
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                    Complete Visit
+                  </Button>
+                </div>
               </div>
             </form>
           </div>

@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const emptyActionItem = () => ({
   srNo: 1,
@@ -49,6 +51,7 @@ export default function MOMDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const saveMomAction = useActionError();
 
   // Email modal
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -62,6 +65,7 @@ export default function MOMDetailPage() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailAttachments, setEmailAttachments] = useState([]);
+  const sendEmailAction = useActionError();
 
   const allowedRoles = ['SAM_EXECUTIVE', 'SAM_HEAD', 'SUPER_ADMIN', 'MASTER'];
 
@@ -144,29 +148,27 @@ export default function MOMDetailPage() {
   const handleUpdateMOM = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    try {
-      const meetingDateTime = new Date(`${editForm.meetingDate}T${editForm.meetingTime}`);
-      const actionItems = editForm.actionItems.filter(item => (item.discussionDescription || item.issueDescription || '').trim());
+    const meetingDateTime = new Date(`${editForm.meetingDate}T${editForm.meetingTime}`);
+    const actionItems = editForm.actionItems.filter(item => (item.discussionDescription || item.issueDescription || '').trim());
 
-      const clientP = editForm.clientParticipants.filter(p => p.name.trim());
-      const gazonP = editForm.gazonParticipants.filter(p => p.name.trim());
+    const clientP = editForm.clientParticipants.filter(p => p.name.trim());
+    const gazonP = editForm.gazonParticipants.filter(p => p.name.trim());
 
-      await api.put(`/sam/meetings/${meetingId}`, {
-        meetingDate: meetingDateTime.toISOString(),
-        meetingType: editForm.meetingType,
-        location: editForm.location || null,
-        clientParticipants: clientP.length > 0 ? JSON.stringify(clientP) : null,
-        gazonParticipants: gazonP.length > 0 ? JSON.stringify(gazonP) : null,
-        actionItems: actionItems.length > 0 ? actionItems : null
-      });
+    const result = await saveMomAction.runAction(() => api.put(`/sam/meetings/${meetingId}`, {
+      meetingDate: meetingDateTime.toISOString(),
+      meetingType: editForm.meetingType,
+      location: editForm.location || null,
+      clientParticipants: clientP.length > 0 ? JSON.stringify(clientP) : null,
+      gazonParticipants: gazonP.length > 0 ? JSON.stringify(gazonP) : null,
+      actionItems: actionItems.length > 0 ? actionItems : null
+    }));
+
+    if (result?.success !== false) {
       toast.success('MOM updated successfully');
       setShowEditModal(false);
       fetchMeeting();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update MOM');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   // Fetch email preview
@@ -207,32 +209,29 @@ export default function MOMDetailPage() {
   // Send Email
   const handleSendEmail = async () => {
     if (!emailTo.trim()) {
-      toast.error('Recipient email is required');
-      return;
+      return sendEmailAction.fail('Recipient email is required.');
     }
     setIsSendingEmail(true);
-    try {
-      const ccList = emailCC.split(',').map(e => e.trim()).filter(e => e.length > 0);
-      const formData = new FormData();
-      formData.append('to', emailTo.trim());
-      ccList.forEach(cc => formData.append('cc', cc));
-      if (emailSubject.trim()) formData.append('subject', emailSubject.trim());
-      if (emailDesignation.trim()) formData.append('designation', emailDesignation.trim());
-      if (emailPhone.trim()) formData.append('phone', emailPhone.trim());
-      if (emailBody.trim()) formData.append('bodyText', emailBody.trim());
-      emailAttachments.forEach(file => formData.append('attachments', file));
+    const ccList = emailCC.split(',').map(e => e.trim()).filter(e => e.length > 0);
+    const formData = new FormData();
+    formData.append('to', emailTo.trim());
+    ccList.forEach(cc => formData.append('cc', cc));
+    if (emailSubject.trim()) formData.append('subject', emailSubject.trim());
+    if (emailDesignation.trim()) formData.append('designation', emailDesignation.trim());
+    if (emailPhone.trim()) formData.append('phone', emailPhone.trim());
+    if (emailBody.trim()) formData.append('bodyText', emailBody.trim());
+    emailAttachments.forEach(file => formData.append('attachments', file));
 
-      await api.post(`/sam/meetings/${meetingId}/send-mom`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+    const result = await sendEmailAction.runAction(() => api.post(`/sam/meetings/${meetingId}/send-mom`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }));
+
+    if (result?.success !== false) {
       toast.success('MOM email sent successfully');
       setShowEmailModal(false);
       fetchMeeting();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to send email');
-    } finally {
-      setIsSendingEmail(false);
     }
+    setIsSendingEmail(false);
   };
 
   const handleAttachmentChange = (e) => {
@@ -689,11 +688,14 @@ export default function MOMDetailPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                  <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>
-                  <Button type="submit" disabled={isSubmitting} className="bg-orange-600 hover:bg-orange-700 text-white">
-                    {isSubmitting ? 'Saving...' : 'Save Changes'}
-                  </Button>
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <InlineError message={saveMomAction.error} onDismiss={saveMomAction.clearError} className="mb-3" />
+                  <div className="flex justify-end gap-3">
+                    <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>
+                    <Button type="submit" disabled={isSubmitting} className="bg-orange-600 hover:bg-orange-700 text-white">
+                      {isSubmitting ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -835,15 +837,18 @@ export default function MOMDetailPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <Button type="button" variant="outline" onClick={() => setShowEmailModal(false)}>Cancel</Button>
-                <Button
-                  onClick={handleSendEmail}
-                  disabled={isSendingEmail || !emailTo.trim()}
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
-                >
-                  {isSendingEmail ? 'Sending...' : 'Send Email'}
-                </Button>
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                <InlineError message={sendEmailAction.error} onDismiss={sendEmailAction.clearError} className="mb-3" />
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" onClick={() => setShowEmailModal(false)}>Cancel</Button>
+                  <Button
+                    onClick={handleSendEmail}
+                    disabled={isSendingEmail || !emailTo.trim()}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    {isSendingEmail ? 'Sending...' : 'Send Email'}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

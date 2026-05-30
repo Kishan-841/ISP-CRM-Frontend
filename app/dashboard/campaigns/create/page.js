@@ -12,6 +12,8 @@ import * as XLSX from 'xlsx';
 import { X, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import api from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function CreateCampaignPage() {
   const router = useRouter();
@@ -26,8 +28,11 @@ export default function CreateCampaignPage() {
   const [parsedData, setParsedData] = useState([]);
   const [detectedColumns, setDetectedColumns] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(''); // retained only for file-parse warnings (mixed warning/error UI)
   const [uploadResult, setUploadResult] = useState(null);
+
+  // Inline-error hook instance — covers the combined create + assign + upload flow.
+  const createCampaignAction = useActionError();
   const [showResultModal, setShowResultModal] = useState(false);
   const [isrUsers, setIsrUsers] = useState([]);
 
@@ -202,30 +207,29 @@ export default function CreateCampaignPage() {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      setError('Campaign name is required.');
-      return;
+      return createCampaignAction.fail('Campaign name is required.');
     }
 
     setIsLoading(true);
     setError('');
     setUploadResult(null);
 
-    try {
+    // Wrap the multi-step create → assign → upload in a single runAction so a
+    // throw anywhere in the chain surfaces as the inline error.
+    const result = await createCampaignAction.runAction(async () => {
       // Create campaign first
-      const result = await createCampaign({
+      const createRes = await createCampaign({
         name: formData.name,
         type: 'CAMPAIGN',
         dataSource: formData.dataSource,
         status: 'ACTIVE'
       });
 
-      if (!result.success) {
-        setError(result.error || 'Failed to create campaign.');
-        setIsLoading(false);
-        return;
+      if (!createRes.success) {
+        return { success: false, error: createRes.error || 'Failed to create campaign.' };
       }
 
-      const campaignId = result.campaign?.id;
+      const campaignId = createRes.campaign?.id;
 
       // Assign selected ISRs
       if (selectedUsers.length > 0 && campaignId) {
@@ -236,35 +240,40 @@ export default function CreateCampaignPage() {
       if (parsedData.length > 0 && campaignId) {
         const dataResult = await addCampaignData(campaignId, parsedData);
         if (!dataResult.success) {
-          setError(`Campaign created but failed to upload data: ${dataResult.error}`);
-          setIsLoading(false);
-          return;
+          return { success: false, error: `Campaign created but failed to upload data: ${dataResult.error}` };
         }
-        setUploadResult(dataResult);
-
-        // Show result modal if there were any skipped/invalid records
-        const totalSkipped = (dataResult.skippedNoPhone || 0) +
-                            (dataResult.skippedInvalidPhone || 0) +
-                            (dataResult.skippedNoName || 0) +
-                            (dataResult.skippedNoCompany || 0) +
-                            (dataResult.skippedNoTitle || 0) +
-                            (dataResult.duplicateCount || 0);
-
-        if (totalSkipped > 0 || (dataResult.invalidRecords && dataResult.invalidRecords.length > 0)) {
-          setShowResultModal(true);
-          setIsLoading(false);
-          return;
-        }
+        return { success: true, campaignId, dataResult };
       }
 
-      // Redirect to campaign management
-      router.push('/dashboard/raw-data/campaign');
-    } catch (err) {
-      console.error('Create campaign error:', err);
-      setError('An unexpected error occurred.');
-    } finally {
+      return { success: true, campaignId };
+    });
+
+    if (!result?.success) {
       setIsLoading(false);
+      return;
     }
+
+    const { dataResult } = result;
+
+    if (dataResult) {
+      setUploadResult(dataResult);
+
+      // Show result modal if there were any skipped/invalid records
+      const totalSkipped = (dataResult.skippedNoPhone || 0) +
+                          (dataResult.skippedInvalidPhone || 0) +
+                          (dataResult.skippedNoName || 0) +
+                          (dataResult.skippedNoCompany || 0) +
+                          (dataResult.skippedNoTitle || 0) +
+                          (dataResult.duplicateCount || 0);
+
+      if (totalSkipped > 0 || (dataResult.invalidRecords && dataResult.invalidRecords.length > 0)) {
+        setShowResultModal(true);
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    router.push('/dashboard/raw-data/campaign');
   };
 
   const downloadSampleCSV = () => {
@@ -468,6 +477,11 @@ export default function CreateCampaignPage() {
                 </div>
               </div>
             )}
+
+            <InlineError
+              message={createCampaignAction.error}
+              onDismiss={createCampaignAction.clearError}
+            />
 
             {/* Submit Button */}
             <div className="flex gap-4 pt-4">

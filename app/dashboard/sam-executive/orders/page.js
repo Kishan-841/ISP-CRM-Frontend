@@ -12,6 +12,8 @@ import api from '@/lib/api';
 import { Plus, Upload, X, FileText, Search, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
 import { SERVICE_ORDER_TYPE_CONFIG, SERVICE_ORDER_STATUS_CONFIG } from '@/lib/statusConfig';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const ORDER_TYPES = ['UPGRADE', 'DOWNGRADE', 'RATE_REVISION', 'DISCONNECTION'];
 const STATUS_OPTIONS = ['PENDING_DOCS_REVIEW', 'DOCS_REJECTED', 'PENDING_NOC', 'PENDING_SAM_ACTIVATION', 'PENDING_ACCOUNTS', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED'];
@@ -52,6 +54,9 @@ export default function SAMExecutiveOrders() {
     disconnectionSubCategoryId: '',
     notes: '',
   });
+
+  // Inline-error hook for the Create Service Order modal (multi-step form).
+  const createSoAction = useActionError();
 
   const [disconnectionReasons, setDisconnectionReasons] = useState([]);
   const [selectedCustomerArc, setSelectedCustomerArc] = useState(null);
@@ -137,6 +142,7 @@ export default function SAMExecutiveOrders() {
     setCustomerSearch('');
     setShowCustomerDropdown(false);
     setSelectedCustomerLabel('');
+    createSoAction.clearError();
     fetchCustomers();
     // Fetch disconnection reasons
     api.get('/service-orders/disconnection-reasons').then(res => setDisconnectionReasons(res.data.data || [])).catch(() => {});
@@ -144,98 +150,75 @@ export default function SAMExecutiveOrders() {
 
   const handleSubmit = async () => {
     if (!form.customerId || !form.orderType) {
-      toast.error('Please fill all required fields.');
-      return;
+      return createSoAction.fail('Please fill all required fields.');
     }
     if (['UPGRADE', 'DOWNGRADE', 'RATE_REVISION'].includes(form.orderType) && poFiles.length === 0) {
-      toast.error('PO attachment is required for upgrade/downgrade/rate revision orders.');
-      return;
+      return createSoAction.fail('PO attachment is required for upgrade/downgrade/rate revision orders.');
     }
-    setIsSubmitting(true);
-    try {
-      const payload = {
-        customerId: form.customerId,
-        orderType: form.orderType,
-        notes: form.notes || undefined,
-      };
-      if (form.orderType === 'UPGRADE' || form.orderType === 'DOWNGRADE') {
-        if (!form.newBandwidth || !form.newArc) {
-          toast.error('New bandwidth and ARC are required.');
-          setIsSubmitting(false);
-          return;
-        }
-        const newArcVal = parseFloat(form.newArc);
-        const newBwVal = parseInt(form.newBandwidth);
-        if (selectedCustomerArc !== null) {
-          if (newArcVal === selectedCustomerArc) {
-            toast.error('New ARC cannot be the same as the current ARC.');
-            setIsSubmitting(false);
-            return;
-          }
-          if (form.orderType === 'UPGRADE' && newArcVal <= selectedCustomerArc) {
-            toast.error('For an upgrade, new ARC must be greater than the current ARC.');
-            setIsSubmitting(false);
-            return;
-          }
-          if (form.orderType === 'DOWNGRADE' && newArcVal >= selectedCustomerArc) {
-            toast.error('For a downgrade, new ARC must be less than the current ARC.');
-            setIsSubmitting(false);
-            return;
-          }
-        }
-        if (selectedCustomerBandwidth !== null) {
-          if (newBwVal === selectedCustomerBandwidth) {
-            toast.error('New bandwidth cannot be the same as the current bandwidth.');
-            setIsSubmitting(false);
-            return;
-          }
-          if (form.orderType === 'UPGRADE' && newBwVal <= selectedCustomerBandwidth) {
-            toast.error('For an upgrade, new bandwidth must be greater than the current bandwidth.');
-            setIsSubmitting(false);
-            return;
-          }
-          if (form.orderType === 'DOWNGRADE' && newBwVal >= selectedCustomerBandwidth) {
-            toast.error('For a downgrade, new bandwidth must be less than the current bandwidth.');
-            setIsSubmitting(false);
-            return;
-          }
-        }
-        payload.newBandwidth = parseInt(form.newBandwidth);
-        payload.newArc = newArcVal;
-      }
-      if (form.orderType === 'RATE_REVISION') {
-        if (!form.newArc) {
-          toast.error('New ARC is required.');
-          setIsSubmitting(false);
-          return;
-        }
-        const newArcVal = parseFloat(form.newArc);
-        if (selectedCustomerArc !== null && newArcVal >= selectedCustomerArc) {
-          toast.error('For rate revision, new ARC must be less than current ARC.');
-          setIsSubmitting(false);
-          return;
-        }
-        payload.newArc = newArcVal;
-        if (form.newBandwidth) {
-          const newBwVal = parseInt(form.newBandwidth);
-          if (selectedCustomerBandwidth !== null && newBwVal < selectedCustomerBandwidth) {
-            toast.error('Rate revision cannot reduce bandwidth.');
-            setIsSubmitting(false);
-            return;
-          }
-          payload.newBandwidth = newBwVal;
-        }
-      }
-      if (form.orderType === 'DISCONNECTION') {
-        if (!form.disconnectionCategoryId || !form.disconnectionSubCategoryId) {
-          toast.error('Disconnection category and sub-category are required.');
-          setIsSubmitting(false);
-          return;
-        }
-        payload.disconnectionCategoryId = form.disconnectionCategoryId;
-        payload.disconnectionSubCategoryId = form.disconnectionSubCategoryId;
-      }
 
+    const payload = {
+      customerId: form.customerId,
+      orderType: form.orderType,
+      notes: form.notes || undefined,
+    };
+    if (form.orderType === 'UPGRADE' || form.orderType === 'DOWNGRADE') {
+      if (!form.newBandwidth || !form.newArc) {
+        return createSoAction.fail('New bandwidth and ARC are required.');
+      }
+      const newArcVal = parseFloat(form.newArc);
+      const newBwVal = parseInt(form.newBandwidth);
+      if (selectedCustomerArc !== null) {
+        if (newArcVal === selectedCustomerArc) {
+          return createSoAction.fail('New ARC cannot be the same as the current ARC.');
+        }
+        if (form.orderType === 'UPGRADE' && newArcVal <= selectedCustomerArc) {
+          return createSoAction.fail('For an upgrade, new ARC must be greater than the current ARC.');
+        }
+        if (form.orderType === 'DOWNGRADE' && newArcVal >= selectedCustomerArc) {
+          return createSoAction.fail('For a downgrade, new ARC must be less than the current ARC.');
+        }
+      }
+      if (selectedCustomerBandwidth !== null) {
+        if (newBwVal === selectedCustomerBandwidth) {
+          return createSoAction.fail('New bandwidth cannot be the same as the current bandwidth.');
+        }
+        if (form.orderType === 'UPGRADE' && newBwVal <= selectedCustomerBandwidth) {
+          return createSoAction.fail('For an upgrade, new bandwidth must be greater than the current bandwidth.');
+        }
+        if (form.orderType === 'DOWNGRADE' && newBwVal >= selectedCustomerBandwidth) {
+          return createSoAction.fail('For a downgrade, new bandwidth must be less than the current bandwidth.');
+        }
+      }
+      payload.newBandwidth = parseInt(form.newBandwidth);
+      payload.newArc = newArcVal;
+    }
+    if (form.orderType === 'RATE_REVISION') {
+      if (!form.newArc) {
+        return createSoAction.fail('New ARC is required.');
+      }
+      const newArcVal = parseFloat(form.newArc);
+      if (selectedCustomerArc !== null && newArcVal >= selectedCustomerArc) {
+        return createSoAction.fail('For rate revision, new ARC must be less than current ARC.');
+      }
+      payload.newArc = newArcVal;
+      if (form.newBandwidth) {
+        const newBwVal = parseInt(form.newBandwidth);
+        if (selectedCustomerBandwidth !== null && newBwVal < selectedCustomerBandwidth) {
+          return createSoAction.fail('Rate revision cannot reduce bandwidth.');
+        }
+        payload.newBandwidth = newBwVal;
+      }
+    }
+    if (form.orderType === 'DISCONNECTION') {
+      if (!form.disconnectionCategoryId || !form.disconnectionSubCategoryId) {
+        return createSoAction.fail('Disconnection category and sub-category are required.');
+      }
+      payload.disconnectionCategoryId = form.disconnectionCategoryId;
+      payload.disconnectionSubCategoryId = form.disconnectionSubCategoryId;
+    }
+
+    setIsSubmitting(true);
+    const result = await createSoAction.runAction(async () => {
       const response = await api.post('/service-orders', payload);
       const orderId = response.data.data.id;
 
@@ -257,16 +240,15 @@ export default function SAMExecutiveOrders() {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       }
+      return { success: true };
+    });
 
+    if (result?.success !== false) {
       toast.success('Service order created successfully!');
       setShowModal(false);
       fetchOrders();
-    } catch (error) {
-      console.error('Error creating order:', error);
-      toast.error(error.response?.data?.message || 'Failed to create order');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const columns = [
@@ -740,6 +722,12 @@ export default function SAMExecutiveOrders() {
                       </div>
                     )}
                   </div>
+
+                  <InlineError
+                    message={createSoAction.error}
+                    onDismiss={createSoAction.clearError}
+                    className="mt-2"
+                  />
 
                   <div className="flex gap-2 pt-2">
                     <Button variant="outline" onClick={() => setStep(1)} className="flex-1">

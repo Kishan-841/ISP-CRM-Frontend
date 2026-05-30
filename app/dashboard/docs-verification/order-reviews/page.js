@@ -12,6 +12,8 @@ import api from '@/lib/api';
 import { CheckCircle2, XCircle, Paperclip, ExternalLink } from 'lucide-react';
 import { SERVICE_ORDER_TYPE_CONFIG, SERVICE_ORDER_STATUS_CONFIG } from '@/lib/statusConfig';
 import { formatCurrency } from '@/lib/formatters';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const typeBadgeColors = Object.fromEntries(
   Object.entries(SERVICE_ORDER_TYPE_CONFIG).map(([k, v]) => [k, v.color])
@@ -35,6 +37,10 @@ export default function DocsOrderReviews() {
   const [rejectOrderId, setRejectOrderId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Inline-error hook instances — one per docs-review action surface.
+  const approveSoAction = useActionError();
+  const rejectSoAction = useActionError();
 
   useEffect(() => {
     if (user && user.role !== 'DOCS_TEAM' && user.role !== 'SUPER_ADMIN' && user.role !== 'MASTER') {
@@ -69,15 +75,14 @@ export default function DocsOrderReviews() {
   const handleApprove = async (orderId, e) => {
     e.stopPropagation();
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${orderId}/docs-review`, { decision: 'APPROVED' });
+    const result = await approveSoAction.runAction(() =>
+      api.post(`/service-orders/${orderId}/docs-review`, { decision: 'APPROVED' })
+    );
+    if (result?.success !== false) {
       toast.success('Order approved!');
       fetchOrders();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to approve');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const openRejectModal = (orderId, e) => {
@@ -89,20 +94,18 @@ export default function DocsOrderReviews() {
 
   const handleReject = async () => {
     if (!rejectionReason.trim()) {
-      toast.error('Rejection reason is required.');
-      return;
+      return rejectSoAction.fail('Rejection reason is required.');
     }
     setIsSubmitting(true);
-    try {
-      await api.post(`/service-orders/${rejectOrderId}/docs-review`, { decision: 'REJECTED', reason: rejectionReason });
+    const result = await rejectSoAction.runAction(() =>
+      api.post(`/service-orders/${rejectOrderId}/docs-review`, { decision: 'REJECTED', reason: rejectionReason })
+    );
+    if (result?.success !== false) {
       toast.success('Order rejected.');
       setShowRejectModal(false);
       fetchOrders();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to reject');
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const columns = [
@@ -217,7 +220,11 @@ export default function DocsOrderReviews() {
   ];
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-4">
+      <InlineError
+        message={approveSoAction.error}
+        onDismiss={approveSoAction.clearError}
+      />
       <DataTable
         title="Order Reviews - Docs Verification"
         totalCount={pagination.total}
@@ -249,8 +256,17 @@ export default function DocsOrderReviews() {
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
             />
+            <InlineError
+              message={rejectSoAction.error}
+              onDismiss={rejectSoAction.clearError}
+              className="mt-3"
+            />
             <div className="flex gap-2 mt-3">
-              <Button variant="outline" onClick={() => setShowRejectModal(false)} className="flex-1">
+              <Button
+                variant="outline"
+                onClick={() => { setShowRejectModal(false); rejectSoAction.clearError(); }}
+                className="flex-1"
+              >
                 Cancel
               </Button>
               <Button

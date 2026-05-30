@@ -11,6 +11,8 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { formatDate } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function ProductsPage() {
   const router = useRouter();
@@ -19,6 +21,10 @@ export default function ProductsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
+
+  // Inline-error hook instances — one per action surface (independent state).
+  const editTitleAction = useActionError();
+  const deleteProductAction = useActionError();
 
   const isAdmin = user?.role === 'SUPER_ADMIN';
 
@@ -42,12 +48,10 @@ export default function ProductsPage() {
       return;
     }
     setDeletingId(productId);
-    const result = await deleteProduct(productId);
+    const result = await deleteProductAction.runAction(() => deleteProduct(productId));
     setDeletingId(null);
     if (result.success) {
       toast.success('Product deleted successfully');
-    } else {
-      toast.error(result.error || 'Failed to delete product');
     }
   };
 
@@ -68,22 +72,20 @@ export default function ProductsPage() {
 
   const handleEditSave = async (productId) => {
     if (!editTitle.trim()) {
-      toast.error('Title cannot be empty');
-      return;
+      return editTitleAction.fail('Title cannot be empty.');
     }
-    const result = await updateProduct(productId, { title: editTitle.trim() });
+    const result = await editTitleAction.runAction(() => updateProduct(productId, { title: editTitle.trim() }));
     if (result.success) {
       setEditingId(null);
       setEditTitle('');
       toast.success('Product updated successfully');
-    } else {
-      toast.error(result.error || 'Failed to update product');
     }
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
     setEditTitle('');
+    editTitleAction.clearError();
   };
 
   const getStatusColor = (status) => {
@@ -186,6 +188,12 @@ export default function ProductsPage() {
             <span className="text-sm text-slate-600 dark:text-slate-400">entries</span>
           </div>
 
+          <InlineError
+            message={deleteProductAction.error}
+            onDismiss={deleteProductAction.clearError}
+            className="mx-6 mt-3"
+          />
+
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
@@ -251,33 +259,40 @@ export default function ProductsPage() {
                         <td className="py-4 px-4 text-slate-900 dark:text-slate-100 whitespace-nowrap border-r border-slate-200 dark:border-slate-700">{index + 1}</td>
                         <td className="py-4 px-4 text-slate-900 dark:text-slate-100 whitespace-nowrap border-r border-slate-200 dark:border-slate-700">
                           {editingId === product.id ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="text"
-                                value={editTitle}
-                                onChange={(e) => setEditTitle(e.target.value)}
-                                className="h-8 text-sm bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 w-48"
-                                autoFocus
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="text"
+                                  value={editTitle}
+                                  onChange={(e) => setEditTitle(e.target.value)}
+                                  className="h-8 text-sm bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 w-48"
+                                  autoFocus
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleEditSave(product.id)}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleEditCancel}
+                                  className="h-8 px-2 border-slate-300 dark:border-slate-600"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </Button>
+                              </div>
+                              <InlineError
+                                message={editTitleAction.error}
+                                onDismiss={editTitleAction.clearError}
+                                className="text-xs py-1 px-2 max-w-xs"
                               />
-                              <Button
-                                size="sm"
-                                onClick={() => handleEditSave(product.id)}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-2"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={handleEditCancel}
-                                className="h-8 px-2 border-slate-300 dark:border-slate-600"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </Button>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">

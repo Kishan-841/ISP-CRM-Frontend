@@ -7,12 +7,18 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { Users, X, Megaphone } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function CampaignManagementPage() {
   const { user } = useAuthStore();
   const { campaigns, isLoading, fetchCampaigns, fetchMyAssignedCampaigns, deleteCampaign, deleteSelfCampaign, assignUsers } = useCampaignStore();
   const { users, fetchUsers } = useUserStore();
   const [deletingId, setDeletingId] = useState(null);
+
+  // Inline-error hook instances — one per action surface.
+  const deleteCampaignAction = useActionError();
+  const assignISRAction = useActionError();
 
   const isAdmin = user?.role === 'SUPER_ADMIN';
   const isBDM = user?.role === 'BDM';
@@ -62,12 +68,12 @@ export default function CampaignManagementPage() {
       return;
     }
     setDeletingId(campaignId);
-    const result = isSelfCampaign ? await deleteSelfCampaign(campaignId) : await deleteCampaign(campaignId);
+    const result = await deleteCampaignAction.runAction(() =>
+      isSelfCampaign ? deleteSelfCampaign(campaignId) : deleteCampaign(campaignId)
+    );
     setDeletingId(null);
     if (result.success) {
       toast.success('Campaign deleted successfully');
-    } else {
-      toast.error(result.error || 'Failed to delete campaign');
     }
   };
 
@@ -95,13 +101,11 @@ export default function CampaignManagementPage() {
     if (!selectedCampaign) return;
 
     setIsAssigning(true);
-    const result = await assignUsers(selectedCampaign.id, selectedUsers);
+    const result = await assignISRAction.runAction(() => assignUsers(selectedCampaign.id, selectedUsers));
 
     if (result.success) {
       setDistributionResult(result.distribution);
       toast.success(result.message || 'ISRs assigned successfully');
-    } else {
-      toast.error(result.error || 'Failed to assign ISRs');
     }
     setIsAssigning(false);
   };
@@ -112,6 +116,7 @@ export default function CampaignManagementPage() {
     setSelectedCampaign(null);
     setSelectedUsers([]);
     setDistributionResult(null);
+    assignISRAction.clearError();
   };
 
   // Check if ISR has any self campaigns (BDM is read-only, no actions)
@@ -174,6 +179,12 @@ export default function CampaignManagementPage() {
           </Link>
         )}
       </div>
+
+      <InlineError
+        message={deleteCampaignAction.error}
+        onDismiss={deleteCampaignAction.clearError}
+        className="mb-4"
+      />
 
       {/* Campaign Table */}
       <DataTable
@@ -451,7 +462,13 @@ export default function CampaignManagementPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-800">
+            <div className="border-t border-slate-200 dark:border-slate-800">
+              <InlineError
+                message={assignISRAction.error}
+                onDismiss={assignISRAction.clearError}
+                className="mx-6 mt-3"
+              />
+              <div className="flex items-center justify-end gap-3 p-6">
               <Button
                 onClick={handleCloseModal}
                 variant="outline"
@@ -477,6 +494,7 @@ export default function CampaignManagementPage() {
                   )}
                 </Button>
               )}
+              </div>
             </div>
           </div>
         </div>

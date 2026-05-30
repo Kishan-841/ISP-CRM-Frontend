@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModal } from '@/lib/useModal';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const inputClass = 'w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors';
 const labelClass = 'block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1';
@@ -50,11 +52,15 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
   const [cancelledChequeFile, setCancelledChequeFile] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Inline-error hook — one surface (create form, with optional Test: Skip Docs path).
+  const vendorFormAction = useActionError();
+
   const resetForm = () => {
     setFormData({ ...INITIAL_FORM, category: defaultCategory || '' });
     setPanDocumentFile(null);
     setGstDocumentFile(null);
     setCancelledChequeFile(null);
+    vendorFormAction.clearError();
   };
 
   const handleClose = () => {
@@ -68,35 +74,32 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
     const isCompany = formData.vendorEntityType === 'COMPANY';
     const nameField = isCompany ? 'companyName' : 'individualName';
     if (!formData[nameField]?.trim()) {
-      toast.error(isCompany ? 'Company name is required' : 'Individual name is required');
-      return;
+      return vendorFormAction.fail(isCompany ? 'Company name is required.' : 'Individual name is required.');
     }
 
     const required = ['contactPerson', 'email', 'phone', 'address', 'category'];
     for (const field of required) {
       if (!formData[field]?.trim()) {
-        toast.error(`${field.replace(/([A-Z])/g, ' $1').trim()} is required`);
-        return;
+        return vendorFormAction.fail(`${field.replace(/([A-Z])/g, ' $1').trim()} is required.`);
       }
     }
 
     if (formData.category === 'CHANNEL_PARTNER') {
       if (!formData.commissionPercentage || parseFloat(formData.commissionPercentage) <= 0) {
-        toast.error('Commission percentage is required for Channel Partners');
-        return;
+        return vendorFormAction.fail('Commission percentage is required for Channel Partners.');
       }
     }
 
     // Non-test mode: validate documents and bank details (except GST)
     if (!testMode) {
-      if (!formData.panNumber?.trim()) { toast.error('PAN Number is required'); return; }
-      if (!panDocumentFile) { toast.error('PAN Document is required'); return; }
-      if (!formData.accountNumber?.trim()) { toast.error('Account Number is required'); return; }
-      if (!formData.ifscCode?.trim()) { toast.error('IFSC Code is required'); return; }
-      if (!formData.accountName?.trim()) { toast.error('Account Name is required'); return; }
-      if (!formData.bankName?.trim()) { toast.error('Bank Name is required'); return; }
-      if (!formData.branchName?.trim()) { toast.error('Branch Name is required'); return; }
-      if (!cancelledChequeFile) { toast.error('Cancelled Cheque is required'); return; }
+      if (!formData.panNumber?.trim()) return vendorFormAction.fail('PAN Number is required.');
+      if (!panDocumentFile) return vendorFormAction.fail('PAN Document is required.');
+      if (!formData.accountNumber?.trim()) return vendorFormAction.fail('Account Number is required.');
+      if (!formData.ifscCode?.trim()) return vendorFormAction.fail('IFSC Code is required.');
+      if (!formData.accountName?.trim()) return vendorFormAction.fail('Account Name is required.');
+      if (!formData.bankName?.trim()) return vendorFormAction.fail('Bank Name is required.');
+      if (!formData.branchName?.trim()) return vendorFormAction.fail('Branch Name is required.');
+      if (!cancelledChequeFile) return vendorFormAction.fail('Cancelled Cheque is required.');
     }
 
     setIsSaving(true);
@@ -104,20 +107,18 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
     if (!isCompany) {
       submitData.companyName = formData.individualName;
     }
-    const result = await createVendor({
+    const result = await vendorFormAction.runAction(() => createVendor({
       ...submitData,
       panDocumentFile: testMode ? null : panDocumentFile,
       gstDocumentFile: testMode ? null : gstDocumentFile,
       cancelledChequeFile: testMode ? null : cancelledChequeFile,
-    });
+    }));
 
     if (result.success) {
       toast.success(result.message || 'Vendor submitted for approval');
       resetForm();
       onClose();
       if (onSuccess) onSuccess();
-    } else {
-      toast.error(result.error || 'Failed to create vendor');
     }
     setIsSaving(false);
   };
@@ -431,41 +432,47 @@ export default function CreateVendorModal({ open, onClose, onSuccess, defaultCat
           </div>
         </form>
 
-        <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
-          <Button
-            type="button"
-            onClick={handleClose}
-            variant="outline"
-            size="sm"
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={(e) => handleCreate(e, true)}
-            disabled={isSaving}
-            size="sm"
-            variant="outline"
-            className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
-          >
-            Test: Skip Docs
-          </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={isSaving}
-            size="sm"
-            className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                Submitting...
-              </>
-            ) : (
-              'Submit for Approval'
-            )}
-          </Button>
+        <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-3">
+          <InlineError
+            message={vendorFormAction.error}
+            onDismiss={vendorFormAction.clearError}
+          />
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              onClick={handleClose}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={(e) => handleCreate(e, true)}
+              disabled={isSaving}
+              size="sm"
+              variant="outline"
+              className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
+            >
+              Test: Skip Docs
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={isSaving}
+              size="sm"
+              className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit for Approval'
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
