@@ -38,6 +38,8 @@ import { useModal } from '@/lib/useModal';
 import TabBar from '@/components/TabBar';
 import { PageHeader } from '@/components/PageHeader';
 import QuotationRevisedBadge from '@/components/QuotationRevisedBadge';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 // Helper to get documents as array from object or array format
 const getDocumentsArray = (documents) => {
@@ -89,6 +91,10 @@ export default function DocsVerificationPage() {
   const [decision, setDecision] = useState('');
   const [reason, setReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Inline-error hook instances — one per action surface (independent error state).
+  const submitDispositionAction = useActionError();
+  const sendBackAction = useActionError();
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -152,29 +158,27 @@ export default function DocsVerificationPage() {
 
   const handleSubmitDisposition = async () => {
     if (!decision) {
-      toast.error('Please select a decision');
-      return;
+      return submitDispositionAction.fail('Please select a decision.');
     }
 
     if (decision === 'REJECTED' && !reason.trim()) {
-      toast.error('Reason is required when rejecting documents');
-      return;
+      return submitDispositionAction.fail('Reason is required when rejecting documents.');
     }
 
     setIsSaving(true);
 
-    const result = await docsTeamDisposition(selectedLead.id, {
-      decision,
-      reason: reason.trim() || null
-    });
+    const result = await submitDispositionAction.runAction(() =>
+      docsTeamDisposition(selectedLead.id, {
+        decision,
+        reason: reason.trim() || null
+      })
+    );
 
     if (result.success) {
       setShowDispositionDialog(false);
       setSelectedLead(null);
       toast.success(result.message || 'Decision saved');
       fetchDocsQueue();
-    } else {
-      toast.error(result.error || 'Failed to save decision');
     }
 
     setIsSaving(false);
@@ -485,19 +489,14 @@ export default function DocsVerificationPage() {
     if (!confirm(`Send "${lead.company}" back to BDM for document re-upload?`)) return;
 
     setIsSaving(true);
-    try {
-      const result = await sendBackToBDM(lead.id, lead.accountsRejectedReason || 'Accounts rejected - requires document re-upload');
-      if (result.success) {
-        toast.success('Lead sent back to BDM for document re-upload');
-        fetchDocsQueue(); // Refresh the queue
-      } else {
-        toast.error(result.error || 'Failed to send back to BDM');
-      }
-    } catch (error) {
-      toast.error('Failed to send back to BDM');
-    } finally {
-      setIsSaving(false);
+    const result = await sendBackAction.runAction(() =>
+      sendBackToBDM(lead.id, lead.accountsRejectedReason || 'Accounts rejected - requires document re-upload')
+    );
+    if (result.success) {
+      toast.success('Lead sent back to BDM for document re-upload');
+      fetchDocsQueue(); // Refresh the queue
     }
+    setIsSaving(false);
   };
 
   // Render accounts rejected table
@@ -514,6 +513,14 @@ export default function DocsVerificationPage() {
 
     return (
       <>
+        {/* Inline error for sendBackToBDM — this hook is shared across all rows
+            (only one send-back action can be in-flight at a time), so we render
+            a single banner above the list rather than per-row. */}
+        <InlineError
+          message={sendBackAction.error}
+          onDismiss={sendBackAction.clearError}
+          className="mx-3 mt-3 lg:mx-4"
+        />
         {/* Mobile card view */}
         <div className="lg:hidden p-3 space-y-3">
           {paginatedList.map((lead) => (
@@ -1257,32 +1264,39 @@ export default function DocsVerificationPage() {
               )}
             </div>
 
-            <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex gap-3 flex-shrink-0">
-              <Button
-                onClick={() => setShowDispositionDialog(false)}
-                variant="outline"
-                className="flex-1 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitDisposition}
-                disabled={
-                  !decision ||
-                  isSaving ||
-                  (decision === 'REJECTED' && !reason.trim())
-                }
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  'Submit'
-                )}
-              </Button>
+            <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex-shrink-0">
+              <InlineError
+                message={submitDispositionAction.error}
+                onDismiss={submitDispositionAction.clearError}
+                className="mb-3"
+              />
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowDispositionDialog(false)}
+                  variant="outline"
+                  className="flex-1 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitDisposition}
+                  disabled={
+                    !decision ||
+                    isSaving ||
+                    (decision === 'REJECTED' && !reason.trim())
+                  }
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Submit'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

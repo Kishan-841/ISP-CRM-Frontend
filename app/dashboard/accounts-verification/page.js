@@ -49,6 +49,8 @@ import { useModal } from '@/lib/useModal';
 import { formatCurrency } from '@/lib/formatters';
 import TabBar from '@/components/TabBar';
 import QuotationRevisedBadge from '@/components/QuotationRevisedBadge';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 // Helper to get documents as array from object or array format
 const getDocumentsArray = (documents) => {
@@ -140,6 +142,11 @@ export default function AccountsVerificationPage() {
   const [editArc, setEditArc] = useState('');
   const [editOtc, setEditOtc] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Inline-error hook instances — one per action surface (independent error state).
+  const dispositionAction = useActionError();
+  const editApprovedAction = useActionError();
+  const updateArcOtcAction = useActionError();
 
   useModal(showDetailsModal, () => { setShowDetailsModal(false); setIsEditingApproved(false); });
   useModal(showDispositionDialog, () => !isSaving && setShowDispositionDialog(false));
@@ -250,44 +257,37 @@ export default function AccountsVerificationPage() {
     if (!selectedLead) return;
 
     setIsSavingDetails(true);
-    try {
-      const result = await updateAccountsDetails(selectedLead.id, {
-        arcAmount: arcAmount ? parseFloat(arcAmount) : null,
-        otcAmount: otcAmount ? parseFloat(otcAmount) : null,
-        advanceAmount: advanceAmount ? parseFloat(advanceAmount) : null,
-        paymentTerms: paymentTerms || null,
-        customerGstNo: customerGstNo || null,
-        customerLegalName: customerLegalName || null,
-        companyName: companyName || null,
-        panCardNo: panCardNo || null,
-        tanNumber: tanNumber || null,
-        billingAddress: billingAddress || null,
-        billingPincode: billingPincode || null,
-        installationAddress: installationAddress || null,
-        installationPincode: installationPincode || null,
-        poNumber: poNumber || null,
-        poExpiryDate: poExpiryDate || null,
-        billDate: billDate || null,
-        technicalInchargeMobile: technicalInchargeMobile || null,
-        technicalInchargeEmail: technicalInchargeEmail || null,
-        accountsInchargeMobile: accountsInchargeMobile || null,
-        accountsInchargeEmail: accountsInchargeEmail || null,
-        bdmName: bdmName || null,
-        serviceManager: serviceManager || null
-      });
+    const result = await editApprovedAction.runAction(() => updateAccountsDetails(selectedLead.id, {
+      arcAmount: arcAmount ? parseFloat(arcAmount) : null,
+      otcAmount: otcAmount ? parseFloat(otcAmount) : null,
+      advanceAmount: advanceAmount ? parseFloat(advanceAmount) : null,
+      paymentTerms: paymentTerms || null,
+      customerGstNo: customerGstNo || null,
+      customerLegalName: customerLegalName || null,
+      companyName: companyName || null,
+      panCardNo: panCardNo || null,
+      tanNumber: tanNumber || null,
+      billingAddress: billingAddress || null,
+      billingPincode: billingPincode || null,
+      installationAddress: installationAddress || null,
+      installationPincode: installationPincode || null,
+      poNumber: poNumber || null,
+      poExpiryDate: poExpiryDate || null,
+      billDate: billDate || null,
+      technicalInchargeMobile: technicalInchargeMobile || null,
+      technicalInchargeEmail: technicalInchargeEmail || null,
+      accountsInchargeMobile: accountsInchargeMobile || null,
+      accountsInchargeEmail: accountsInchargeEmail || null,
+      bdmName: bdmName || null,
+      serviceManager: serviceManager || null
+    }));
 
-      if (result.success) {
-        toast.success('Accounts details updated successfully!');
-        setSelectedLead(result.lead);
-        setIsEditingApproved(false);
-      } else {
-        toast.error(result.error || 'Failed to update details');
-      }
-    } catch (error) {
-      toast.error('Failed to update details');
-    } finally {
-      setIsSavingDetails(false);
+    if (result.success) {
+      toast.success('Accounts details updated successfully!');
+      setSelectedLead(result.lead);
+      setIsEditingApproved(false);
     }
+    setIsSavingDetails(false);
   };
 
   // Handler for BDM to update ARC/OTC on rejected leads
@@ -295,28 +295,21 @@ export default function AccountsVerificationPage() {
     if (!selectedLead) return;
 
     setIsUpdating(true);
-    try {
-      const result = await updateFinancialDetails(selectedLead.id, {
-        arcAmount: editArc ? parseFloat(editArc) : null,
-        otcAmount: editOtc ? parseFloat(editOtc) : null
-      });
+    const result = await updateArcOtcAction.runAction(() => updateFinancialDetails(selectedLead.id, {
+      arcAmount: editArc ? parseFloat(editArc) : null,
+      otcAmount: editOtc ? parseFloat(editOtc) : null
+    }));
 
-      if (result.success) {
-        toast.success('Pricing updated and resubmitted for accounts review!');
-        // Close modal and refresh list (lead will be removed as it's now pending)
-        setShowDetailsModal(false);
-        setSelectedLead(null);
-        setIsEditingApproved(false);
-        // Refresh the rejected list
-        fetchAccountsReviewHistory('rejected');
-      } else {
-        toast.error(result.error || 'Failed to update pricing');
-      }
-    } catch (error) {
-      toast.error('Failed to update pricing');
-    } finally {
-      setIsUpdating(false);
+    if (result.success) {
+      toast.success('Pricing updated and resubmitted for accounts review!');
+      // Close modal and refresh list (lead will be removed as it's now pending)
+      setShowDetailsModal(false);
+      setSelectedLead(null);
+      setIsEditingApproved(false);
+      // Refresh the rejected list
+      fetchAccountsReviewHistory('rejected');
     }
+    setIsUpdating(false);
   };
 
   const handleOpenDisposition = (lead) => {
@@ -364,14 +357,10 @@ export default function AccountsVerificationPage() {
   };
 
   const handleSubmitDisposition = async () => {
-    if (!decision) {
-      toast.error('Please select a decision');
-      return;
-    }
+    if (!decision) return dispositionAction.fail('Please select a decision.');
 
     if (decision === 'REJECTED' && !reason.trim()) {
-      toast.error('Reason is required when rejecting');
-      return;
+      return dispositionAction.fail('Reason is required when rejecting.');
     }
 
     if (decision === 'APPROVED') {
@@ -381,69 +370,57 @@ export default function AccountsVerificationPage() {
       const gstApplicable = selectedLead?.hasGst !== false;
       // Validate company name
       if (!companyName || companyName.trim().length === 0) {
-        toast.error('Company name is required for approval');
-        return;
+        return dispositionAction.fail('Company name is required for approval.');
       }
       // Validate GST
       if (gstApplicable && (!customerGstNo || customerGstNo.trim().length !== 15)) {
-        toast.error('Valid 15-character GST number is required for approval');
-        return;
+        return dispositionAction.fail('Valid 15-character GST number is required for approval.');
       }
       // PAN follows the same GST applicability gate — non-GST customers
       // typically don't have a PAN available at this stage.
       if (gstApplicable && (!panCardNo || panCardNo.trim().length !== 10)) {
-        toast.error('Valid 10-character PAN card number is required for approval');
-        return;
+        return dispositionAction.fail('Valid 10-character PAN card number is required for approval.');
       }
       // Validate TAN
       if (!tanNumber || tanNumber.trim().length === 0) {
-        toast.error('TAN number is required for approval');
-        return;
+        return dispositionAction.fail('TAN number is required for approval.');
       }
       // Validate billing address
       if (!billingAddress || billingAddress.trim().length === 0) {
-        toast.error('Billing address is required for approval');
-        return;
+        return dispositionAction.fail('Billing address is required for approval.');
       }
       if (!billingPincode || billingPincode.trim().length === 0) {
-        toast.error('Billing pincode is required for approval');
-        return;
+        return dispositionAction.fail('Billing pincode is required for approval.');
       }
       // Validate installation address
       if (!installationAddress || installationAddress.trim().length === 0) {
-        toast.error('Installation address is required for approval');
-        return;
+        return dispositionAction.fail('Installation address is required for approval.');
       }
       if (!installationPincode || installationPincode.trim().length === 0) {
-        toast.error('Installation pincode is required for approval');
-        return;
+        return dispositionAction.fail('Installation pincode is required for approval.');
       }
       // Validate PO number
       if (!poNumber || poNumber.trim().length === 0) {
-        toast.error('PO number is required for approval');
-        return;
+        return dispositionAction.fail('PO number is required for approval.');
       }
       // Validate ARC/OTC. OTC is only required when BDM declared this customer
       // owes one at quote creation (selectedLead.hasOtc !== false).
       if (!arcAmount || parseFloat(arcAmount) <= 0) {
-        toast.error('Valid ARC amount is required for approval');
-        return;
+        return dispositionAction.fail('Valid ARC amount is required for approval.');
       }
       const otcApplicable = selectedLead?.hasOtc !== false;
       if (otcApplicable && (!otcAmount || parseFloat(otcAmount) < 0)) {
-        toast.error('Valid OTC amount is required for approval');
-        return;
+        return dispositionAction.fail('Valid OTC amount is required for approval.');
       }
       // Validate legal name (only when GST is applicable for this lead)
       if (gstApplicable && (!customerLegalName || customerLegalName.trim().length === 0)) {
-        toast.error('Legal name (as per GST) is required for approval');
-        return;
+        return dispositionAction.fail('Legal name (as per GST) is required for approval.');
       }
     }
 
     setIsSaving(true);
 
-    const result = await accountsTeamDisposition(selectedLead.id, {
+    const result = await dispositionAction.runAction(() => accountsTeamDisposition(selectedLead.id, {
       decision,
       reason: reason.trim() || null,
       arcAmount: arcAmount ? parseFloat(arcAmount) : null,
@@ -469,15 +446,13 @@ export default function AccountsVerificationPage() {
       accountsInchargeEmail: accountsInchargeEmail.trim() || null,
       bdmName: bdmName.trim() || null,
       serviceManager: serviceManager.trim() || null
-    });
+    }));
 
     if (result.success) {
       setShowDispositionDialog(false);
       setSelectedLead(null);
       toast.success(result.message || 'Decision saved');
       fetchAccountsQueue();
-    } else {
-      toast.error(result.error || 'Failed to save decision');
     }
 
     setIsSaving(false);
@@ -1593,6 +1568,14 @@ export default function AccountsVerificationPage() {
                     )}
                   </div>
 
+                  {isEditingApproved && (
+                    <InlineError
+                      message={editApprovedAction.error}
+                      onDismiss={editApprovedAction.clearError}
+                      className="mb-3"
+                    />
+                  )}
+
                   {isEditingApproved ? (
                     // Edit Mode
                     <div className="space-y-4">
@@ -2497,40 +2480,47 @@ export default function AccountsVerificationPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 sm:gap-3 p-3 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex-shrink-0">
-              <Button
-                variant="outline"
-                onClick={() => setShowDispositionDialog(false)}
-                disabled={isSaving}
-                className="border-slate-200 dark:border-slate-700 text-xs sm:text-sm"
-                size="sm"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitDisposition}
-                disabled={!decision || isSaving}
-                size="sm"
-                className={`text-white text-xs sm:text-sm ${
-                  decision === 'APPROVED'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : decision === 'REJECTED'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-orange-600 hover:bg-orange-700'
-                }`}
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 size={16} className="mr-1 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    {decision === 'APPROVED' ? <CheckCircle size={16} className="mr-1" /> : <XCircle size={16} className="mr-1" />}
-                    {decision === 'APPROVED' ? 'Approve & Save' : 'Reject'}
-                  </>
-                )}
-              </Button>
+            <div className="p-3 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex-shrink-0">
+              <InlineError
+                message={dispositionAction.error}
+                onDismiss={dispositionAction.clearError}
+                className="mb-3"
+              />
+              <div className="flex items-center justify-end gap-2 sm:gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDispositionDialog(false)}
+                  disabled={isSaving}
+                  className="border-slate-200 dark:border-slate-700 text-xs sm:text-sm"
+                  size="sm"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitDisposition}
+                  disabled={!decision || isSaving}
+                  size="sm"
+                  className={`text-white text-xs sm:text-sm ${
+                    decision === 'APPROVED'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : decision === 'REJECTED'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-orange-600 hover:bg-orange-700'
+                  }`}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 size={16} className="mr-1 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      {decision === 'APPROVED' ? <CheckCircle size={16} className="mr-1" /> : <XCircle size={16} className="mr-1" />}
+                      {decision === 'APPROVED' ? 'Approve & Save' : 'Reject'}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

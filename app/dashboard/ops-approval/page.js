@@ -40,6 +40,8 @@ import { useModal } from '@/lib/useModal';
 import { PageHeader } from '@/components/PageHeader';
 import { formatCurrency } from '@/lib/formatters';
 import TabBar from '@/components/TabBar';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 // Helper to get documents as array from object or array format
 const getDocumentsArray = (documents) => {
@@ -131,6 +133,10 @@ export default function OpsApprovalPage() {
   const [selectedLeads, setSelectedLeads] = useState(new Set());
   const [bulkProcessing, setBulkProcessing] = useState(false);
 
+  // Inline-error hook instances — one per action surface (independent error state).
+  const submitDispositionAction = useActionError();
+  const bulkActionAction = useActionError();
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -191,30 +197,26 @@ export default function OpsApprovalPage() {
 
   const handleSubmitDisposition = async () => {
     if (!decision) {
-      toast.error('Please select a decision');
-      return;
+      return submitDispositionAction.fail('Please select a decision.');
     }
 
     if (decision === 'REJECTED' && !reason.trim()) {
-      toast.error('Reason is required when rejecting');
-      return;
+      return submitDispositionAction.fail('Reason is required when rejecting.');
     }
 
     setIsSaving(true);
 
-    const result = await opsTeamDisposition(selectedLead.id, {
+    const result = await submitDispositionAction.runAction(() => opsTeamDisposition(selectedLead.id, {
       decision,
       reason: reason.trim() || null,
       notes: notes.trim() || null,
-    });
+    }));
 
     if (result.success) {
       setShowDispositionDialog(false);
       setSelectedLead(null);
       toast.success(result.message || 'Decision saved');
       fetchOpsQueue();
-    } else {
-      toast.error(result.error || 'Failed to save decision');
     }
 
     setIsSaving(false);
@@ -262,8 +264,7 @@ export default function OpsApprovalPage() {
     if (action === 'reject') {
       const reason = window.prompt('Enter rejection reason for all selected leads:');
       if (!reason || !reason.trim()) {
-        toast.error('Rejection reason is required');
-        return;
+        return bulkActionAction.fail('Rejection reason is required.');
       }
       await processBulkAction(action, reason.trim());
     } else {
@@ -273,6 +274,7 @@ export default function OpsApprovalPage() {
 
   const processBulkAction = async (action, reason) => {
     setBulkProcessing(true);
+    bulkActionAction.clearError();
     let successCount = 0;
     let failCount = 0;
 
@@ -293,7 +295,7 @@ export default function OpsApprovalPage() {
 
     const actionLabel = action === 'approve' ? 'approved' : 'rejected';
     if (failCount > 0) {
-      toast.success(`${successCount} leads ${actionLabel}, ${failCount} failed`);
+      bulkActionAction.fail(`${successCount} leads ${actionLabel}, ${failCount} failed.`);
     } else {
       toast.success(`${successCount} leads ${actionLabel}`);
     }
@@ -739,6 +741,15 @@ export default function OpsApprovalPage() {
 
     return (
       <>
+        {/* Bulk action inline error — shown above bars on both mobile and desktop */}
+        {bulkActionAction.error && (
+          <InlineError
+            message={bulkActionAction.error}
+            onDismiss={bulkActionAction.clearError}
+            className="mx-3 mt-3"
+          />
+        )}
+
         {/* Bulk action bar (mobile only - DataTable handles desktop bulk actions) */}
         {!isBDMTeamLeader && selectedLeads.size > 0 && (
           <div className="lg:hidden flex items-center gap-3 p-3 mx-3 mt-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
@@ -1662,32 +1673,39 @@ export default function OpsApprovalPage() {
               )}
             </div>
 
-            <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex gap-3 flex-shrink-0">
-              <Button
-                onClick={() => setShowDispositionDialog(false)}
-                variant="outline"
-                className="flex-1 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitDisposition}
-                disabled={
-                  !decision ||
-                  isSaving ||
-                  (decision === 'REJECTED' && !reason.trim())
-                }
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  'Submit'
-                )}
-              </Button>
+            <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex-shrink-0">
+              <InlineError
+                message={submitDispositionAction.error}
+                onDismiss={submitDispositionAction.clearError}
+                className="mb-3"
+              />
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowDispositionDialog(false)}
+                  variant="outline"
+                  className="flex-1 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitDisposition}
+                  disabled={
+                    !decision ||
+                    isSaving ||
+                    (decision === 'REJECTED' && !reason.trim())
+                  }
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Submit'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

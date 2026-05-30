@@ -32,6 +32,8 @@ import { formatCurrency, formatDate } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
 import ReviseQuotationModal from '@/components/ReviseQuotationModal';
 import QuotationRevisedBadge from '@/components/QuotationRevisedBadge';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 const TABS = [
   { key: 'pending', label: 'Pending', icon: Clock, color: 'amber' },
@@ -66,6 +68,9 @@ export default function SuperAdmin2ApprovalPage() {
   const [decision, setDecision] = useState('');
   const [reason, setReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Inline-error hook instance — Sales Director / SA2 disposition surface.
+  const submitDispositionAction = useActionError();
 
   useModal(showDetailModal, () => setShowDetailModal(false));
   useModal(showDispositionModal, () => !isSaving && setShowDispositionModal(false));
@@ -147,30 +152,28 @@ export default function SuperAdmin2ApprovalPage() {
 
   const handleSubmitDisposition = async () => {
     if (!decision) {
-      toast.error('Please select a decision');
-      return;
+      return submitDispositionAction.fail('Please select a decision.');
     }
     if (decision === 'REJECTED' && !reason.trim()) {
-      toast.error('Rejection reason is required');
-      return;
+      return submitDispositionAction.fail('Rejection reason is required.');
     }
 
     setIsSaving(true);
-    try {
-      const response = await api.post(`/leads/super-admin2/${selectedLead.id}/disposition`, {
+    const result = await submitDispositionAction.runAction(() =>
+      api.post(`/leads/super-admin2/${selectedLead.id}/disposition`, {
         decision,
         reason: reason.trim() || null,
         notes: sa2Notes.trim() || null,
-      });
-      toast.success(response.data.message || 'Decision saved');
+      })
+    );
+
+    if (result?.success !== false) {
+      toast.success(result.data?.message || 'Decision saved');
       setShowDispositionModal(false);
       setSelectedLead(null);
       fetchData();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save decision');
-    } finally {
-      setIsSaving(false);
     }
+    setIsSaving(false);
   };
 
   if (!user || (!isSA2 && !isAdmin)) return null;
@@ -696,37 +699,44 @@ export default function SuperAdmin2ApprovalPage() {
               )}
 
               {/* Submit */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDispositionModal(false)}
-                  disabled={isSaving}
-                  className="border-slate-300 dark:border-slate-700"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSubmitDisposition}
-                  disabled={!decision || isSaving}
-                  className={
-                    decision === 'APPROVED'
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      : decision === 'REJECTED'
-                      ? 'bg-red-600 hover:bg-red-700 text-white'
-                      : 'bg-slate-400 text-white'
-                  }
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    decision === 'APPROVED' ? 'Approve Quotation' :
-                    decision === 'REJECTED' ? 'Reject Quotation' :
-                    'Select Decision'
-                  )}
-                </Button>
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                <InlineError
+                  message={submitDispositionAction.error}
+                  onDismiss={submitDispositionAction.clearError}
+                  className="mb-3"
+                />
+                <div className="flex justify-end gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDispositionModal(false)}
+                    disabled={isSaving}
+                    className="border-slate-300 dark:border-slate-700"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSubmitDisposition}
+                    disabled={!decision || isSaving}
+                    className={
+                      decision === 'APPROVED'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : decision === 'REJECTED'
+                        ? 'bg-red-600 hover:bg-red-700 text-white'
+                        : 'bg-slate-400 text-white'
+                    }
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      decision === 'APPROVED' ? 'Approve Quotation' :
+                      decision === 'REJECTED' ? 'Reject Quotation' :
+                      'Select Decision'
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

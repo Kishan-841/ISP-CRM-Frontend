@@ -37,6 +37,8 @@ import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import TabBar from '@/components/TabBar';
 import { PageHeader } from '@/components/PageHeader';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 export default function FeasibilityQueuePage() {
   const router = useRouter();
@@ -75,6 +77,9 @@ export default function FeasibilityQueuePage() {
   const [decision, setDecision] = useState('');
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Inline-error hook instance — one per action surface.
+  const submitDispositionAction = useActionError();
 
   // Store products for equipment dropdowns
   const [storeProducts, setStoreProducts] = useState([]);
@@ -480,25 +485,22 @@ export default function FeasibilityQueuePage() {
 
   const handleSubmitDisposition = async () => {
     if (!decision) {
-      toast.error('Please select a decision');
-      return;
+      return submitDispositionAction.fail('Please select a decision.');
     }
 
     if (decision === 'NOT_FEASIBLE' && !notes.trim()) {
-      toast.error('Notes are required when marking as not feasible');
-      return;
+      return submitDispositionAction.fail('Notes are required when marking as not feasible.');
     }
 
     if (decision === 'FEASIBLE' && !vendorType) {
-      toast.error('Please select a vendor type');
-      return;
+      return submitDispositionAction.fail('Please select a vendor type.');
     }
 
     setIsSaving(true);
 
     // Build the simplified payload — vendor type + tentative pricing + POP + description
     const currentVD = decision === 'FEASIBLE' ? vendorData[vendorType] : null;
-    const result = await feasibilityDisposition(selectedLead.id, {
+    const result = await submitDispositionAction.runAction(() => feasibilityDisposition(selectedLead.id, {
       decision,
       notes: notes.trim() || null,
       vendorType: decision === 'FEASIBLE' ? vendorType : undefined,
@@ -508,7 +510,7 @@ export default function FeasibilityQueuePage() {
       popLocation: currentVD?.popLocation || null,
       popLatitude: currentVD?.popLatitude || null,
       popLongitude: currentVD?.popLongitude || null,
-    });
+    }));
 
     if (result.success) {
       setShowDispositionDialog(false);
@@ -517,8 +519,6 @@ export default function FeasibilityQueuePage() {
       fetchFeasibilityQueue();
       // Refresh counts
       fetchFeasibilityReviewHistory('approved');
-    } else {
-      toast.error(result.error || 'Failed to save decision');
     }
 
     setIsSaving(false);
@@ -2212,33 +2212,40 @@ export default function FeasibilityQueuePage() {
               </div>
             </div>
 
-            <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex gap-3 shrink-0">
-              <Button
-                onClick={() => setShowDispositionDialog(false)}
-                variant="outline"
-                className="flex-1 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitDisposition}
-                disabled={
-                  !decision ||
-                  isSaving ||
-                  (decision === 'NOT_FEASIBLE' && !notes.trim()) ||
-                  (decision === 'FEASIBLE' && !vendorType)
-                }
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  'Submit Review'
-                )}
-              </Button>
+            <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 shrink-0">
+              <InlineError
+                message={submitDispositionAction.error}
+                onDismiss={submitDispositionAction.clearError}
+                className="mb-3"
+              />
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowDispositionDialog(false)}
+                  variant="outline"
+                  className="flex-1 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitDisposition}
+                  disabled={
+                    !decision ||
+                    isSaving ||
+                    (decision === 'NOT_FEASIBLE' && !notes.trim()) ||
+                    (decision === 'FEASIBLE' && !vendorType)
+                  }
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Submit Review'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
