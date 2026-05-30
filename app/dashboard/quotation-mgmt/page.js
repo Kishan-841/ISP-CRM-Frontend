@@ -66,6 +66,8 @@ import { formatCurrency } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
 import ReviseQuotationModal from '@/components/ReviseQuotationModal';
 import QuotationRevisedBadge from '@/components/QuotationRevisedBadge';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 // Stage configuration with explicit Tailwind classes for proper purging
 const STAGES = [
@@ -210,6 +212,14 @@ export default function QuotationManagementPage() {
 
   // Form states
   const [isSaving, setIsSaving] = useState(false);
+
+  // Inline-error hook instances — one per action surface (independent error state).
+  const submitQuoteAction = useActionError();
+  const shareEmailAction = useActionError();
+  const loginAction = useActionError();
+  const installationAction = useActionError();
+  const resubmitAction = useActionError();
+
   const [testMode, setTestMode] = useState(false);
   // Whether the customer is GST-registered. Drives both the GST_DETAILS doc
   // requirement here and the GST/legal-name requirement on the Accounts side.
@@ -772,50 +782,35 @@ export default function QuotationManagementPage() {
     if (!selectedLead) return;
 
     if (selectedProducts.length === 0) {
-      toast.error('Please select at least one product');
-      return;
+      return submitQuoteAction.fail('Please select at least one product.');
     }
-
     if (!quoteDetails.bandwidth) {
-      toast.error('Please enter bandwidth requirement');
-      return;
+      return submitQuoteAction.fail('Please enter bandwidth requirement.');
     }
-
     if (!quoteDetails.arcAmount) {
-      toast.error('Please enter ARC amount');
-      return;
+      return submitQuoteAction.fail('Please enter ARC amount.');
     }
-
-    const grandTotal = (parseFloat(quoteDetails.arcAmount) || 0) + (quoteDetails.hasOtc ? (parseFloat(quoteDetails.otcAmount) || 0) : 0);
 
     setIsSaving(true);
-    try {
-      // Update lead with quote details and set OPS status to PENDING.
-      // hasOtc is the gate for downstream OTC handling — see backend
-      // updateLead(): when false, otcAmount/advanceAmount are forced null.
-      const result = await updateLead(selectedLead.id, {
-        productIds: selectedProducts,
-        bandwidthRequirement: quoteDetails.bandwidth,
-        numberOfIPs: quoteDetails.numberOfIPs ? parseInt(quoteDetails.numberOfIPs) : null,
-        arcAmount: parseFloat(quoteDetails.arcAmount) || 0,
-        hasOtc: quoteDetails.hasOtc,
-        otcAmount: quoteDetails.hasOtc ? (parseFloat(quoteDetails.otcAmount) || 0) : null,
-        quotationAttachments: quotationAttachments.length > 0 ? quotationAttachments : null,
-        opsApprovalStatus: 'PENDING'
-      });
+    // hasOtc is the gate for downstream OTC handling — see backend updateLead():
+    // when false, otcAmount/advanceAmount are forced null.
+    const result = await submitQuoteAction.runAction(() => updateLead(selectedLead.id, {
+      productIds: selectedProducts,
+      bandwidthRequirement: quoteDetails.bandwidth,
+      numberOfIPs: quoteDetails.numberOfIPs ? parseInt(quoteDetails.numberOfIPs) : null,
+      arcAmount: parseFloat(quoteDetails.arcAmount) || 0,
+      hasOtc: quoteDetails.hasOtc,
+      otcAmount: quoteDetails.hasOtc ? (parseFloat(quoteDetails.otcAmount) || 0) : null,
+      quotationAttachments: quotationAttachments.length > 0 ? quotationAttachments : null,
+      opsApprovalStatus: 'PENDING',
+    }));
 
-      if (result.success) {
-        toast.success('Quotation submitted for Sales Director approval');
-        setShowQuoteModal(false);
-        refreshOpportunityLeads();
-      } else {
-        toast.error(result.error || 'Failed to submit');
-      }
-    } catch (error) {
-      toast.error('Failed to submit quotation');
-    } finally {
-      setIsSaving(false);
+    if (result.success) {
+      toast.success('Quotation submitted for Sales Director approval');
+      setShowQuoteModal(false);
+      refreshOpportunityLeads();
     }
+    setIsSaving(false);
   };
 
   // Share with customer via server-side email (Resend)
@@ -824,45 +819,41 @@ export default function QuotationManagementPage() {
 
     // Validate email
     if (!shareForm.to) {
-      toast.error('Recipient email is required');
-      return;
+      return shareEmailAction.fail('Recipient email is required.');
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(shareForm.to)) {
-      toast.error('Please enter a valid email address');
-      return;
+      return shareEmailAction.fail('Please enter a valid email address.');
     }
 
     // Validate CC emails if provided
     const ccEmails = shareForm.cc.split(',').map(e => e.trim()).filter(Boolean);
     for (const cc of ccEmails) {
       if (!emailRegex.test(cc)) {
-        toast.error(`Invalid CC email: ${cc}`);
-        return;
+        return shareEmailAction.fail(`Invalid CC email: ${cc}`);
       }
     }
 
     setIsSaving(true);
-    try {
-      // Prepare email data
-      const emailData = {
-        customerName: shareForm.customerName,
-        quotationAmount: shareForm.quotationAmount,
-        otc: shareForm.otc,
-        arc: shareForm.arc,
-        bandwidth: shareForm.bandwidth,
-        products: shareForm.products,
-        companyName: shareForm.companyName,
-        numberOfIPs: shareForm.numberOfIPs,
-        location: shareForm.location,
-        senderName: shareForm.senderName,
-        senderDesignation: shareForm.senderDesignation,
-        senderPhone: shareForm.senderPhone,
-        senderEmail: shareForm.senderEmail
-      };
 
-      // Send email via server
+    const emailData = {
+      customerName: shareForm.customerName,
+      quotationAmount: shareForm.quotationAmount,
+      otc: shareForm.otc,
+      arc: shareForm.arc,
+      bandwidth: shareForm.bandwidth,
+      products: shareForm.products,
+      companyName: shareForm.companyName,
+      numberOfIPs: shareForm.numberOfIPs,
+      location: shareForm.location,
+      senderName: shareForm.senderName,
+      senderDesignation: shareForm.senderDesignation,
+      senderPhone: shareForm.senderPhone,
+      senderEmail: shareForm.senderEmail
+    };
+
+    const result = await shareEmailAction.runAction(async () => {
       const emailResult = await sendQuotationEmail({
         referenceId: selectedLead.id,
         referenceType: 'lead',
@@ -876,42 +867,37 @@ export default function QuotationManagementPage() {
         }))
       });
 
-      if (emailResult.success) {
-        // Update sharedVia: keep only sharing methods (email, whatsapp), remove docs_verification
-        // This ensures the lead goes to "Docs Upload" stage, not "Docs Verification"
-        const currentSharedVia = selectedLead.sharedVia || '';
-        const sharedMethods = currentSharedVia.split(',').filter(Boolean);
-
-        // Keep only email and whatsapp, remove docs_verification
-        const allowedMethods = ['email', 'whatsapp'];
-        let newMethods = sharedMethods.filter(method => allowedMethods.includes(method));
-
-        // Add email if not already present
-        if (!newMethods.includes('email')) {
-          newMethods.push('email');
-        }
-
-        const newSharedVia = newMethods.join(',');
-
-        await updateLead(selectedLead.id, {
-          sharedVia: newSharedVia,
-          // Also reset docs verification fields so lead can go through the flow again
-          docsVerifiedAt: null,
-          docsRejectedReason: null
-        });
-
-        toast.success('Quotation email sent successfully!');
-        setShowShareModal(false);
-        refreshOpportunityLeads();
-      } else {
-        toast.error(emailResult.error || 'Failed to send email');
+      if (!emailResult.success) {
+        return emailResult;
       }
-    } catch (error) {
-      console.error('Share error:', error);
-      toast.error('Failed to send email');
-    } finally {
-      setIsSaving(false);
+
+      // Update sharedVia client-side so the lead immediately moves to the
+      // next stage in the UI. (Server also writes this when the lead is
+      // properly approved.)
+      const currentSharedVia = selectedLead.sharedVia || '';
+      const sharedMethods = currentSharedVia.split(',').filter(Boolean);
+      const allowedMethods = ['email', 'whatsapp'];
+      let newMethods = sharedMethods.filter(method => allowedMethods.includes(method));
+      if (!newMethods.includes('email')) {
+        newMethods.push('email');
+      }
+      const newSharedVia = newMethods.join(',');
+
+      await updateLead(selectedLead.id, {
+        sharedVia: newSharedVia,
+        docsVerifiedAt: null,
+        docsRejectedReason: null
+      });
+
+      return emailResult;
+    });
+
+    if (result.success) {
+      toast.success('Quotation email sent successfully!');
+      setShowShareModal(false);
+      refreshOpportunityLeads();
     }
+    setIsSaving(false);
   };
 
   // Bypass mode - skip email and push to docs upload stage (for testing)
@@ -953,20 +939,13 @@ export default function QuotationManagementPage() {
     if (!selectedLead) return;
 
     setIsSaving(true);
-    try {
-      const result = await markLoginComplete(selectedLead.id);
-      if (result.success) {
-        toast.success('Login marked complete');
-        setShowLoginModal(false);
-        refreshOpportunityLeads();
-      } else {
-        toast.error(result.error || 'Failed to mark login complete');
-      }
-    } catch (error) {
-      toast.error('Failed to mark login complete');
-    } finally {
-      setIsSaving(false);
+    const result = await loginAction.runAction(() => markLoginComplete(selectedLead.id));
+    if (result.success) {
+      toast.success('Login marked complete');
+      setShowLoginModal(false);
+      refreshOpportunityLeads();
     }
+    setIsSaving(false);
   };
 
   // Push to installation
@@ -974,25 +953,19 @@ export default function QuotationManagementPage() {
     if (!selectedLead) return;
 
     if (!selectedDeliveryUser) {
-      toast.error('Please select a delivery user');
-      return;
+      return installationAction.fail('Please select a delivery user.');
     }
 
     setIsSaving(true);
-    try {
-      const result = await pushToInstallation(selectedLead.id, installationNotes, selectedDeliveryUser);
-      if (result.success) {
-        toast.success('Assigned to Delivery Team');
-        setShowInstallationModal(false);
-        refreshOpportunityLeads();
-      } else {
-        toast.error(result.error || 'Failed to push');
-      }
-    } catch (error) {
-      toast.error('Failed to push to installation');
-    } finally {
-      setIsSaving(false);
+    const result = await installationAction.runAction(() =>
+      pushToInstallation(selectedLead.id, installationNotes, selectedDeliveryUser)
+    );
+    if (result.success) {
+      toast.success('Assigned to Delivery Team');
+      setShowInstallationModal(false);
+      refreshOpportunityLeads();
     }
+    setIsSaving(false);
   };
 
   // Handle opening accounts rejected edit modal
@@ -1008,24 +981,16 @@ export default function QuotationManagementPage() {
     if (!selectedLead) return;
 
     setIsResubmitting(true);
-    try {
-      const result = await updateFinancialDetails(selectedLead.id, {
-        arcAmount: rejectedEditArc ? parseFloat(rejectedEditArc) : null,
-        otcAmount: rejectedEditOtc ? parseFloat(rejectedEditOtc) : null
-      });
-
-      if (result.success) {
-        toast.success('Pricing updated and resubmitted to accounts team!');
-        setShowAccountsRejectedModal(false);
-        refreshOpportunityLeads();
-      } else {
-        toast.error(result.error || 'Failed to resubmit');
-      }
-    } catch (error) {
-      toast.error('Failed to resubmit to accounts');
-    } finally {
-      setIsResubmitting(false);
+    const result = await resubmitAction.runAction(() => updateFinancialDetails(selectedLead.id, {
+      arcAmount: rejectedEditArc ? parseFloat(rejectedEditArc) : null,
+      otcAmount: rejectedEditOtc ? parseFloat(rejectedEditOtc) : null,
+    }));
+    if (result.success) {
+      toast.success('Pricing updated and resubmitted to accounts team!');
+      setShowAccountsRejectedModal(false);
+      refreshOpportunityLeads();
     }
+    setIsResubmitting(false);
   };
 
   // === RENDER HELPERS ===
@@ -2042,34 +2007,41 @@ export default function QuotationManagementPage() {
             </div>
 
             {/* Footer */}
-            <div className="p-5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                This quotation will be sent to Sales Director for approval
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowQuoteModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSubmitToOps}
-                  disabled={isSaving || selectedProducts.length === 0 || !quoteDetails.bandwidth || !quoteDetails.arcAmount}
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Send size={16} className="mr-2" />
-                      Submit to Sales Director
-                    </>
-                  )}
-                </Button>
+            <div className="border-t border-slate-200 dark:border-slate-800">
+              <InlineError
+                message={submitQuoteAction.error}
+                onDismiss={submitQuoteAction.clearError}
+                className="mx-5 mt-3"
+              />
+              <div className="p-5 flex items-center justify-between">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  This quotation will be sent to Sales Director for approval
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowQuoteModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSubmitToOps}
+                    disabled={isSaving || selectedProducts.length === 0 || !quoteDetails.bandwidth || !quoteDetails.arcAmount}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send size={16} className="mr-2" />
+                        Submit to Sales Director
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -2452,6 +2424,11 @@ export default function QuotationManagementPage() {
 
             {/* Footer - fixed */}
             <div className="p-3 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex-shrink-0">
+              <InlineError
+                message={shareEmailAction.error}
+                onDismiss={shareEmailAction.clearError}
+                className="mb-3"
+              />
               <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-3">
                 <Button
                   variant="outline"
@@ -2797,7 +2774,13 @@ export default function QuotationManagementPage() {
               </div>
             </div>
 
-            <div className="p-5 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3 shrink-0">
+            <div className="border-t border-slate-200 dark:border-slate-800 shrink-0">
+              <InlineError
+                message={installationAction.error}
+                onDismiss={installationAction.clearError}
+                className="mx-5 mt-3"
+              />
+              <div className="p-5 flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowInstallationModal(false)}>
                 Cancel
               </Button>
@@ -2818,6 +2801,7 @@ export default function QuotationManagementPage() {
                   </>
                 )}
               </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -2884,22 +2868,29 @@ export default function QuotationManagementPage() {
               </p>
             </div>
 
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowLoginModal(false)}
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleMarkLoginComplete}
-                disabled={isSaving}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white"
-              >
-                {isSaving ? <Loader2 size={16} className="animate-spin mr-2" /> : <LogIn size={16} className="mr-2" />}
-                Confirm Login
-              </Button>
+            <div className="border-t border-slate-200 dark:border-slate-800">
+              <InlineError
+                message={loginAction.error}
+                onDismiss={loginAction.clearError}
+                className="mx-4 mt-3"
+              />
+              <div className="p-4 flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowLoginModal(false)}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleMarkLoginComplete}
+                  disabled={isSaving}
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                >
+                  {isSaving ? <Loader2 size={16} className="animate-spin mr-2" /> : <LogIn size={16} className="mr-2" />}
+                  Confirm Login
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -3861,27 +3852,34 @@ export default function QuotationManagementPage() {
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowAccountsRejectedModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleResubmitToAccounts}
-                disabled={isResubmitting}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {isResubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Resubmitting...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={16} className="mr-2" />
-                    Resubmit to Accounts
-                  </>
-                )}
-              </Button>
+            <div className="border-t border-slate-200 dark:border-slate-800">
+              <InlineError
+                message={resubmitAction.error}
+                onDismiss={resubmitAction.clearError}
+                className="mx-4 mt-3"
+              />
+              <div className="p-4 flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setShowAccountsRejectedModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleResubmitToAccounts}
+                  disabled={isResubmitting}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {isResubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Resubmitting...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={16} className="mr-2" />
+                      Resubmit to Accounts
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
