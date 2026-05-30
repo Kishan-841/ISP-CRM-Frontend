@@ -36,6 +36,8 @@ import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { COMPLAINT_STATUS_CONFIG, PRIORITY_CONFIG, getStatusBadgeClass } from '@/lib/statusConfig';
 import TabBar from '@/components/TabBar';
+import { useActionError } from '@/lib/useActionError';
+import { InlineError } from '@/components/ui/inline-error';
 
 // ---------------------------------------------------------------------------
 // Status / Priority config
@@ -114,6 +116,12 @@ export default function ComplaintsPage() {
   // Create modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Inline-error hook instances — independent per modal.
+  const createComplaintAction = useActionError();
+  const updateComplaintAction = useActionError();
+  const closeComplaintAction = useActionError();
+
   const [createForm, setCreateForm] = useState({
     leadId: '',
     categoryId: '',
@@ -318,12 +326,12 @@ export default function ComplaintsPage() {
   // Submit create complaint
   // -----------------------------------------------------------------------
   const handleCreateComplaint = async () => {
-    if (!createForm.leadId) { toast.error('Please select a customer'); return; }
-    if (!createForm.categoryId) { toast.error('Please select a category'); return; }
-    if (!createForm.description.trim()) { toast.error('Description is required'); return; }
+    if (!createForm.leadId) return createComplaintAction.fail('Please select a customer.');
+    if (!createForm.categoryId) return createComplaintAction.fail('Please select a category.');
+    if (!createForm.description.trim()) return createComplaintAction.fail('Description is required.');
     const isAccCat = isAccountsCategory(createForm.categoryId);
-    if (isAccCat && !createForm.accountsAssigneeId) { toast.error('Please select an Accounts assignee'); return; }
-    if (!isAccCat && !createForm.nocAssigneeId) { toast.error('Please select a NOC assignee'); return; }
+    if (isAccCat && !createForm.accountsAssigneeId) return createComplaintAction.fail('Please select an Accounts assignee.');
+    if (!isAccCat && !createForm.nocAssigneeId) return createComplaintAction.fail('Please select a NOC assignee.');
 
     setIsSubmitting(true);
     const payload = {
@@ -342,7 +350,7 @@ export default function ComplaintsPage() {
       payload.opsAssigneeId = createForm.opsAssigneeId || undefined;
     }
 
-    const result = await createComplaint(payload);
+    const result = await createComplaintAction.runAction(() => createComplaint(payload));
     if (result.success) {
       if (selectedFiles.length > 0 && result.data?.id) {
         const uploadResult = await uploadAttachments(result.data.id, selectedFiles);
@@ -357,8 +365,6 @@ export default function ComplaintsPage() {
       const status = getStatusFilter();
       if (status) params.status = status;
       fetchComplaints(params);
-    } else {
-      toast.error(result.error || 'Failed to create complaint');
     }
     setIsSubmitting(false);
   };
@@ -459,7 +465,7 @@ export default function ComplaintsPage() {
       }
     }
 
-    const result = await updateComplaintDetails(updateTarget.id, payload);
+    const result = await updateComplaintAction.runAction(() => updateComplaintDetails(updateTarget.id, payload));
     if (result.success) {
       if (updateFiles.length > 0) {
         await uploadAttachments(updateTarget.id, updateFiles);
@@ -468,8 +474,6 @@ export default function ComplaintsPage() {
       setShowUpdateModal(false);
       setUpdateTarget(null);
       fetchComplaints({ page, limit: pageSize });
-    } else {
-      toast.error(result.error || 'Failed to update complaint');
     }
     setIsUpdating(false);
   };
@@ -524,9 +528,9 @@ export default function ComplaintsPage() {
   };
 
   const handleSubmitClose = async () => {
-    if (!closeForm.reasonForOutage) { toast.error('Reason for outage is required'); return; }
-    if (!closeForm.resolution) { toast.error('Resolution is required'); return; }
-    if (!closeForm.resolutionType) { toast.error('Resolution type is required'); return; }
+    if (!closeForm.reasonForOutage) return closeComplaintAction.fail('Reason for outage is required.');
+    if (!closeForm.resolution) return closeComplaintAction.fail('Resolution is required.');
+    if (!closeForm.resolutionType) return closeComplaintAction.fail('Resolution type is required.');
 
     setIsClosing(true);
     const payload = {
@@ -543,7 +547,7 @@ export default function ComplaintsPage() {
       if (closeForm.customerImpactTo) payload.customerImpactTo = new Date(closeForm.customerImpactTo).toISOString();
     }
 
-    const result = await closeComplaint(closeTarget.id, payload);
+    const result = await closeComplaintAction.runAction(() => closeComplaint(closeTarget.id, payload));
     if (result.success) {
       if (closeFiles.length > 0) {
         await uploadAttachments(closeTarget.id, closeFiles);
@@ -552,8 +556,6 @@ export default function ComplaintsPage() {
       setShowCloseModal(false);
       setCloseTarget(null);
       fetchComplaints({ page, limit: pageSize });
-    } else {
-      toast.error(result.error || 'Failed to close complaint');
     }
     setIsClosing(false);
   };
@@ -1684,7 +1686,13 @@ export default function ComplaintsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
+            <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+              <InlineError
+                message={createComplaintAction.error}
+                onDismiss={createComplaintAction.clearError}
+                className="mx-4 sm:mx-6 mt-3"
+              />
+              <div className="px-4 sm:px-6 py-3 sm:py-4 flex gap-3">
               <Button
                 type="button"
                 onClick={() => { setShowCreateModal(false); resetCreateForm(); }}
@@ -1712,6 +1720,7 @@ export default function ComplaintsPage() {
                   </>
                 )}
               </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1830,11 +1839,18 @@ export default function ComplaintsPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
-              <Button type="button" onClick={() => { setShowUpdateModal(false); setUpdateTarget(null); }} variant="outline" size="sm" className="flex-1">Cancel</Button>
-              <Button onClick={handleSubmitUpdate} disabled={isUpdating} size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
-                {isUpdating ? <><Loader2 className="animate-spin w-4 h-4 mr-2" />Updating...</> : <><Pencil size={16} className="mr-1" />Update</>}
-              </Button>
+            <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+              <InlineError
+                message={updateComplaintAction.error}
+                onDismiss={updateComplaintAction.clearError}
+                className="mx-4 sm:mx-6 mt-3"
+              />
+              <div className="px-4 sm:px-6 py-3 sm:py-4 flex gap-3">
+                <Button type="button" onClick={() => { setShowUpdateModal(false); setUpdateTarget(null); }} variant="outline" size="sm" className="flex-1">Cancel</Button>
+                <Button onClick={handleSubmitUpdate} disabled={isUpdating} size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                  {isUpdating ? <><Loader2 className="animate-spin w-4 h-4 mr-2" />Updating...</> : <><Pencil size={16} className="mr-1" />Update</>}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1987,11 +2003,18 @@ export default function ComplaintsPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
-              <Button type="button" onClick={() => { setShowCloseModal(false); setCloseTarget(null); }} variant="outline" size="sm" className="flex-1">Cancel</Button>
-              <Button onClick={handleSubmitClose} disabled={isClosing || !closeForm.reasonForOutage || !closeForm.resolution || !closeForm.resolutionType} size="sm" className="flex-1 bg-red-600 hover:bg-red-700 text-white">
-                {isClosing ? <><Loader2 className="animate-spin w-4 h-4 mr-2" />Closing...</> : <><XCircle size={16} className="mr-1" />Close Complaint</>}
-              </Button>
+            <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+              <InlineError
+                message={closeComplaintAction.error}
+                onDismiss={closeComplaintAction.clearError}
+                className="mx-4 sm:mx-6 mt-3"
+              />
+              <div className="px-4 sm:px-6 py-3 sm:py-4 flex gap-3">
+                <Button type="button" onClick={() => { setShowCloseModal(false); setCloseTarget(null); }} variant="outline" size="sm" className="flex-1">Cancel</Button>
+                <Button onClick={handleSubmitClose} disabled={isClosing || !closeForm.reasonForOutage || !closeForm.resolution || !closeForm.resolutionType} size="sm" className="flex-1 bg-red-600 hover:bg-red-700 text-white">
+                  {isClosing ? <><Loader2 className="animate-spin w-4 h-4 mr-2" />Closing...</> : <><XCircle size={16} className="mr-1" />Close Complaint</>}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
