@@ -605,6 +605,57 @@ export default function StoreRequestsPage() {
                   const selectedCount = getSelectedCount(item.id);
                   const isComplete = selectedCount >= item.quantity;
 
+                  // Items assigned in a prior round (e.g. the request was sent back to
+                  // the Approved tab to add newly-requested materials) are locked here.
+                  // Their serials/quantities were already deducted from inventory, so
+                  // re-assigning would double-count. Render them read-only.
+                  if (item.isAssigned) {
+                    return (
+                      <div
+                        key={item.id}
+                        className="border border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg overflow-hidden"
+                      >
+                        <div className="flex items-center justify-between px-4 py-3">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <Package className="h-5 w-5 text-slate-400 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900 dark:text-white truncate">
+                                {item.product?.modelNumber}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {item.product?.category} - {item.product?.brandName}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 flex-shrink-0">
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            <span>Assigned</span>
+                          </div>
+                        </div>
+                        {(item.assignedSerialNumbers?.length > 0 || item.assignedQuantity) && (
+                          <div className="border-t border-emerald-200 dark:border-emerald-800 px-4 py-2.5 bg-white/60 dark:bg-slate-800/30">
+                            {item.assignedSerialNumbers?.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {item.assignedSerialNumbers.map((sn) => (
+                                  <span
+                                    key={sn}
+                                    className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs rounded font-mono"
+                                  >
+                                    {sn}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-slate-600 dark:text-slate-400">
+                                Assigned: {item.assignedQuantity} {item.product?.unit || 'pcs'}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={item.id}

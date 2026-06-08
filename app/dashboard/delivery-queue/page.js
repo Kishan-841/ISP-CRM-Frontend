@@ -1697,17 +1697,28 @@ export default function DeliveryQueuePage() {
                 <Badge variant="outline" className={getStageBadgeColor(getLeadStage(selectedLead))}>
                   {getStageLabel(getLeadStage(selectedLead))}
                 </Badge>
-                {selectedLead.deliveryStatus !== 'COMPLETED' && (
-                  <Button
-                    size="sm"
-                    variant={isEditMode ? "default" : "outline"}
-                    onClick={() => setIsEditMode(!isEditMode)}
-                    className={isEditMode ? "bg-orange-600 hover:bg-orange-700 text-white" : ""}
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    {isEditMode ? 'Editing' : 'Edit'}
-                  </Button>
-                )}
+                {selectedLead.deliveryStatus !== 'COMPLETED' && (() => {
+                  // Lock product edits while a material request is in flight —
+                  // the store assigns from a snapshot taken at request creation,
+                  // so edits here would NOT reach them (stale-assignment bug).
+                  // Editable again only before any request exists or after a
+                  // rejection (fix-and-resubmit flow). Backend enforces the
+                  // same rule; this is just friendlier UX.
+                  const requestInFlight = ['MATERIAL_REQUESTED', 'PUSHED_TO_NOC', 'ACTIVATION_READY', 'INSTALLING'].includes(selectedLead.deliveryStatus);
+                  return (
+                    <Button
+                      size="sm"
+                      variant={isEditMode ? "default" : "outline"}
+                      onClick={() => setIsEditMode(!isEditMode)}
+                      disabled={requestInFlight}
+                      title={requestInFlight ? 'A material request is already with the store — cancel it first, then edit and submit a new request.' : undefined}
+                      className={isEditMode ? "bg-orange-600 hover:bg-orange-700 text-white" : ""}
+                    >
+                      <Pencil className="h-4 w-4 mr-1" />
+                      {isEditMode ? 'Editing' : requestInFlight ? 'Locked' : 'Edit'}
+                    </Button>
+                  );
+                })()}
                 <button
                   onClick={handleCloseDetails}
                   className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
