@@ -322,6 +322,11 @@ export default function StoreRequestsPage() {
                         <div>
                           <p className="font-medium text-slate-900 dark:text-white">{request.requestNumber}</p>
                           <p className="text-xs text-slate-500">{formatDate(request.createdAt)}</p>
+                          {request.isSupplementary && (
+                            <Badge variant="outline" className="mt-1 bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300">
+                              New Material
+                            </Badge>
+                          )}
                         </div>
                         <Badge variant="outline" className={getStatusBadge(request.status)}>
                           {request.status}
@@ -449,6 +454,11 @@ export default function StoreRequestsPage() {
                             <div className="flex flex-col">
                               <span className="font-medium text-slate-900 dark:text-white">{row.requestNumber}</span>
                               <span className="text-xs text-slate-500">{formatDate(row.createdAt)}</span>
+                              {row.isSupplementary && (
+                                <Badge variant="outline" className="mt-1 w-fit bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300">
+                                  New Material
+                                </Badge>
+                              )}
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -599,6 +609,30 @@ export default function StoreRequestsPage() {
             {/* Modal Content */}
             <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5">
               <div className="space-y-4">
+                {/* Already-assigned material from the original request — context for a
+                    supplementary "Add More Material" request. Read-only. */}
+                {selectedRequest.isSupplementary && selectedRequest.parentRequest?.items?.length > 0 && (
+                  <div className="p-3 sm:p-4 bg-slate-100 dark:bg-slate-800 rounded-lg border border-dashed border-slate-300 dark:border-slate-600">
+                    <p className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-2 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4" />
+                      Already Assigned — {selectedRequest.parentRequest.requestNumber}
+                    </p>
+                    <div className="space-y-1.5 opacity-70">
+                      {selectedRequest.parentRequest.items.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm">
+                          <span className="text-slate-700 dark:text-slate-300">{item.product?.modelNumber || 'Product'}</span>
+                          <span className="text-slate-500">
+                            {item.assignedQuantity ?? item.quantity} {item.product?.unit || 'pcs'}
+                            {item.assignedSerialNumbers?.length > 0 && (
+                              <span className="ml-2 text-xs font-mono">[{item.assignedSerialNumbers.join(', ')}]</span>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">Assign the new material below.</p>
+                  </div>
+                )}
                 {selectedRequest.items?.map((item) => {
                   const productInventory = getInventoryForProduct(item.productId);
                   const isExpanded = expandedItems[item.id];

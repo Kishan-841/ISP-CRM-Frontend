@@ -287,7 +287,7 @@ export default function Sidebar() {
       submenu: [
         { name: 'Accounts Dashboard', path: '/dashboard/accounts-dashboard' },
         { name: 'Accounts Verification', path: '/dashboard/accounts-verification', badge: counts.accountsPending > 0 ? counts.accountsPending : null },
-        { name: 'Add Customer', path: '/dashboard/accounts-add-customer' },
+        { name: 'Add Customer', path: '/dashboard/accounts-add-customer', badge: counts.legacyPendingBilling > 0 ? counts.legacyPendingBilling : null },
         { name: 'Vendor Docs', path: '/dashboard/vendors', badge: counts.vendorDocsToVerify > 0 ? counts.vendorDocsToVerify : null },
         { name: 'Demo Plan Assignment', path: '/dashboard/accounts-demo-plan', badge: counts.demoPlanPending > 0 ? counts.demoPlanPending : null },
         { name: 'Create Plan', path: '/dashboard/accounts-create-plan', badge: counts.createPlanPending > 0 ? counts.createPlanPending : null },
@@ -316,6 +316,7 @@ export default function Sidebar() {
       menuKey: 'masterDelivery',
       submenu: [
         { name: 'Delivery Queue', path: '/dashboard/delivery-queue', badge: counts.deliveryPending > 0 ? counts.deliveryPending : null },
+        { name: 'Customer Onboarding', path: '/dashboard/customer-onboarding', badge: counts.legacyPendingDelivery > 0 ? counts.legacyPendingDelivery : null },
         { name: 'Delivery Report', path: '/dashboard/delivery-report' },
       ]
     },
@@ -555,7 +556,7 @@ export default function Sidebar() {
     ...(isAccountsTeam ? [
       { name: 'Accounts Dashboard', path: '/dashboard/accounts-dashboard', icon: LayoutDashboard },
       { name: 'Accounts Verification', path: '/dashboard/accounts-verification', icon: DollarSign, badge: counts.accountsPending > 0 ? counts.accountsPending : null },
-      { name: 'Add Customer', path: '/dashboard/accounts-add-customer', icon: UserPlus },
+      { name: 'Add Customer', path: '/dashboard/accounts-add-customer', icon: UserPlus, badge: counts.legacyPendingBilling > 0 ? counts.legacyPendingBilling : null },
       { name: 'Channel Partners', path: '/dashboard/channel-partners', icon: Handshake },
       { name: 'Vendor Docs', path: '/dashboard/vendors', icon: Building2, badge: counts.vendorDocsToVerify > 0 ? counts.vendorDocsToVerify : null },
       { name: 'Demo Plan Assignment', path: '/dashboard/accounts-demo-plan', icon: FileText, badge: counts.demoPlanPending > 0 ? counts.demoPlanPending : null },
@@ -587,6 +588,8 @@ export default function Sidebar() {
     // Delivery Team-only items
     ...(isDeliveryTeam ? [
       { name: 'Delivery Queue', path: '/dashboard/delivery-queue', icon: Package, badge: counts.deliveryPending > 0 ? counts.deliveryPending : null },
+      // Legacy Customer Onboarding: record delivery date for customers added by accounts.
+      { name: 'Customer Onboarding', path: '/dashboard/customer-onboarding', icon: UserPlus, badge: counts.legacyPendingDelivery > 0 ? counts.legacyPendingDelivery : null },
       // First-gate approval queue for UPGRADE/DOWNGRADE service orders.
       // RATE_REVISION and DISCONNECTION skip Delivery and go straight to Sales Director.
       { name: 'Order Approvals', path: '/dashboard/delivery-approvals', icon: Truck, badge: counts.deliveryOrderApprovalPending > 0 ? counts.deliveryOrderApprovalPending : null },

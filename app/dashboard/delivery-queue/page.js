@@ -93,6 +93,7 @@ export default function DeliveryQueuePage() {
     updateDeliveryStatus,
     clearSelectedDeliveryLead,
     createDeliveryRequest,
+    createSupplementaryRequest,
     pushToNoc,
     startInstallation,
     isLoading
@@ -142,6 +143,10 @@ export default function DeliveryQueuePage() {
   // Material Request Modal State
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestLead, setRequestLead] = useState(null);
+  // 'new' = first material request; 'supplementary' = "Add More Material" against
+  // an existing request (lead stays in its current stage).
+  const [requestMode, setRequestMode] = useState('new');
+  const [supplementaryParentId, setSupplementaryParentId] = useState(null);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [requestItems, setRequestItems] = useState([]);
   const [requestNotes, setRequestNotes] = useState('');
@@ -522,8 +527,11 @@ export default function DeliveryQueuePage() {
   };
 
   // Open request modal
-  const handleOpenRequestModal = async (lead) => {
+  const handleOpenRequestModal = async (lead, mode = 'new') => {
     setRequestLead(lead);
+    setRequestMode(mode);
+    // For "Add More Material", anchor to the lead's current active request.
+    setSupplementaryParentId(mode === 'supplementary' ? (lead.activeDeliveryRequest?.id || null) : null);
     setShowRequestModal(true);
     setRequestItems([]);
     setRequestNotes('');
@@ -538,6 +546,14 @@ export default function DeliveryQueuePage() {
     } catch (error) {
       console.error('Failed to fetch store products:', error);
       toast.error('Failed to load products');
+    }
+
+    // "Add More Material": start EMPTY. The lead's original product spec is already
+    // covered by the first request, so don't auto-fill it again — the user adds only
+    // the genuinely new items. (They can still add more of an existing product.)
+    if (mode === 'supplementary') {
+      setRequestItems([]);
+      return;
     }
 
     // Helper to find matching product
@@ -684,10 +700,22 @@ export default function DeliveryQueuePage() {
       notes: requestNotes
     };
 
-    const result = await materialRequestAction.runAction(() => createDeliveryRequest(requestData));
+    const isSupplementary = requestMode === 'supplementary';
+    if (isSupplementary && !supplementaryParentId) {
+      setIsSubmittingRequest(false);
+      return materialRequestAction.fail('Could not find the original request to add material to.');
+    }
+
+    const result = await materialRequestAction.runAction(() =>
+      isSupplementary
+        ? createSupplementaryRequest(supplementaryParentId, requestData)
+        : createDeliveryRequest(requestData)
+    );
 
     if (result.success) {
-      toast.success(result.message || 'Delivery request submitted successfully!');
+      toast.success(result.message || (isSupplementary
+        ? 'Material addition submitted for approval!'
+        : 'Delivery request submitted successfully!'));
       handleCloseRequestModal();
       fetchDeliveryQueue(activeTab);
     }
@@ -1062,6 +1090,42 @@ export default function DeliveryQueuePage() {
     }
   };
 
+  // "Add More Material" affordance — available any time the lead already has an
+  // active (original) request. If a supplementary is already in flight, show its
+  // status instead of the button (only one open at a time).
+  const SUPP_STATUS_LABEL = {
+    PENDING_APPROVAL: 'awaiting approval',
+    APPROVED: 'at store',
+    ASSIGNED: 'assigned',
+    DISPATCHED: 'dispatched'
+  };
+  const renderAddMore = (lead) => {
+    if (isBDMTeamLeader) return null;
+    if (lead.hasOpenSupplementary) {
+      return (
+        <Badge
+          className="bg-purple-100 text-purple-700 text-[10px] border border-purple-200"
+          title="Extra material is being processed"
+        >
+          <Plus size={10} className="mr-0.5" />
+          New Material{lead.supplementaryStatus ? ` · ${SUPP_STATUS_LABEL[lead.supplementaryStatus] || lead.supplementaryStatus}` : ''}
+        </Badge>
+      );
+    }
+    if (!lead.activeDeliveryRequest) return null;
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => handleOpenRequestModal(lead, 'supplementary')}
+        className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300"
+      >
+        <Plus size={12} className="mr-1" />
+        Add More Material
+      </Button>
+    );
+  };
+
   const leads = deliveryQueue || [];
 
   // Get stage count from stats
@@ -1201,7 +1265,10 @@ export default function DeliveryQueuePage() {
                   )}
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  {!isBDMTeamLeader && getStageAction(lead)}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {!isBDMTeamLeader && getStageAction(lead)}
+                    {renderAddMore(lead)}
+                  </div>
                   <Button
                     size="sm"
                     variant="outline"
@@ -1323,8 +1390,9 @@ export default function DeliveryQueuePage() {
               label: 'Action',
               className: 'text-center',
               render: (lead) => (
-                <div className="flex justify-center">
+                <div className="flex flex-col items-center gap-1.5">
                   {!isBDMTeamLeader && getStageAction(lead)}
+                  {renderAddMore(lead)}
                 </div>
               ),
             },
@@ -2057,8 +2125,9 @@ export default function DeliveryQueuePage() {
                 <InlineError message={saveDeliveryAction.error} onDismiss={saveDeliveryAction.clearError} className="mb-3" />
               )}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {!isBDMTeamLeader && getStageAction(selectedLead)}
+                  {renderAddMore(selectedLead)}
                 </div>
                 {!isBDMTeamLeader && isEditMode && (
                   <Button
@@ -2084,9 +2153,16 @@ export default function DeliveryQueuePage() {
             {/* Modal Header */}
             <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200 dark:border-slate-700 rounded-t-xl">
               <div>
-                <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white">Request Material</h2>
+                <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white">
+                  {requestMode === 'supplementary' ? 'Add More Material' : 'Request Material'}
+                </h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   {requestLead.company} - {requestLead.name}
+                  {requestMode === 'supplementary' && (
+                    <span className="block text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                      Extra material — the lead stays in its current stage; this goes for approval.
+                    </span>
+                  )}
                 </p>
               </div>
               <button
@@ -2102,9 +2178,28 @@ export default function DeliveryQueuePage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {/* Left Column - Items */}
                 <div>
+                  {/* Already-assigned material (context for "Add More Material") so the
+                      user can see what the lead already has before adding new items. */}
+                  {requestMode === 'supplementary' && requestLead.activeDeliveryRequest?.items?.length > 0 && (
+                    <div className="mb-3 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg border border-dashed border-slate-300 dark:border-slate-600">
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Already Assigned to this lead
+                      </p>
+                      <div className="space-y-1 opacity-80">
+                        {requestLead.activeDeliveryRequest.items.map((it, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs">
+                            <span className="text-slate-700 dark:text-slate-300">{it.product?.modelNumber || it.product?.category || 'Product'}</span>
+                            <span className="text-slate-500">{it.assignedQuantity ?? it.quantity} {it.product?.unit || 'pcs'}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-purple-600 dark:text-purple-400 mt-2">Add only the extra material below.</p>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      Items Required ({requestItems.length})
+                      {requestMode === 'supplementary' ? 'New Items' : 'Items Required'} ({requestItems.length})
                     </h3>
                     <Button
                       type="button"
@@ -2304,7 +2399,7 @@ export default function DeliveryQueuePage() {
                   className="bg-orange-600 hover:bg-orange-700 text-white px-6"
                 >
                   {isSubmittingRequest ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                  Submit Request
+                  {requestMode === 'supplementary' ? 'Submit Add More Material' : 'Submit Request'}
                 </Button>
               </div>
             </div>

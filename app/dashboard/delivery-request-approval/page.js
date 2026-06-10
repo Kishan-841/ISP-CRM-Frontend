@@ -194,6 +194,11 @@ export default function DeliveryRequestApprovalPage() {
                 <span className="text-xs text-slate-500">
                   {formatDate(row.createdAt)}
                 </span>
+                {row.isSupplementary && (
+                  <Badge variant="outline" className="mt-1 w-fit bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300">
+                    New Material
+                  </Badge>
+                )}
                 {row.urgency && row.urgency !== 'NORMAL' && (
                   <Badge variant="outline" className={`mt-1 w-fit ${getUrgencyBadge(row.urgency)}`}>
                     {row.urgency}
@@ -420,11 +425,36 @@ export default function DeliveryRequestApprovalPage() {
 
                 {/* Right Column - Items */}
                 <div className="space-y-6">
+                  {/* Already-assigned material from the original request (context for
+                      a supplementary "Add More Material" request). */}
+                  {selectedRequest.isSupplementary && selectedRequest.parentRequest?.items?.length > 0 && (
+                    <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-lg border border-dashed border-slate-300 dark:border-slate-600">
+                      <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Already Assigned — {selectedRequest.parentRequest.requestNumber} ({selectedRequest.parentRequest.items.length})
+                      </h3>
+                      <div className="space-y-2 opacity-70">
+                        {selectedRequest.parentRequest.items.map((item, index) => (
+                          <div key={index} className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <div>
+                              <p className="font-medium text-slate-700 dark:text-slate-300">{item.product?.modelNumber || 'Unknown Product'}</p>
+                              <p className="text-xs text-slate-500">{item.product?.category} - {item.product?.brandName}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-semibold text-slate-600 dark:text-slate-400">{item.assignedQuantity ?? item.quantity}</span>
+                              <span className="text-xs text-slate-500 ml-1">{item.product?.unit || 'pcs'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Items List */}
                   <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                     <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
                       <Package className="h-4 w-4" />
-                      Items Requested ({selectedRequest.items?.length || 0})
+                      {selectedRequest.isSupplementary ? 'New Material Requested' : 'Items Requested'} ({selectedRequest.items?.length || 0})
                     </h3>
                     <div className="space-y-2">
                       {selectedRequest.items?.map((item, index) => (

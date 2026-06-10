@@ -85,6 +85,8 @@ export default function AccountsDashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [fromDate, setFromDate] = useState(getFirstDayOfMonth());
   const [toDate, setToDate] = useState(getTodayDate());
+  // Legacy customer counts (standalone Accounts ↔ Delivery showcase flow).
+  const [legacyStats, setLegacyStats] = useState(null);
 
   // Redirect non-authorized users
   useEffect(() => {
@@ -138,6 +140,15 @@ export default function AccountsDashboardPage() {
       fetchDashboard();
     }
   }, [user, isAccountsTeam, isAdmin, timeFilter, fromDate, toDate]);
+
+  // Legacy customer stats (independent of the date filter — lifetime counts).
+  useEffect(() => {
+    if (user && (isAccountsTeam || isAdmin)) {
+      api.get('/legacy-customers/stats')
+        .then((res) => setLegacyStats(res.data?.data))
+        .catch(() => {});
+    }
+  }, [user, isAccountsTeam, isAdmin]);
 
   const handleCardClick = (filter) => {
     router.push(`/dashboard/accounts-dashboard/customers?filter=${filter}`);
@@ -239,16 +250,18 @@ export default function AccountsDashboardPage() {
       </div>
 
       {/* ── Top Summary Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
         {[
           { label: 'Total Users', value: summary?.totalUsers || 0, icon: Users, borderColor: 'border-l-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/40', iconText: 'text-orange-600 dark:text-orange-400', filter: 'all' },
           { label: 'Active Users', value: summary?.activeUsers || 0, icon: UserCheck, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-950/40', iconText: 'text-emerald-600 dark:text-emerald-400', filter: 'active' },
           { label: 'Deactivated Users', value: summary?.deactivatedUsers || 0, icon: UserX, borderColor: 'border-l-slate-500', iconBg: 'bg-slate-100 dark:bg-slate-800', iconText: 'text-slate-600 dark:text-slate-400', filter: 'deactivated' },
+          // Legacy customers (Accounts ↔ Delivery showcase flow) — COMPLETED only.
+          { label: 'Old Imported Customers', value: legacyStats?.totalCustomers || 0, icon: UserPlus, borderColor: 'border-l-blue-500', iconBg: 'bg-blue-100 dark:bg-blue-900/40', iconText: 'text-blue-600 dark:text-blue-400', legacy: true },
         ].map((stat, i) => (
           <Card
             key={i}
             className={`rounded-xl md:rounded-2xl bg-white dark:bg-card border border-l-4 ${stat.borderColor} shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer group`}
-            onClick={() => handleCardClick(stat.filter)}
+            onClick={() => stat.legacy ? router.push('/dashboard/accounts-dashboard/legacy-customers') : handleCardClick(stat.filter)}
           >
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center justify-between">

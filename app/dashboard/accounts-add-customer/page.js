@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useLeadStore } from '@/lib/store';
 import { useRoleCheck } from '@/lib/useRoleCheck';
 import toast from 'react-hot-toast';
@@ -36,16 +36,24 @@ import {
   FileText,
   Phone,
   Network,
+  Truck,
+  Receipt,
+  Calendar,
+  IndianRupee,
 } from 'lucide-react';
+import { formatDate, formatCurrency } from '@/lib/formatters';
 
+// Bill Date + Billing Cycle are intentionally NOT collected at creation — they
+// are filled by Accounts in the "Pending Billing" tab after Delivery records the
+// delivery date. Bandwidth + Username are collected here (legacy customer data).
 const TEMPLATE_HEADERS = [
   'Name', 'First Name', 'Last Name', 'Phone', 'Email', 'Company Name',
   'City', 'State', 'ARC Amount', 'OTC Amount', 'GST Number', 'Legal Name',
   'PAN Number', 'TAN Number', 'Installation Address', 'Installation Pincode',
   'Billing Address', 'Billing Pincode', 'PO Number', 'PO Expiry Date',
-  'Bill Date', 'Billing Cycle', 'Tech Incharge Mobile', 'Tech Incharge Email',
-  'Accounts Incharge Mobile', 'Accounts Incharge Email', 'BDM Name',
-  'Service Manager', 'Number of IPs', 'IP Addresses', 'SAM Executive Name',
+  'Tech Incharge Mobile', 'Tech Incharge Email', 'Accounts Incharge Mobile',
+  'Accounts Incharge Email', 'BDM Name', 'Service Manager', 'Number of IPs',
+  'IP Addresses', 'SAM Executive Name', 'Bandwidth (Mbps)', 'Username',
 ];
 
 const HEADER_TO_FIELD = {
@@ -56,8 +64,8 @@ const HEADER_TO_FIELD = {
   'PAN Number': 'panNumber', 'TAN Number': 'tanNumber',
   'Installation Address': 'installationAddress', 'Installation Pincode': 'installationPincode',
   'Billing Address': 'billingAddress', 'Billing Pincode': 'billingPincode',
-  'PO Number': 'poNumber', 'PO Expiry Date': 'poExpiryDate', 'Bill Date': 'billDate',
-  'Billing Cycle': 'billingCycle', 'Tech Incharge Mobile': 'techInchargeMobile',
+  'PO Number': 'poNumber', 'PO Expiry Date': 'poExpiryDate',
+  'Tech Incharge Mobile': 'techInchargeMobile',
   'Tech Incharge Email': 'techInchargeEmail', 'Accounts Incharge Mobile': 'accountsInchargeMobile',
   'Accounts Incharge Email': 'accountsInchargeEmail', 'BDM Name': 'bdmName',
   'Service Manager': 'serviceManager', 'Number of IPs': 'numberOfIPs',
@@ -65,19 +73,36 @@ const HEADER_TO_FIELD = {
   'Bandwidth (Mbps)': 'bandwidth', 'Username': 'username',
 };
 
+const STATUS_BADGE = {
+  PENDING_DELIVERY: { label: 'Pending Delivery', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
+  PENDING_BILLING: { label: 'Pending Billing', cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
+  COMPLETED: { label: 'Completed', cls: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
+};
+
+const CYCLE_LABEL = {
+  MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', HALF_YEARLY: 'Half Yearly', YEARLY: 'Yearly',
+};
+
 const INITIAL_FORM = {
   name: '', firstName: '', lastName: '', phone: '', email: '', companyName: '',
   city: '', state: '', arcAmount: '', otcAmount: '', gstNumber: '', legalName: '',
   panNumber: '', tanNumber: '', installationAddress: '', installationPincode: '',
-  billingAddress: '', billingPincode: '', poNumber: '', poExpiryDate: '', billDate: '',
-  billingCycle: 'MONTHLY', techInchargeMobile: '', techInchargeEmail: '',
+  billingAddress: '', billingPincode: '', poNumber: '', poExpiryDate: '',
+  techInchargeMobile: '', techInchargeEmail: '',
   accountsInchargeMobile: '', accountsInchargeEmail: '', bdmName: '', serviceManager: '',
   numberOfIPs: '', ipAddresses: '', samExecutiveName: '', bandwidth: '', username: '',
 };
 
 export default function AccountsAddCustomerPage() {
   const { user, isAccountsTeam, isSuperAdmin: isAdmin } = useRoleCheck();
-  const { bulkImportCustomers, importSingleCustomer, importLoading } = useLeadStore();
+  const {
+    legacyCreateBulk,
+    legacyCreateSingle,
+    legacyLoading,
+    legacyListCustomers,
+    legacySetBilling,
+    legacySetFtb,
+  } = useLeadStore();
 
   const [activeTab, setActiveTab] = useState('excel');
   const [parsedRows, setParsedRows] = useState([]);
@@ -85,6 +110,31 @@ export default function AccountsAddCustomerPage() {
   const [importResult, setImportResult] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const fileInputRef = useRef(null);
+
+  // Added Customers tab state — all customers added through this flow.
+  const [addedCustomers, setAddedCustomers] = useState([]);
+  const [addedLoading, setAddedLoading] = useState(false);
+  // Per-row billing inputs keyed by customer id: { [id]: { billDate, billingCycle } }
+  const [billingInputs, setBillingInputs] = useState({});
+  // Per-row FTB inputs keyed by customer id: { [id]: { ftbAmount, ftbReceivedDate } }
+  const [ftbInputs, setFtbInputs] = useState({});
+
+  const fetchAddedCustomers = useCallback(async () => {
+    setAddedLoading(true);
+    const result = await legacyListCustomers({ limit: 100 });
+    if (result.success) {
+      setAddedCustomers(result.data?.customers || []);
+    } else {
+      toast.error(result.error || 'Failed to load added customers');
+    }
+    setAddedLoading(false);
+  }, [legacyListCustomers]);
+
+  useEffect(() => {
+    if (activeTab === 'added') fetchAddedCustomers();
+  }, [activeTab, fetchAddedCustomers]);
+
+  const pendingBillingCount = addedCustomers.filter((c) => c.status === 'PENDING_BILLING').length;
 
   // Access check
   if (user && !isAccountsTeam && !isAdmin) {
@@ -114,7 +164,7 @@ export default function AccountsAddCustomerPage() {
         'AAAAA1234A', 'MUMA12345B',
         '123, MG Road, Koregaon Park, Pune', '411001',
         '456, FC Road, Shivajinagar, Pune', '411005',
-        'PO-2024-001', '2025-12-31', '2025-01-15', 'MONTHLY',
+        'PO-2024-001', '2025-12-31',
         '9876543211', 'tech@techcorp.com', '9876543212', 'accounts@techcorp.com',
         'Rajesh Kumar', 'Sunil Verma',
         '2', '103.45.67.1, 103.45.67.2', 'Sam Executive', '100', 'amit_sharma'
@@ -126,7 +176,7 @@ export default function AccountsAddCustomerPage() {
         'BBBBB5678B', 'MUMB67890C',
         '789, Link Road, Andheri West, Mumbai', '400053',
         '101, Bandra Kurla Complex, Mumbai', '400051',
-        'PO-2024-002', '2026-06-30', '2025-02-01', 'QUARTERLY',
+        'PO-2024-002', '2026-06-30',
         '9123456781', 'tech@bluewave.in', '9123456782', 'accounts@bluewave.in',
         'Priya Singh', 'Amit Deshmukh',
         '3', '203.50.100.1, 203.50.100.2, 203.50.100.3', 'Sam Executive', '200', 'neha_patel'
@@ -202,10 +252,10 @@ export default function AccountsAddCustomerPage() {
       toast.error('No rows to import');
       return;
     }
-    const result = await bulkImportCustomers(parsedRows);
+    const result = await legacyCreateBulk(parsedRows);
     if (result.success) {
       setImportResult(result.data);
-      toast.success(`Import complete: ${result.data.summary?.imported || 0} customer(s) imported`);
+      toast.success(`Import complete: ${result.data.summary?.imported || 0} customer(s) pushed to delivery`);
     } else {
       toast.error(result.error || 'Import failed');
     }
@@ -227,8 +277,8 @@ export default function AccountsAddCustomerPage() {
   // Single entry submit
   const handleSingleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name && !form.companyName) {
-      toast.error('Please enter at least a Name or Company Name');
+    if (!form.name) {
+      toast.error('Name is required');
       return;
     }
     if (!form.phone) {
@@ -236,20 +286,94 @@ export default function AccountsAddCustomerPage() {
       return;
     }
 
-    const result = await importSingleCustomer(form);
+    const result = await legacyCreateSingle(form);
     if (result.success) {
-      const d = result.data;
-      const ids = [
-        d.customerUserId && `Customer ID: ${d.customerUserId}`,
-        d.customerUsername && `Username: ${d.customerUsername}`,
-        d.circuitId && `Circuit ID: ${d.circuitId}`,
-      ].filter(Boolean).join(' | ');
-      toast.success(ids ? `Customer created - ${ids}` : 'Customer created successfully');
+      const code = result.data?.data?.customerCode;
+      toast.success(code ? `Customer ${code} added — pushed to delivery` : 'Customer added — pushed to delivery');
       setForm(INITIAL_FORM);
     } else {
       toast.error(result.error || 'Failed to add customer');
     }
   };
+
+  // Pending Billing: set per-row input
+  const setBillingInput = (id, field, value) => {
+    setBillingInputs((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+  };
+
+  // Pending Billing: complete a customer
+  const handleCompleteBilling = async (customer) => {
+    const inputs = billingInputs[customer.id] || {};
+    if (!inputs.billDate) {
+      toast.error('Please select a bill date');
+      return;
+    }
+    if (!inputs.billingCycle) {
+      toast.error('Please select a billing cycle');
+      return;
+    }
+    const result = await legacySetBilling(customer.id, inputs.billDate, inputs.billingCycle);
+    if (result.success) {
+      toast.success(`${customer.customerCode} completed — now showing in dashboard`);
+      // Reflect the new COMPLETED status in the list.
+      setAddedCustomers((prev) =>
+        prev.map((c) =>
+          c.id === customer.id
+            ? { ...c, status: 'COMPLETED', billDate: inputs.billDate, billingCycle: inputs.billingCycle }
+            : c
+        )
+      );
+      setBillingInputs((prev) => {
+        const next = { ...prev };
+        delete next[customer.id];
+        return next;
+      });
+    } else {
+      toast.error(result.error || 'Failed to save billing');
+    }
+  };
+
+  // FTB: set per-row input
+  const setFtbInput = (id, field, value) => {
+    setFtbInputs((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+  };
+
+  // FTB: save received amount + date on a completed customer
+  const handleSaveFtb = async (customer) => {
+    const inputs = ftbInputs[customer.id] || {};
+    if (inputs.ftbAmount === undefined || inputs.ftbAmount === '') {
+      toast.error('Please enter the FTB amount');
+      return;
+    }
+    if (!inputs.ftbReceivedDate) {
+      toast.error('Please select the FTB received date');
+      return;
+    }
+    const result = await legacySetFtb(customer.id, inputs.ftbAmount, inputs.ftbReceivedDate);
+    if (result.success) {
+      toast.success(`FTB recorded for ${customer.customerCode}`);
+      setAddedCustomers((prev) =>
+        prev.map((c) =>
+          c.id === customer.id
+            ? { ...c, ftbAmount: parseFloat(inputs.ftbAmount), ftbReceivedDate: inputs.ftbReceivedDate }
+            : c
+        )
+      );
+      setFtbInputs((prev) => {
+        const next = { ...prev };
+        delete next[customer.id];
+        return next;
+      });
+    } else {
+      toast.error(result.error || 'Failed to save FTB');
+    }
+  };
+
+  const tabs = [
+    { key: 'excel', label: 'Excel Import', icon: FileSpreadsheet },
+    { key: 'single', label: 'Single Entry', icon: UserPlus },
+    { key: 'added', label: 'Added Customers', icon: Users },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
@@ -261,35 +385,35 @@ export default function AccountsAddCustomerPage() {
             Add Customer
           </h1>
           <p className="text-muted-foreground mt-1">
-            Import customers via Excel or add a single customer manually
+            Add legacy customers, then push to delivery. Billing is filled once delivery is recorded.
           </p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 border-b">
-        <button
-          onClick={() => setActiveTab('excel')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'excel'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <FileSpreadsheet className="h-4 w-4" />
-          Excel Import
-        </button>
-        <button
-          onClick={() => setActiveTab('single')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'single'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <UserPlus className="h-4 w-4" />
-          Single Entry
-        </button>
+        {tabs.map((tab) => {
+          const TabIcon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.key
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <TabIcon className="h-4 w-4" />
+              {tab.label}
+              {tab.key === 'added' && pendingBillingCount > 0 && (
+                <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 ml-1">
+                  {pendingBillingCount}
+                </Badge>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab 1: Excel Import */}
@@ -360,8 +484,8 @@ export default function AccountsAddCustomerPage() {
                     <Users className="h-5 w-5" />
                     Preview ({parsedRows.length} rows)
                   </span>
-                  <Button onClick={handleBulkImport} disabled={importLoading}>
-                    {importLoading ? (
+                  <Button onClick={handleBulkImport} disabled={legacyLoading}>
+                    {legacyLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Importing...
@@ -438,13 +562,11 @@ export default function AccountsAddCustomerPage() {
                         Duplicates: {importResult.summary?.duplicates || 0}
                       </Badge>
                     )}
-                    {(importResult.samAssignmentErrors?.length || 0) > 0 && (
-                      <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 text-sm px-3 py-1.5">
-                        <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-                        SAM Warnings: {importResult.samAssignmentErrors.length}
-                      </Badge>
-                    )}
                   </div>
+                  <p className="text-sm text-muted-foreground mt-3 flex items-center gap-1.5">
+                    <Truck className="h-4 w-4" />
+                    Imported customers have been pushed to delivery for a delivery date.
+                  </p>
                 </CardContent>
               </Card>
 
@@ -465,9 +587,7 @@ export default function AccountsAddCustomerPage() {
                             <th className="px-3 py-2 text-left font-medium">#</th>
                             <th className="px-3 py-2 text-left font-medium">Row</th>
                             <th className="px-3 py-2 text-left font-medium">Company</th>
-                            <th className="px-3 py-2 text-left font-medium">Customer ID</th>
-                            <th className="px-3 py-2 text-left font-medium">Username</th>
-                            <th className="px-3 py-2 text-left font-medium">Circuit ID</th>
+                            <th className="px-3 py-2 text-left font-medium">Customer Code</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
@@ -476,9 +596,7 @@ export default function AccountsAddCustomerPage() {
                               <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
                               <td className="px-3 py-2">{row.row || '-'}</td>
                               <td className="px-3 py-2">{row.company || '-'}</td>
-                              <td className="px-3 py-2 font-mono text-xs">{row.customerUserId || '-'}</td>
-                              <td className="px-3 py-2 font-mono text-xs">{row.customerUsername || '-'}</td>
-                              <td className="px-3 py-2 font-mono text-xs">{row.circuitId || '-'}</td>
+                              <td className="px-3 py-2 font-mono text-xs">{row.customerCode || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -558,42 +676,6 @@ export default function AccountsAddCustomerPage() {
                 </Card>
               )}
 
-              {/* SAM Warnings */}
-              {importResult.samAssignmentErrors?.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-orange-500" />
-                      SAM Warnings
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-auto max-h-60 rounded-md border">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted/50 sticky top-0">
-                          <tr>
-                            <th className="px-3 py-2 text-left font-medium">Row</th>
-                            <th className="px-3 py-2 text-left font-medium">SAM Name</th>
-                            <th className="px-3 py-2 text-left font-medium">Reason</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {importResult.samAssignmentErrors.map((row, idx) => (
-                            <tr key={idx} className="hover:bg-muted/30">
-                              <td className="px-3 py-2 font-medium">{row.row || idx + 1}</td>
-                              <td className="px-3 py-2">{row.samName || '-'}</td>
-                              <td className="px-3 py-2 text-orange-600 dark:text-orange-400">
-                                {row.reason || 'SAM executive not found'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               {/* Reset after results */}
               <div className="flex justify-center">
                 <Button variant="outline" onClick={handleReset}>
@@ -620,12 +702,13 @@ export default function AccountsAddCustomerPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="name">Name *</Label>
                   <Input
                     id="name"
                     value={form.name}
                     onChange={(e) => handleFormChange('name', e.target.value)}
                     placeholder="Full name"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -829,12 +912,12 @@ export default function AccountsAddCustomerPage() {
             </CardContent>
           </Card>
 
-          {/* Section 4: PO & Billing */}
+          {/* Section 4: PO Details (Bill Date + Cycle filled later, after delivery) */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="h-5 w-5" />
-                PO & Billing
+                PO Details
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -858,34 +941,10 @@ export default function AccountsAddCustomerPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="billDate">Bill Date</Label>
-                  <Input
-                    id="billDate"
-                    type="date"
-                    value={form.billDate}
-                    onChange={(e) => handleFormChange('billDate', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="billingCycle">Billing Cycle</Label>
-                  <Select
-                    value={form.billingCycle}
-                    onValueChange={(val) => handleFormChange('billingCycle', val)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select billing cycle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MONTHLY">Monthly</SelectItem>
-                      <SelectItem value="QUARTERLY">Quarterly</SelectItem>
-                      <SelectItem value="HALF_YEARLY">Half Yearly</SelectItem>
-                      <SelectItem value="YEARLY">Yearly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4" />
+                Bill Date and Billing Cycle are filled in the "Pending Billing" tab after delivery records the delivery date.
+              </p>
             </CardContent>
           </Card>
 
@@ -1036,21 +1095,178 @@ export default function AccountsAddCustomerPage() {
             >
               Reset
             </Button>
-            <Button type="submit" disabled={importLoading}>
-              {importLoading ? (
+            <Button type="submit" disabled={legacyLoading}>
+              {legacyLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Adding Customer...
                 </>
               ) : (
                 <>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add Customer
+                  <Truck className="h-4 w-4 mr-2" />
+                  Add & Push to Delivery
                 </>
               )}
             </Button>
           </div>
         </form>
+      )}
+
+      {/* Tab 3: Added Customers */}
+      {activeTab === 'added' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-lg">
+                  <Users className="h-5 w-5" />
+                  Added Customers ({addedCustomers.length})
+                </span>
+                <Button variant="outline" size="sm" onClick={fetchAddedCustomers} disabled={addedLoading}>
+                  <RotateCcw className={`h-4 w-4 mr-2 ${addedLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                All customers added through this page. Once delivery records a delivery date, add the
+                bill date and billing cycle here to complete them — they will then appear in the dashboard.
+              </p>
+
+              {addedLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : addedCustomers.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-3 opacity-40" />
+                  <p>No customers added yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {addedCustomers.map((customer) => {
+                    const inputs = billingInputs[customer.id] || {};
+                    const ftbInput = ftbInputs[customer.id] || {};
+                    const isPendingBilling = customer.status === 'PENDING_BILLING';
+                    const badge = STATUS_BADGE[customer.status] || { label: customer.status, cls: '' };
+                    return (
+                      <div key={customer.id} className="rounded-lg border p-4">
+                        <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+                          {/* Customer info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold">{customer.companyName || customer.name}</span>
+                              <Badge variant="outline" className="font-mono text-xs">{customer.customerCode}</Badge>
+                              <Badge className={badge.cls}>{badge.label}</Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                              <span>{customer.name}</span>
+                              <span>{customer.phone}</span>
+                              {customer.deliveryDate && (
+                                <span className="flex items-center gap-1">
+                                  <Truck className="h-3.5 w-3.5" />
+                                  Delivered: {formatDate(customer.deliveryDate)}
+                                </span>
+                              )}
+                              {customer.billDate && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  Bill: {formatDate(customer.billDate)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Billing inputs — only when awaiting billing */}
+                          {isPendingBilling ? (
+                            <>
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`billDate-${customer.id}`} className="text-xs">Bill Date</Label>
+                                <Input
+                                  id={`billDate-${customer.id}`}
+                                  type="date"
+                                  className="w-44"
+                                  value={inputs.billDate || ''}
+                                  onChange={(e) => setBillingInput(customer.id, 'billDate', e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`cycle-${customer.id}`} className="text-xs">Billing Cycle</Label>
+                                <Select
+                                  value={inputs.billingCycle || ''}
+                                  onValueChange={(val) => setBillingInput(customer.id, 'billingCycle', val)}
+                                >
+                                  <SelectTrigger className="w-44" id={`cycle-${customer.id}`}>
+                                    <SelectValue placeholder="Select cycle" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                                    <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                                    <SelectItem value="HALF_YEARLY">Half Yearly</SelectItem>
+                                    <SelectItem value="YEARLY">Yearly</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <Button onClick={() => handleCompleteBilling(customer)} disabled={legacyLoading}>
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                Complete
+                              </Button>
+                            </>
+                          ) : customer.status === 'PENDING_DELIVERY' ? (
+                            <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                              <Truck className="h-4 w-4" />
+                              Awaiting delivery date
+                            </span>
+                          ) : customer.ftbReceivedDate ? (
+                            // Completed + FTB already recorded.
+                            <span className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1.5">
+                              <IndianRupee className="h-4 w-4" />
+                              FTB {formatCurrency(customer.ftbAmount)} on {formatDate(customer.ftbReceivedDate)}
+                            </span>
+                          ) : (
+                            // Completed (counts in dashboard) — record FTB received.
+                            <>
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`ftbAmount-${customer.id}`} className="text-xs">FTB Amount (₹)</Label>
+                                <Input
+                                  id={`ftbAmount-${customer.id}`}
+                                  type="number"
+                                  className="w-44"
+                                  placeholder="Amount received"
+                                  value={ftbInput.ftbAmount ?? ''}
+                                  onChange={(e) => setFtbInput(customer.id, 'ftbAmount', e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`ftbDate-${customer.id}`} className="text-xs">FTB Received Date</Label>
+                                <Input
+                                  id={`ftbDate-${customer.id}`}
+                                  type="date"
+                                  className="w-44"
+                                  value={ftbInput.ftbReceivedDate || ''}
+                                  onChange={(e) => setFtbInput(customer.id, 'ftbReceivedDate', e.target.value)}
+                                />
+                              </div>
+                              <Button
+                                onClick={() => handleSaveFtb(customer)}
+                                disabled={legacyLoading}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm shadow-emerald-600/20"
+                              >
+                                <IndianRupee className="h-4 w-4 mr-2" />
+                                Save FTB
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
