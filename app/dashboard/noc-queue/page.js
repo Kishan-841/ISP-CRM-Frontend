@@ -27,7 +27,10 @@ import {
   Truck,
   FileText,
   Zap,
-  Users
+  Users,
+  Plus,
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
@@ -51,6 +54,7 @@ export default function NocQueuePage() {
     nocCreateCustomerAccount,
     nocAssignIpAddresses,
     nocGenerateCircuitId,
+    nocUpdateCircuitId,
     clearSelectedNocLead,
     isLoading
   } = useLeadStore();
@@ -67,22 +71,21 @@ export default function NocQueuePage() {
   const [ipInputs, setIpInputs] = useState([]);
   const [isAssigningIPs, setIsAssigningIPs] = useState(false);
 
+  // Configured-view edit mode (edit IPs + circuit ID after completion)
+  const [isEditingConfig, setIsEditingConfig] = useState(false);
+  const [editCircuitId, setEditCircuitId] = useState('');
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
   // Step 3: Circuit ID
   const [isGeneratingCircuit, setIsGeneratingCircuit] = useState(false);
   const [manualCircuitId, setManualCircuitId] = useState('');
 
-  // NOC Head: Assignment
-  const [nocUsers, setNocUsers] = useState([]);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [assignLeadId, setAssignLeadId] = useState(null);
-  const [selectedNocUser, setSelectedNocUser] = useState('');
-  const [isAssigning, setIsAssigning] = useState(false);
-
   // Inline-error hook instances — one per action surface (independent error state).
+  // Account creation, IP assignment, and circuit generation are NOC_HEAD-only.
   const createCustomerAction = useActionError();
   const assignIpAction = useActionError();
   const generateCircuitAction = useActionError();
-  const assignNocAction = useActionError();
+  const editConfigAction = useActionError();
 
   // Redirect non-NOC users
   useEffect(() => {
@@ -90,31 +93,6 @@ export default function NocQueuePage() {
       router.push('/dashboard');
     }
   }, [user, isNOC, isAdmin, isBDMTeamLeader, router]);
-
-  // NOC Head: fetch NOC users for assignment
-  useEffect(() => {
-    if (isNOCHead || isAdmin) {
-      api.get('/users/by-role?role=NOC').then(res => setNocUsers(res.data.users || [])).catch(() => {});
-    }
-  }, [isNOCHead, isAdmin]);
-
-  const handleAssignToNoc = async () => {
-    if (!assignLeadId || !selectedNocUser) {
-      return assignNocAction.fail('Please select a NOC user.');
-    }
-    setIsAssigning(true);
-    const result = await assignNocAction.runAction(() =>
-      api.post(`/leads/noc/${assignLeadId}/assign`, { nocUserId: selectedNocUser })
-    );
-    if (result?.success !== false) {
-      toast.success('Lead assigned to NOC user');
-      setShowAssignModal(false);
-      setAssignLeadId(null);
-      setSelectedNocUser('');
-      fetchNocQueue(activeTab);
-    }
-    setIsAssigning(false);
-  };
 
   useSocketRefresh(() => fetchNocQueue(activeTab), { enabled: isNOC || isAdmin || isBDMTeamLeader });
 
@@ -125,13 +103,13 @@ export default function NocQueuePage() {
     }
   }, [activeTab, isNOC, isAdmin, isBDMTeamLeader, fetchNocQueue]);
 
-  // Initialize IP inputs when lead changes
+  // Initialize IP inputs when lead changes. Start with the already-assigned IPs, or a
+  // single empty input — the NOC user adds more with "Add More IP" as needed (the
+  // sales-entered numberOfIPs is just a hint, not a fixed count).
   useEffect(() => {
     if (selectedLead) {
-      const numIPs = selectedLead.numberOfIPs || 1;
       const existingIPs = selectedLead.customerIpAddresses || [];
-      const inputs = Array.from({ length: numIPs }, (_, i) => existingIPs[i] || '');
-      setIpInputs(inputs);
+      setIpInputs(existingIPs.length > 0 ? [...existingIPs] : ['']);
     }
   }, [selectedLead]);
 
@@ -158,6 +136,9 @@ export default function NocQueuePage() {
     setSelectedLead(null);
     setCustomerFormData({ username: '', password: '' });
     setIpInputs([]);
+    setIsEditingConfig(false);
+    setEditCircuitId('');
+    editConfigAction.clearError();
     clearSelectedNocLead();
   };
 
@@ -186,6 +167,13 @@ export default function NocQueuePage() {
   };
 
   // Step 2: Assign IPs
+  // Add another empty IP input row.
+  const handleAddIpInput = () => setIpInputs((prev) => [...prev, '']);
+
+  // Remove an IP input row (always keep at least one).
+  const handleRemoveIpInput = (idx) =>
+    setIpInputs((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
+
   const handleAssignIPs = async () => {
     if (!selectedLead) return;
 
@@ -225,11 +213,64 @@ export default function NocQueuePage() {
     setIsGeneratingCircuit(false);
   };
 
+  // Configured view: start editing IPs + circuit ID.
+  const handleStartEditConfig = () => {
+    const existingIPs = selectedLead?.customerIpAddresses || [];
+    setIpInputs(existingIPs.length > 0 ? [...existingIPs] : ['']);
+    setEditCircuitId(selectedLead?.circuitId || '');
+    editConfigAction.clearError();
+    setIsEditingConfig(true);
+  };
+
+  const handleCancelEditConfig = () => {
+    setIsEditingConfig(false);
+    editConfigAction.clearError();
+  };
+
+  // Save edited IPs and/or circuit ID (only calls what actually changed).
+  const handleSaveConfig = async () => {
+    if (!selectedLead) return;
+    const validIPs = ipInputs.filter(ip => ip.trim());
+    if (validIPs.length === 0) {
+      return editConfigAction.fail('Please keep at least one IP address.');
+    }
+    const newCircuit = editCircuitId.trim();
+    if (!newCircuit) {
+      return editConfigAction.fail('Circuit ID cannot be empty.');
+    }
+
+    setIsSavingConfig(true);
+    const result = await editConfigAction.runAction(async () => {
+      const origIPs = selectedLead.customerIpAddresses || [];
+      const ipsChanged = JSON.stringify(validIPs) !== JSON.stringify(origIPs);
+      const circuitChanged = newCircuit !== (selectedLead.circuitId || '');
+
+      if (ipsChanged) {
+        const r = await nocAssignIpAddresses(selectedLead.id, validIPs);
+        if (!r.success) throw new Error(r.error || 'Failed to update IPs');
+      }
+      if (circuitChanged) {
+        const r = await nocUpdateCircuitId(selectedLead.id, newCircuit);
+        if (!r.success) throw new Error(r.error || 'Failed to update circuit ID');
+      }
+      return { success: true };
+    });
+
+    if (result?.success !== false) {
+      toast.success('Configuration updated.');
+      setIsEditingConfig(false);
+      // Reflect changes in the open modal + list.
+      setSelectedLead(prev => prev ? { ...prev, customerIpAddresses: validIPs, customerIpAssigned: validIPs[0], numberOfIPs: validIPs.length, circuitId: newCircuit } : prev);
+      fetchNocQueue(activeTab);
+    }
+    setIsSavingConfig(false);
+  };
+
   // Get current step for a lead
   const getCurrentStep = (lead) => {
     if (lead.circuitId) return 4;
     if (lead.customerIpAddresses?.length > 0 || lead.customerIpAssigned) return 3;
-    if (lead.customerUserId) return 2;
+    if (lead.customerUsername) return 2;
     return 1;
   };
 
@@ -332,31 +373,6 @@ export default function NocQueuePage() {
       },
     ];
 
-    // NOC Head: show assigned-to column
-    if (isNOCHead || isAdmin) {
-      columns.push({
-        key: 'nocAssignedTo',
-        label: 'Assigned To',
-        render: (lead) => lead.nocAssignedTo ? (
-          <Badge className="bg-blue-100 text-blue-700 text-[10px]">{lead.nocAssignedTo.name}</Badge>
-        ) : (
-          <Badge className="bg-amber-100 text-amber-700 text-[10px]">Unassigned</Badge>
-        ),
-      });
-    }
-
-    if (activeTab !== 'pending') {
-      columns.push({
-        key: 'customerUserId',
-        label: 'Customer ID',
-        render: (lead) => (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-green-100 dark:bg-green-900/30 font-mono text-sm text-green-700 dark:text-green-400 font-semibold">
-            {lead.customerUserId}
-          </span>
-        ),
-      });
-    }
-
     if (activeTab === 'ip_assigned' || activeTab === 'configured') {
       columns.push({
         key: 'ips',
@@ -433,21 +449,9 @@ export default function NocQueuePage() {
               actions={(lead) => {
                 const actionBtn = getActionButton(lead);
                 const ActionIcon = actionBtn?.icon;
-                const isAssignedToOther = isNOCHead && lead.nocAssignedTo && lead.nocAssignedTo.id !== user?.id;
-                const canWork = !isAssignedToOther;
                 return (
                   <div className="flex items-center justify-center gap-2">
-                    {(isNOCHead || isAdmin) && !lead.nocAssignedTo && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => { setAssignLeadId(lead.id); setSelectedNocUser(''); setShowAssignModal(true); }}
-                        className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
-                      >
-                        <Users className="h-3 w-3 mr-1" />Assign
-                      </Button>
-                    )}
-                    {canWork && !isBDMTeamLeader && actionBtn && activeTab !== 'configured' && (
+                    {!isBDMTeamLeader && actionBtn && activeTab !== 'configured' && (
                       <Button
                         size="sm"
                         onClick={() => handleConfigure(lead)}
@@ -457,7 +461,7 @@ export default function NocQueuePage() {
                         {actionBtn.label}
                       </Button>
                     )}
-                    {canWork && !isBDMTeamLeader && actionBtn && activeTab === 'configured' && (
+                    {!isBDMTeamLeader && actionBtn && activeTab === 'configured' && (
                       <div className="relative group">
                         <button
                           onClick={() => handleConfigure(lead)}
@@ -591,7 +595,7 @@ export default function NocQueuePage() {
                         placeholder="Enter password"
                       />
                     </div>
-                    {!isBDMTeamLeader && (
+                    {(isNOCHead || isAdmin) ? (
                       <>
                         <Button
                           onClick={handleCreateCustomer}
@@ -606,7 +610,11 @@ export default function NocQueuePage() {
                         </Button>
                         <InlineError message={createCustomerAction.error} onDismiss={createCustomerAction.clearError} className="mt-3" />
                       </>
-                    )}
+                    ) : !isBDMTeamLeader ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                        Only the NOC Head can create the customer account.
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               )}
@@ -620,14 +628,17 @@ export default function NocQueuePage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-slate-900 dark:text-white">Assign IP Addresses</h3>
-                      <p className="text-xs text-slate-500">Enter {selectedLead.numberOfIPs || 1} IP address(es)</p>
+                      <p className="text-xs text-slate-500">
+                        Add one or more IP addresses
+                        {selectedLead.numberOfIPs ? ` (sales requested ${selectedLead.numberOfIPs})` : ''}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Show Customer ID */}
+                  {/* Show Username */}
                   <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200">
-                    <p className="text-xs text-green-600 mb-1">Customer ID</p>
-                    <p className="font-mono text-lg font-bold text-green-700">{selectedLead.customerUserId}</p>
+                    <p className="text-xs text-green-600 mb-1">Username</p>
+                    <p className="font-mono text-lg font-bold text-green-700">{selectedLead.customerUsername}</p>
                   </div>
 
                   <div className="space-y-3">
@@ -636,20 +647,40 @@ export default function NocQueuePage() {
                         <label className="block text-sm font-medium text-slate-600 mb-1">
                           IP Address {idx + 1} {idx === 0 && <span className="text-red-500">*</span>}
                         </label>
-                        <Input
-                          value={ip}
-                          onChange={(e) => {
-                            const newInputs = [...ipInputs];
-                            newInputs[idx] = e.target.value;
-                            setIpInputs(newInputs);
-                          }}
-                          placeholder="e.g., 192.168.1.100"
-                          className="font-mono"
-                        />
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={ip}
+                            onChange={(e) => {
+                              const newInputs = [...ipInputs];
+                              newInputs[idx] = e.target.value;
+                              setIpInputs(newInputs);
+                            }}
+                            placeholder="e.g., 192.168.1.100"
+                            className="font-mono flex-1"
+                          />
+                          {(isNOCHead || isAdmin) && ipInputs.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveIpInput(idx)}
+                              className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
+                              title="Remove this IP"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
-                    {!isBDMTeamLeader && (
+                    {(isNOCHead || isAdmin) ? (
                       <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleAddIpInput}
+                          className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />Add More IP
+                        </Button>
                         <Button
                           onClick={handleAssignIPs}
                           disabled={isAssigningIPs || ipInputs.every(ip => !ip.trim())}
@@ -663,7 +694,11 @@ export default function NocQueuePage() {
                         </Button>
                         <InlineError message={assignIpAction.error} onDismiss={assignIpAction.clearError} className="mt-3" />
                       </>
-                    )}
+                    ) : !isBDMTeamLeader ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-sm text-amber-700 dark:text-amber-400 mt-2">
+                        Only the NOC Head can assign IP addresses.
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               )}
@@ -681,11 +716,11 @@ export default function NocQueuePage() {
                     </div>
                   </div>
 
-                  {/* Show Customer ID & IPs */}
+                  {/* Show Username & IPs */}
                   <div className="space-y-3 mb-4">
                     <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200">
-                      <p className="text-xs text-green-600 mb-1">Customer ID</p>
-                      <p className="font-mono text-lg font-bold text-green-700">{selectedLead.customerUserId}</p>
+                      <p className="text-xs text-green-600 mb-1">Username</p>
+                      <p className="font-mono text-lg font-bold text-green-700">{selectedLead.customerUsername}</p>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200">
                       <p className="text-xs text-blue-600 mb-1">Assigned IPs</p>
@@ -699,7 +734,7 @@ export default function NocQueuePage() {
                     </div>
                   </div>
 
-                  {!isBDMTeamLeader && (
+                  {(isNOCHead || isAdmin) ? (
                     <div className="space-y-3">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Circuit ID *</label>
@@ -724,27 +759,43 @@ export default function NocQueuePage() {
                       </Button>
                       <InlineError message={generateCircuitAction.error} onDismiss={generateCircuitAction.clearError} className="mt-3" />
                     </div>
-                  )}
+                  ) : !isBDMTeamLeader ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                      Only the NOC Head can generate the circuit ID.
+                    </div>
+                  ) : null}
                 </div>
               )}
 
               {/* STEP 4: View Completed (Configured tab) */}
               {activeTab === 'configured' && (
                 <div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">Configuration Complete</h3>
+                        <p className="text-xs text-slate-500">{isEditingConfig ? 'Edit IP addresses and circuit ID' : 'All steps completed successfully'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-slate-900 dark:text-white">Configuration Complete</h3>
-                      <p className="text-xs text-slate-500">All steps completed successfully</p>
-                    </div>
+                    {(isNOCHead || isAdmin) && !isEditingConfig && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleStartEditConfig}
+                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 shrink-0"
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1.5" />Edit
+                      </Button>
+                    )}
                   </div>
 
                   <div className="space-y-3">
                     <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 text-center">
-                      <p className="text-xs text-green-600 mb-1">Customer ID</p>
-                      <p className="font-mono text-xl font-bold text-green-700">{selectedLead.customerUserId}</p>
+                      <p className="text-xs text-green-600 mb-1">Username</p>
+                      <p className="font-mono text-xl font-bold text-green-700">{selectedLead.customerUsername}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -776,24 +827,94 @@ export default function NocQueuePage() {
                       </div>
                     </div>
 
+                    {/* Assigned IPs — editable in edit mode */}
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200">
                       <p className="text-xs text-blue-600 mb-1">Assigned IPs</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {selectedLead.customerIpAddresses?.map((ip, idx) => (
-                          <span key={idx} className="font-mono text-sm bg-white px-2 py-1 rounded border border-blue-200">
-                            {ip}
-                          </span>
-                        ))}
-                      </div>
+                      {isEditingConfig ? (
+                        <div className="space-y-2 mt-2">
+                          {ipInputs.map((ip, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Input
+                                value={ip}
+                                onChange={(e) => {
+                                  const next = [...ipInputs];
+                                  next[idx] = e.target.value;
+                                  setIpInputs(next);
+                                }}
+                                placeholder="e.g., 192.168.1.100"
+                                className="font-mono flex-1"
+                              />
+                              {ipInputs.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveIpInput(idx)}
+                                  className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
+                                  title="Remove this IP"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleAddIpInput}
+                            className="w-full border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />Add More IP
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {selectedLead.customerIpAddresses?.map((ip, idx) => (
+                            <span key={idx} className="font-mono text-sm bg-white px-2 py-1 rounded border border-blue-200">
+                              {ip}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
+                    {/* Circuit ID — editable in edit mode */}
                     <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 text-center">
                       <p className="text-xs text-emerald-600 mb-1">Circuit ID</p>
-                      <p className="font-mono text-2xl font-bold text-emerald-700">{selectedLead.circuitId}</p>
-                      <p className="text-xs text-slate-400 mt-2">
-                        Completed on {formatDate(selectedLead.nocConfiguredAt)}
-                      </p>
+                      {isEditingConfig ? (
+                        <input
+                          type="text"
+                          value={editCircuitId}
+                          onChange={(e) => setEditCircuitId(e.target.value)}
+                          placeholder="Enter circuit ID"
+                          className="w-full text-center px-3 py-2 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded-lg text-lg font-mono font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <>
+                          <p className="font-mono text-2xl font-bold text-emerald-700">{selectedLead.circuitId}</p>
+                          <p className="text-xs text-slate-400 mt-2">
+                            Completed on {formatDate(selectedLead.nocConfiguredAt)}
+                          </p>
+                        </>
+                      )}
                     </div>
+
+                    {/* Edit actions */}
+                    {isEditingConfig && (
+                      <div className="space-y-2">
+                        <InlineError message={editConfigAction.error} onDismiss={editConfigAction.clearError} />
+                        <div className="flex gap-2">
+                          <Button variant="outline" className="flex-1" onClick={handleCancelEditConfig} disabled={isSavingConfig}>
+                            Cancel
+                          </Button>
+                          <Button
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={handleSaveConfig}
+                            disabled={isSavingConfig}
+                          >
+                            {isSavingConfig ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving...</> : <><CheckCircle className="h-4 w-4 mr-2" />Save Changes</>}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Delivery Status */}
                     <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200">
@@ -831,42 +952,6 @@ export default function NocQueuePage() {
               <Button onClick={handleCloseModal} variant="outline">
                 Close
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* NOC Head: Assign Modal */}
-      {showAssignModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm shadow-xl">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Assign to NOC User</h3>
-              <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">NOC User *</label>
-                <select
-                  value={selectedNocUser}
-                  onChange={(e) => setSelectedNocUser(e.target.value)}
-                  className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm"
-                >
-                  <option value="">Select NOC user...</option>
-                  {nocUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="p-5 border-t border-slate-200 dark:border-slate-800">
-              <InlineError message={assignNocAction.error} onDismiss={assignNocAction.clearError} className="mb-3" />
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setShowAssignModal(false)}>Cancel</Button>
-                <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleAssignToNoc} disabled={!selectedNocUser || isAssigning}>
-                  {isAssigning ? <Loader2 size={16} className="mr-1 animate-spin" /> : <Users size={16} className="mr-1" />}
-                  Assign
-                </Button>
-              </div>
             </div>
           </div>
         </div>

@@ -601,7 +601,6 @@ export default function Sidebar() {
     // NOC Team-only items
     ...(isNOCHead ? [
       { name: 'NOC Queue', path: '/dashboard/noc-queue', icon: Network, badge: counts.nocPending > 0 ? counts.nocPending : null },
-      { name: 'NOC Team', path: '/dashboard/noc-team', icon: Users },
       { name: 'Order Requests', path: '/dashboard/noc-queue/order-requests', icon: ClipboardList, badge: counts.nocOrdersPending > 0 ? counts.nocOrdersPending : null },
       { name: 'Users Created', path: '/dashboard/noc-users-created', icon: UserPlus },
     ] : []),
