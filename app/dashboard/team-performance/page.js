@@ -16,6 +16,11 @@ import {
   Layers,
   Download,
   Loader2,
+  CheckCircle2,
+  Circle,
+  LayoutDashboard,
+  TrendingUp,
+  UserPlus,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
@@ -91,6 +96,48 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'DROPPED', label: 'Dropped' },
 ];
 
+// Pipeline buckets in journey order — keys match leadStageDeriver's BUCKETS.
+// Clicking a chip filters the table to leads currently sitting in that bucket.
+const BUCKET_ORDER = [
+  ['BDM', 'BDM'],
+  ['FEASIBILITY', 'Feasibility'],
+  ['OPS', 'OPS'],
+  ['SALES_DIRECTOR', 'Sales Director'],
+  ['DOCS', 'Docs'],
+  ['ACCOUNTS', 'Accounts'],
+  ['NOC', 'NOC'],
+  ['STORE', 'Store'],
+  ['DELIVERY', 'Delivery'],
+  ['PENDING_ACTIVATION', 'Pending Activation'],
+  ['ACTIVE', 'Active'],
+  ['COLD', 'Cold'],
+  ['DROPPED', 'Dropped'],
+];
+
+const PERIOD_OPTIONS = [
+  { value: 'mtd', label: 'MTD' },
+  { value: 'ytd', label: 'YTD' },
+  { value: 'alltime', label: 'All Time' },
+  { value: 'custom', label: 'Custom' },
+];
+
+// Journey milestones rendered in the detail modal, in pipeline order.
+const JOURNEY_STEPS = [
+  ['feasibilityReviewedAt', 'Feasibility reviewed'],
+  ['opsApprovedAt', 'OPS approved'],
+  ['superAdmin2ApprovedAt', 'Sales Director approved'],
+  ['loginCompletedAt', 'Customer login completed'],
+  ['docsVerifiedAt', 'Docs verified'],
+  ['accountsVerifiedAt', 'Accounts verified'],
+  ['pushedToInstallationAt', 'Pushed to installation'],
+  ['customerCreatedAt', 'Customer account created (NOC)'],
+  ['nocConfiguredAt', 'NOC configured'],
+  ['installationCompletedAt', 'Installation completed'],
+  ['customerAcceptanceAt', 'Customer accepted'],
+  ['demoPlanAssignedAt', 'Demo plan assigned'],
+  ['actualPlanCreatedAt', 'Plan created'],
+];
+
 export default function TeamPerformancePage() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -114,26 +161,36 @@ export default function TeamPerformancePage() {
 
   const [selectedBdmId, setSelectedBdmId] = useState('all');
   const [status, setStatus] = useState('all');
+  const [bucket, setBucket] = useState('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [viewingLead, setViewingLead] = useState(null);
   const [exporting, setExporting] = useState(false);
+  // Date window — defaults to All Time (previous behaviour); MTD/YTD/Custom
+  // match the BDM dashboard's period selector so the two screens agree.
+  const [period, setPeriod] = useState('alltime');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   useEffect(() => {
     if (user && !isAllowed) router.push('/dashboard');
   }, [user, isAllowed, router]);
 
   useEffect(() => {
-    if (isAllowed) fetchSummary();
-  }, [isAllowed, fetchSummary]);
+    if (!isAllowed) return;
+    // For custom, wait until both dates are picked.
+    if (period === 'custom' && (!fromDate || !toDate)) return;
+    fetchSummary({ period, fromDate, toDate });
+  }, [isAllowed, fetchSummary, period, fromDate, toDate]);
 
   // Debounce search by re-fetching only on commit (Enter / blur via state).
   useEffect(() => {
     if (!isAllowed) return;
-    fetchLeads({ bdmId: selectedBdmId, status, search, page, limit: 25 });
-  }, [isAllowed, fetchLeads, selectedBdmId, status, search, page]);
+    if (period === 'custom' && (!fromDate || !toDate)) return;
+    fetchLeads({ bdmId: selectedBdmId, status, search, page, limit: 25, bucket, period, fromDate, toDate });
+  }, [isAllowed, fetchLeads, selectedBdmId, status, search, page, bucket, period, fromDate, toDate]);
 
-  useEffect(() => { setPage(1); }, [selectedBdmId, status, search]);
+  useEffect(() => { setPage(1); }, [selectedBdmId, status, search, bucket, period, fromDate, toDate]);
 
   useModal(Boolean(viewingLead), () => setViewingLead(null));
 
@@ -148,6 +205,7 @@ export default function TeamPerformancePage() {
     dropped: totals?.dropped || 0,
     totalArc: totals?.totalArc || 0,
     conversionRate: totals?.conversionRate || 0,
+    buckets: totals?.buckets || {},
   }), [totals]);
 
   // Whichever member (or aggregate) the dropdown points at — drives the KPI
@@ -159,7 +217,7 @@ export default function TeamPerformancePage() {
 
   const showBdmColumn = selectedBdmId === 'all';
 
-  const hasActiveFilter = selectedBdmId !== 'all' || status !== 'all' || Boolean(search.trim());
+  const hasActiveFilter = selectedBdmId !== 'all' || status !== 'all' || bucket !== 'all' || Boolean(search.trim()) || period !== 'alltime';
 
   // Export every row matching the CURRENT filters (member + status + search),
   // not just the visible page. With no filter applied this exports the whole
@@ -167,7 +225,7 @@ export default function TeamPerformancePage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const res = await exportLeads({ bdmId: selectedBdmId, status, search });
+      const res = await exportLeads({ bdmId: selectedBdmId, status, search, bucket, period, fromDate, toDate });
       if (!res.success) {
         toast.error(res.error || 'Export failed');
         return;
@@ -193,6 +251,8 @@ export default function TeamPerformancePage() {
         'Cold Lead': r.isColdLead ? 'Yes' : 'No',
         'BDM': r.bdm?.name || '',
         'BDM Email': r.bdm?.email || '',
+        'Source': r.sourceLabel || '',
+        'Created By': r.createdBy ? `${r.createdBy.name} (${r.createdBy.role})` : '',
         'Created': formatDate(r.createdAt),
         'Last Activity': formatDate(r.lastActivityAt),
       }));
@@ -260,6 +320,26 @@ export default function TeamPerformancePage() {
       label: 'Owner',
       render: (row) => (
         <span className="text-sm text-slate-700 dark:text-slate-300">{row.currentOwner || '—'}</span>
+      ),
+    },
+    {
+      key: 'source',
+      label: 'Source',
+      render: (row) => (
+        <div className="flex flex-col">
+          <span className={`inline-flex items-center w-fit px-2 py-0.5 rounded-full text-xs font-medium ${
+            row.createdBy?.role === 'ISR'
+              ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+          }`}>
+            {row.sourceLabel || '—'}
+          </span>
+          {row.createdBy && (
+            <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              by {row.createdBy.name}
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -345,6 +425,97 @@ export default function TeamPerformancePage() {
             <StatTile label="ARC pipeline" value={inr(selectedMember.totalArc)} accent="orange" />
             <StatTile label="Conversion"   value={`${selectedMember.conversionRate}%`} />
           </div>
+        </div>
+
+        {/* Period filter (matches the BDM dashboard) + per-member quick-jumps */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            {PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setPeriod(opt.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  period === opt.value
+                    ? 'bg-orange-500 text-white border-orange-500'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-orange-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            {period === 'custom' && (
+              <div className="flex items-center gap-1.5 ml-1">
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="px-2 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                />
+                <span className="text-xs text-slate-400">to</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="px-2 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                />
+              </div>
+            )}
+          </div>
+          {selectedBdmId !== 'all' && (
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={() => router.push(`/dashboard?bdm=${selectedBdmId}`)}
+              >
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                Open Dashboard
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={() => router.push(`/dashboard/pipeline-arc?userId=${selectedBdmId}`)}
+              >
+                <TrendingUp className="h-3.5 w-3.5" />
+                Pipeline ARC
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Stage breakdown — where the selected member's (or whole team's)
+            leads currently sit across the pipeline. Click a chip to filter
+            the table to that bucket; the exact stage shows per lead row. */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => setBucket('all')}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+              bucket === 'all'
+                ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            All stages ({selectedMember.totalLeads})
+          </button>
+          {BUCKET_ORDER.map(([key, label]) => {
+            const count = selectedMember.buckets?.[key] || 0;
+            if (count === 0) return null;
+            return (
+              <button
+                key={key}
+                onClick={() => setBucket(bucket === key ? 'all' : key)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  bucket === key
+                    ? 'bg-orange-500 text-white border-orange-500'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-orange-300'
+                }`}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
         </div>
         {summaryLoading && (
           <p className="text-xs text-slate-500">Loading team...</p>
@@ -458,12 +629,67 @@ export default function TeamPerformancePage() {
                 <Field icon={Briefcase} label="Plan" value={viewingLead.actualPlanName} />
               </Section>
 
-              <Section title="Ownership">
+              <Section title="Ownership & Origin">
                 <Field icon={Users} label="Assigned BDM" value={viewingLead.bdm?.name} />
                 <Field icon={Mail} label="BDM Email" value={viewingLead.bdm?.email} />
+                <Field icon={UserPlus} label="Source" value={viewingLead.sourceLabel} />
+                <Field
+                  icon={Users}
+                  label="Created by"
+                  value={viewingLead.createdBy ? `${viewingLead.createdBy.name} (${viewingLead.createdBy.role})` : null}
+                />
                 <Field icon={Clock} label="Created" value={formatDate(viewingLead.createdAt)} />
                 <Field icon={Clock} label="Last activity" value={formatDate(viewingLead.lastActivityAt)} />
               </Section>
+
+              {/* Full journey — every reached milestone with its date, so the TL
+                  can see exactly how far this lead has travelled and where it
+                  has been sitting since. */}
+              {viewingLead.journey && (
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                    <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Journey</h4>
+                  </div>
+                  <div className="p-4 space-y-0.5">
+                    {/* Origin row — who funnelled the lead in */}
+                    <div className="flex items-start gap-3 py-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0 flex-1 flex items-baseline justify-between gap-2">
+                        <p className="text-sm text-slate-900 dark:text-white">
+                          Created{viewingLead.createdBy ? ` by ${viewingLead.createdBy.name}` : ''}
+                          {viewingLead.sourceLabel ? (
+                            <span className="text-xs text-slate-500"> · {viewingLead.sourceLabel}</span>
+                          ) : null}
+                        </p>
+                        <p className="text-xs text-slate-500 whitespace-nowrap">{formatDate(viewingLead.journey.createdAt)}</p>
+                      </div>
+                    </div>
+                    {JOURNEY_STEPS.map(([key, label]) => {
+                      const reached = Boolean(viewingLead.journey[key]);
+                      return (
+                        <div key={key} className={`flex items-start gap-3 py-1.5 ${reached ? '' : 'opacity-40'}`}>
+                          {reached ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                          ) : (
+                            <Circle className="w-4 h-4 text-slate-300 dark:text-slate-600 mt-0.5 flex-shrink-0" />
+                          )}
+                          <div className="min-w-0 flex-1 flex items-baseline justify-between gap-2">
+                            <p className="text-sm text-slate-900 dark:text-white">
+                              {label}
+                              {key === 'nocConfiguredAt' && viewingLead.journey.circuitId ? (
+                                <span className="text-xs font-mono text-slate-500"> · {viewingLead.journey.circuitId}</span>
+                              ) : null}
+                            </p>
+                            <p className="text-xs text-slate-500 whitespace-nowrap">
+                              {reached ? formatDate(viewingLead.journey[key]) : '—'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">

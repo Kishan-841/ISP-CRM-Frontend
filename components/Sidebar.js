@@ -443,7 +443,12 @@ export default function Sidebar() {
     ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager && !isSalesDirector && !isBDMCP ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
     // Team Performance sits directly under Dashboard for TLs — it's the
     // primary oversight surface and should be one click away from landing.
-    ...(isBDMTeamLeader ? [{ name: 'Team Performance', path: '/dashboard/team-performance', icon: BarChart3 }] : []),
+    ...(isBDMTeamLeader ? [
+      { name: 'Team Performance', path: '/dashboard/team-performance', icon: BarChart3 },
+      // Master list of every lead owned by the TL's BDMs — origin (ISR vs
+      // self-created), current stage, and staleness in one place.
+      { name: 'Team Leads', path: '/dashboard/team-leads', icon: Users },
+    ] : []),
     // Raw Data - available for Admin, ISR, BDM, and BDM Team Leader
     ...(isAdmin || isSalesDirector || isISR || isBDM || isBDMCP || isBDMTeamLeader ? [
       {

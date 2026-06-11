@@ -202,6 +202,13 @@ export default function DashboardPage() {
     }
   }, [isTL, fetchBDMUsers]);
 
+  // Deep-link: /dashboard?bdm=<userId> preselects a team member's dashboard
+  // (used by Team Performance's "Open Dashboard" quick-jump).
+  useEffect(() => {
+    const bdmParam = searchParams.get('bdm');
+    if (isTL && bdmParam) setSelectedBDMUser(bdmParam);
+  }, [isTL, searchParams]);
+
   // Load BDM dashboard stats and meetings
   useEffect(() => {
     if (isBDM) {
