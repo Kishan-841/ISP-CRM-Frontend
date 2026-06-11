@@ -55,6 +55,7 @@ export default function NocQueuePage() {
     nocAssignIpAddresses,
     nocGenerateCircuitId,
     nocUpdateCircuitId,
+    nocUpdateCustomerUsername,
     clearSelectedNocLead,
     isLoading
   } = useLeadStore();
@@ -71,9 +72,10 @@ export default function NocQueuePage() {
   const [ipInputs, setIpInputs] = useState([]);
   const [isAssigningIPs, setIsAssigningIPs] = useState(false);
 
-  // Configured-view edit mode (edit IPs + circuit ID after completion)
+  // Configured-view edit mode (edit username + IPs + circuit ID after completion)
   const [isEditingConfig, setIsEditingConfig] = useState(false);
   const [editCircuitId, setEditCircuitId] = useState('');
+  const [editUsername, setEditUsername] = useState('');
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   // Step 3: Circuit ID
@@ -138,6 +140,7 @@ export default function NocQueuePage() {
     setIpInputs([]);
     setIsEditingConfig(false);
     setEditCircuitId('');
+    setEditUsername('');
     editConfigAction.clearError();
     clearSelectedNocLead();
   };
@@ -213,11 +216,12 @@ export default function NocQueuePage() {
     setIsGeneratingCircuit(false);
   };
 
-  // Configured view: start editing IPs + circuit ID.
+  // Configured view: start editing username + IPs + circuit ID.
   const handleStartEditConfig = () => {
     const existingIPs = selectedLead?.customerIpAddresses || [];
     setIpInputs(existingIPs.length > 0 ? [...existingIPs] : ['']);
     setEditCircuitId(selectedLead?.circuitId || '');
+    setEditUsername(selectedLead?.customerUsername || '');
     editConfigAction.clearError();
     setIsEditingConfig(true);
   };
@@ -227,7 +231,7 @@ export default function NocQueuePage() {
     editConfigAction.clearError();
   };
 
-  // Save edited IPs and/or circuit ID (only calls what actually changed).
+  // Save edited username, IPs and/or circuit ID (only calls what actually changed).
   const handleSaveConfig = async () => {
     if (!selectedLead) return;
     const validIPs = ipInputs.filter(ip => ip.trim());
@@ -238,13 +242,22 @@ export default function NocQueuePage() {
     if (!newCircuit) {
       return editConfigAction.fail('Circuit ID cannot be empty.');
     }
+    const newUsername = editUsername.trim();
+    if (!newUsername) {
+      return editConfigAction.fail('Username cannot be empty.');
+    }
 
     setIsSavingConfig(true);
     const result = await editConfigAction.runAction(async () => {
       const origIPs = selectedLead.customerIpAddresses || [];
       const ipsChanged = JSON.stringify(validIPs) !== JSON.stringify(origIPs);
       const circuitChanged = newCircuit !== (selectedLead.circuitId || '');
+      const usernameChanged = newUsername !== (selectedLead.customerUsername || '');
 
+      if (usernameChanged) {
+        const r = await nocUpdateCustomerUsername(selectedLead.id, newUsername);
+        if (!r.success) throw new Error(r.error || 'Failed to update username');
+      }
       if (ipsChanged) {
         const r = await nocAssignIpAddresses(selectedLead.id, validIPs);
         if (!r.success) throw new Error(r.error || 'Failed to update IPs');
@@ -253,14 +266,24 @@ export default function NocQueuePage() {
         const r = await nocUpdateCircuitId(selectedLead.id, newCircuit);
         if (!r.success) throw new Error(r.error || 'Failed to update circuit ID');
       }
-      return { success: true };
+      return { success: true, usernameChanged };
     });
 
     if (result?.success !== false) {
-      toast.success('Configuration updated.');
+      toast.success(result?.usernameChanged
+        ? 'Configuration updated. Customer must log in with the new username.'
+        : 'Configuration updated.');
       setIsEditingConfig(false);
       // Reflect changes in the open modal + list.
-      setSelectedLead(prev => prev ? { ...prev, customerIpAddresses: validIPs, customerIpAssigned: validIPs[0], numberOfIPs: validIPs.length, circuitId: newCircuit } : prev);
+      setSelectedLead(prev => prev ? {
+        ...prev,
+        customerUsername: newUsername,
+        customerUserId: newUsername,
+        customerIpAddresses: validIPs,
+        customerIpAssigned: validIPs[0],
+        numberOfIPs: validIPs.length,
+        circuitId: newCircuit
+      } : prev);
       fetchNocQueue(activeTab);
     }
     setIsSavingConfig(false);
@@ -793,9 +816,26 @@ export default function NocQueuePage() {
                   </div>
 
                   <div className="space-y-3">
+                    {/* Username — editable in edit mode (changes the customer's portal login;
+                        customerUserId stays in sync on the backend) */}
                     <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 text-center">
                       <p className="text-xs text-green-600 mb-1">Username</p>
-                      <p className="font-mono text-xl font-bold text-green-700">{selectedLead.customerUsername}</p>
+                      {isEditingConfig ? (
+                        <>
+                          <input
+                            type="text"
+                            value={editUsername}
+                            onChange={(e) => setEditUsername(e.target.value)}
+                            placeholder="Enter username"
+                            className="w-full text-center px-3 py-2 bg-white dark:bg-slate-800 border border-green-300 dark:border-green-700 rounded-lg text-lg font-mono font-bold text-green-700 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          />
+                          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5">
+                            Changing this changes the customer&apos;s portal login username.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="font-mono text-xl font-bold text-green-700">{selectedLead.customerUsername}</p>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
