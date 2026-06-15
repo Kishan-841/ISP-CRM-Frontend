@@ -178,6 +178,16 @@ const daysBetween = (startDate, endDate) => {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
+// PO expiry auto-defaults to exactly one year after the (billing) start date.
+// Returns a YYYY-MM-DD string, or '' if the input is empty/invalid.
+const addOneYearISO = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().split('T')[0];
+};
+
 // Icon Button with Tooltip Component
 const IconButton = ({ icon: Icon, label, onClick, variant = 'default', disabled = false }) => {
   const baseClasses = "relative group p-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
@@ -562,9 +572,11 @@ export default function AccountsCreatePlanPage() {
       billingType: lead.actualPlanBillingType || 'DAY_TO_DAY',
       price: calculatedPrice,
       isActive: lead.actualPlanIsActive ?? true,
-      startDate: lead.actualPlanStartDate ? new Date(lead.actualPlanStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      startDate: startDate,
+      // Auto-fetch the PO number captured at accounts verification; PO expiry
+      // auto-defaults to one year from the (billing) start date.
       poNumber: lead.poNumber || '',
-      poExpiryDate: lead.poExpiryDate ? new Date(lead.poExpiryDate).toISOString().split('T')[0] : '',
+      poExpiryDate: addOneYearISO(startDate),
       notes: lead.actualPlanNotes || ''
     });
     setShowModal(true);
@@ -656,6 +668,11 @@ export default function AccountsCreatePlanPage() {
         const start = field === 'startDate' ? value : newForm.startDate;
         const { price } = calculatePriceFromArcWithType(selectedLead.arcAmount, cycle, type, start);
         newForm.price = price;
+      }
+
+      // Keep PO expiry one year after the (billing) start date as it changes.
+      if (field === 'startDate') {
+        newForm.poExpiryDate = addOneYearISO(value);
       }
 
       return newForm;
