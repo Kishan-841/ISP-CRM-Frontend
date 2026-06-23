@@ -2470,6 +2470,7 @@ function SummaryHeader({ summary }) {
   // Map API response fields to display names
   const companyName = summary.company || summary.campaignData?.company || '';
   const contactName = summary.name || '';
+  const leadNumber = summary.leadNumber || '';
   const { status, deliveryStatus, createdAt, fullAddress, customerUsername, actualPlanIsActive, demoPlanIsActive, currentBalance, customerGstNo } = summary;
   const phone = summary.campaignData?.phone || '';
   const email = summary.campaignData?.email || '';
@@ -2511,6 +2512,11 @@ function SummaryHeader({ summary }) {
             <h1 className="text-xl font-bold text-slate-900 dark:text-white">
               {companyName || 'Unknown Company'}
             </h1>
+            {leadNumber && (
+              <span className="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-mono text-xs font-medium text-slate-600 dark:text-slate-300 shrink-0">
+                {leadNumber}
+              </span>
+            )}
           </div>
           {contactName && (
             <p className="text-sm text-slate-600 dark:text-slate-400 ml-9">{contactName}</p>
