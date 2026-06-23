@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuthStore } from '@/lib/store';
+import { useRoleCheck } from '@/lib/useRoleCheck';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +36,9 @@ const FILTER_CONFIG = {
 export default function CustomerBillingTablePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuthStore();
+  // useRoleCheck so MASTER (and admin-equivalents) are covered — a raw
+  // role === 'SUPER_ADMIN' check left MASTER seeing a blank page.
+  const { user, isAccountsTeam, isSuperAdmin: isAdmin } = useRoleCheck();
 
   const [isLoading, setIsLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
@@ -48,9 +50,6 @@ export default function CustomerBillingTablePage() {
   const filter = searchParams.get('filter') || 'all';
   const filterConfig = FILTER_CONFIG[filter] || FILTER_CONFIG.all;
   const FilterIcon = filterConfig.icon;
-
-  const isAccountsTeam = user?.role === 'ACCOUNTS_TEAM';
-  const isAdmin = user?.role === 'SUPER_ADMIN';
 
   // Fetch customers
   const fetchCustomers = useCallback(async (page = 1) => {
