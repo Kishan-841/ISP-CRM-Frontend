@@ -571,7 +571,9 @@ export default function AccountsCreatePlanPage() {
       billingCycle: billingCycle,
       billingType: lead.actualPlanBillingType || 'DAY_TO_DAY',
       price: calculatedPrice,
-      isActive: lead.actualPlanIsActive ?? true,
+      // Default a NEW plan to ACTIVE so the accounts user can't miss the toggle
+      // (an inactive plan silently skips invoicing AND the SAM activation webhook).
+      isActive: true,
       startDate: startDate,
       // Auto-fetch the PO number captured at accounts verification; PO expiry
       // auto-defaults to one year from the (billing) start date.
