@@ -140,30 +140,29 @@ export default function StoreRequestsPage() {
 
   const handleSelectInventoryForItem = (itemId, inventoryItem, serialNumber) => {
     setAssignments(prev => {
-      const current = prev[itemId] || { poItemId: '', serialNumbers: [], bulkQuantity: 0 };
+      const current = prev[itemId] || { serialsByPo: {}, bulkPoItemId: null, bulkQuantity: 0 };
+      const poId = inventoryItem.id;
 
-      if (inventoryItem.id !== current.poItemId) {
-        // Switching to different PO item
-        return {
-          ...prev,
-          [itemId]: {
-            poItemId: inventoryItem.id,
-            serialNumbers: [serialNumber],
-            bulkQuantity: 0
-          }
-        };
-      }
+      // Toggle the serial within ITS OWN PO bucket. A serialized item can be
+      // fulfilled from several POs at once, so selecting from one PO must not
+      // clear selections made in another.
+      const existing = current.serialsByPo?.[poId] || [];
+      const nextForPo = existing.includes(serialNumber)
+        ? existing.filter(sn => sn !== serialNumber)
+        : [...existing, serialNumber];
 
-      // Toggle serial number selection
-      const serialNumbers = current.serialNumbers.includes(serialNumber)
-        ? current.serialNumbers.filter(sn => sn !== serialNumber)
-        : [...current.serialNumbers, serialNumber];
+      const nextSerialsByPo = { ...(current.serialsByPo || {}) };
+      if (nextForPo.length > 0) nextSerialsByPo[poId] = nextForPo;
+      else delete nextSerialsByPo[poId];
 
       return {
         ...prev,
         [itemId]: {
           ...current,
-          serialNumbers
+          serialsByPo: nextSerialsByPo,
+          // Choosing serials clears any bulk selection for this item.
+          bulkPoItemId: null,
+          bulkQuantity: 0
         }
       };
     });
@@ -175,8 +174,8 @@ export default function StoreRequestsPage() {
     setAssignments(prev => ({
       ...prev,
       [itemId]: {
-        poItemId: inventoryItem.id,
-        serialNumbers: [],
+        serialsByPo: {},
+        bulkPoItemId: inventoryItem.id,
         bulkQuantity: validQuantity
       }
     }));
@@ -185,8 +184,11 @@ export default function StoreRequestsPage() {
   const getSelectedCount = (itemId) => {
     const assignment = assignments[itemId];
     if (!assignment) return 0;
-    // Return bulk quantity if set, otherwise serial count
-    return assignment.bulkQuantity || assignment.serialNumbers?.length || 0;
+    // Bulk quantity if set, otherwise the total serial count summed across
+    // every PO the item is being fulfilled from.
+    if (assignment.bulkQuantity) return assignment.bulkQuantity;
+    const byPo = assignment.serialsByPo || {};
+    return Object.values(byPo).reduce((sum, arr) => sum + (arr?.length || 0), 0);
   };
 
   // Check if product is bulk (not serialized) - fiber, etc.
@@ -197,19 +199,40 @@ export default function StoreRequestsPage() {
   const handleAssignItems = async () => {
     if (!selectedRequest) return;
 
-    // Build assignments array
+    // Build assignments array. Serialized items can draw from multiple POs, so
+    // we send a `sources` list (one entry per PO) plus the flat union of serials
+    // for backward compatibility. Bulk items remain a single PO + quantity.
     const assignmentData = selectedRequest.items.map(item => {
       const assignment = assignments[item.id];
       if (!assignment) return null;
 
-      return {
-        itemId: item.id,
-        serialNumbers: assignment.serialNumbers || [],
-        poItemId: assignment.poItemId || null,
-        quantity: item.quantity,
-        bulkQuantity: assignment.bulkQuantity || 0
-      };
-    }).filter(a => a && (a.serialNumbers.length > 0 || a.bulkQuantity > 0));
+      const byPo = assignment.serialsByPo || {};
+      const sources = Object.entries(byPo)
+        .filter(([, serials]) => serials?.length > 0)
+        .map(([poItemId, serialNumbers]) => ({ poItemId, serialNumbers }));
+
+      if (sources.length > 0) {
+        return {
+          itemId: item.id,
+          sources,
+          serialNumbers: sources.flatMap(s => s.serialNumbers),
+          quantity: item.quantity,
+          bulkQuantity: 0
+        };
+      }
+
+      if (assignment.bulkQuantity > 0) {
+        return {
+          itemId: item.id,
+          poItemId: assignment.bulkPoItemId || null,
+          serialNumbers: [],
+          quantity: item.quantity,
+          bulkQuantity: assignment.bulkQuantity
+        };
+      }
+
+      return null;
+    }).filter(a => a && ((a.sources && a.sources.length > 0) || a.bulkQuantity > 0));
 
     if (assignmentData.length === 0) {
       return assignItemsAction.fail('Please select items to assign.');
@@ -240,11 +263,11 @@ export default function StoreRequestsPage() {
     );
   };
 
-  // Get selected serials for an item from specific inventory
+  // Get selected serials for an item from a specific PO (inventory) bucket.
   const getSelectedSerialsFromInv = (itemId, invId) => {
     const assignment = assignments[itemId];
-    if (!assignment || assignment.poItemId !== invId) return [];
-    return assignment.serialNumbers || [];
+    if (!assignment) return [];
+    return assignment.serialsByPo?.[invId] || [];
   };
 
   if (!isAuthorized) {
@@ -634,7 +657,10 @@ export default function StoreRequestsPage() {
                   </div>
                 )}
                 {selectedRequest.items?.map((item) => {
-                  const productInventory = getInventoryForProduct(item.productId);
+                  const productInventory = getInventoryForProduct(item.productId)
+                    // Hide POs that have nothing left to give — an emptied PO is
+                    // just noise once its stock has been assigned elsewhere.
+                    .filter(inv => (inv.serialNumbers?.length > 0) || (inv.availableQuantity > 0));
                   const isExpanded = expandedItems[item.id];
                   const selectedCount = getSelectedCount(item.id);
                   const isComplete = selectedCount >= item.quantity;
@@ -771,7 +797,7 @@ export default function StoreRequestsPage() {
                                           type="number"
                                           min="0"
                                           max={Math.min(inv.availableQuantity, item.quantity)}
-                                          value={assignments[item.id]?.poItemId === inv.id ? (assignments[item.id]?.bulkQuantity || '') : ''}
+                                          value={assignments[item.id]?.bulkPoItemId === inv.id ? (assignments[item.id]?.bulkQuantity || '') : ''}
                                           onChange={(e) => handleBulkQuantityChange(item.id, inv, e.target.value, Math.min(inv.availableQuantity, item.quantity))}
                                           placeholder="0"
                                           className="w-24 h-10 text-center text-lg font-bold"
@@ -801,20 +827,25 @@ export default function StoreRequestsPage() {
                                         {/* Auto-assign button */}
                                         {(() => {
                                           const currentSelected = getSelectedSerialsFromInv(item.id, inv.id);
-                                          const remaining = item.quantity - currentSelected.length;
-                                          if (remaining <= 0) return null;
+                                          // Remaining is measured against the item's TOTAL across all
+                                          // POs, so auto-assign tops up only what's still needed.
+                                          const remaining = item.quantity - getSelectedCount(item.id);
+                                          // Unselected serials still available in THIS PO.
+                                          const available = inv.serialNumbers.filter(
+                                            sn => !currentSelected.includes(sn)
+                                          );
+                                          // Hide if nothing left to add globally, or nothing left in this PO.
+                                          const canAdd = Math.min(remaining, available.length);
+                                          if (canAdd <= 0) return null;
                                           return (
                                             <button
                                               onClick={() => {
-                                                const available = inv.serialNumbers.filter(
-                                                  sn => !currentSelected.includes(sn)
-                                                );
                                                 const toSelect = available.slice(0, remaining);
                                                 toSelect.forEach(sn => handleSelectInventoryForItem(item.id, inv, sn));
                                               }}
                                               className="flex-shrink-0 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap"
                                             >
-                                              Auto-assign {remaining}
+                                              Auto-assign {canAdd}
                                             </button>
                                           );
                                         })()}
@@ -860,7 +891,7 @@ export default function StoreRequestsPage() {
                                           return (
                                             <div className="flex flex-wrap gap-1">
                                               {filtered.map((serial) => {
-                                                const isSelected = assignments[item.id]?.serialNumbers?.includes(serial);
+                                                const isSelected = (assignments[item.id]?.serialsByPo?.[inv.id] || []).includes(serial);
                                                 const isDisabled = !isSelected && selectedCount >= item.quantity;
 
                                                 return (
@@ -901,7 +932,7 @@ export default function StoreRequestsPage() {
                                           type="number"
                                           min="0"
                                           max={Math.min(inv.availableQuantity, item.quantity)}
-                                          value={assignments[item.id]?.poItemId === inv.id ? (assignments[item.id]?.bulkQuantity || '') : ''}
+                                          value={assignments[item.id]?.bulkPoItemId === inv.id ? (assignments[item.id]?.bulkQuantity || '') : ''}
                                           onChange={(e) => handleBulkQuantityChange(item.id, inv, e.target.value, Math.min(inv.availableQuantity, item.quantity))}
                                           placeholder="0"
                                           className="w-24 h-10 text-center text-lg font-bold"
