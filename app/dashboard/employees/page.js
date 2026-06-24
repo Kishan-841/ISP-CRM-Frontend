@@ -64,6 +64,12 @@ export default function EmployeesPage() {
 
   const isTL = user?.role === 'BDM_TEAM_LEADER';
   const canViewPasswords = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER' || user?.role === 'SALES_DIRECTOR';
+  // Sales Director may only reveal passwords for their own sales line — BDM,
+  // BDM Team Leader and BDM (CP). SUPER_ADMIN / MASTER can reveal any. Mirrors
+  // the backend gate in getUserPassword (the server is the real enforcement).
+  const canRevealPasswordFor = (targetRole) =>
+    canViewPasswords &&
+    (user?.role !== 'SALES_DIRECTOR' || ['BDM', 'BDM_TEAM_LEADER', 'BDM_CP'].includes(targetRole));
 
   const hidePassword = useCallback((userId) => {
     setRevealedPasswords((prev) => {
@@ -415,7 +421,9 @@ export default function EmployeesPage() {
                       </td>
                       {canViewPasswords && (
                         <td className="py-4 px-6 border-r border-slate-200 dark:border-slate-700">
-                          {revealedPasswords[u.id] ? (
+                          {!canRevealPasswordFor(u.role) ? (
+                            <span className="text-slate-400 dark:text-slate-600 text-sm" title="Not permitted for this role">—</span>
+                          ) : revealedPasswords[u.id] ? (
                             <div className="flex items-center gap-2">
                               <code className="text-sm font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-900 dark:text-slate-100">
                                 {revealedPasswords[u.id].value}
