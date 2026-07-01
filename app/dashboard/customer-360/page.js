@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useCustomer360Store } from '@/lib/store';
+import { useCustomer360Store, useAuthStore } from '@/lib/store';
 import { Search, ArrowRight, Download, Loader2, Calendar, X, FileText, CheckCircle2 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import Link from 'next/link';
@@ -32,6 +32,8 @@ function formatStatus(status) {
 
 export default function Customer360Page() {
   const { searchResults, searchLoading, searchPagination, searchCustomers } = useCustomer360Store();
+  const { user } = useAuthStore();
+  const isMaster = user?.role === 'MASTER';
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -304,10 +306,12 @@ export default function Customer360Page() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader title="Customer 360" description="Search and view complete customer lifecycle" />
         <div className="flex items-center gap-2">
-          <Button onClick={openDocReport} variant="outline" className="gap-2">
-            <FileText className="h-4 w-4" />
-            Documents Report
-          </Button>
+          {isMaster && (
+            <Button onClick={openDocReport} variant="outline" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Documents Report
+            </Button>
+          )}
           <Button
             onClick={handleExportClick}
             disabled={exporting}
