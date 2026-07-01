@@ -169,6 +169,32 @@ async function exportSingleCustomerExcel(leadId) {
   }
 }
 
+// Download every typed document as a single ZIP (each file named by its
+// document type). Extracting it gives one folder of neatly-named docs.
+async function downloadAllDocuments(leadId) {
+  const t = toast.loading('Preparing documents…');
+  try {
+    const response = await api.get(`/customer-360/${encodeURIComponent(leadId)}/documents/download`, {
+      responseType: 'blob',
+    });
+    const cd = response.headers?.['content-disposition'] || '';
+    const m = cd.match(/filename="?([^";]+)"?/i);
+    const downloadName = m?.[1] || `customer-${leadId}-documents.zip`;
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = downloadName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    toast.success('Documents downloaded', { id: t });
+  } catch (err) {
+    toast.error('Failed to download documents', { id: t });
+  }
+}
+
 function formatFieldName(field) {
   if (!field) return 'Field';
   return field
@@ -1437,8 +1463,9 @@ function DocumentPreviewModal({ url, title, onClose }) {
   );
 }
 
-function DocumentsTab({ data, loading }) {
+function DocumentsTab({ data, loading, leadId }) {
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [downloading, setDownloading] = useState(false);
 
   if (loading) return <TabSkeleton label="documents" />;
   if (!data) return <EmptyTab message="No document data available." />;
@@ -1479,11 +1506,24 @@ function DocumentsTab({ data, loading }) {
           <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
             Documents <span className="text-slate-500 dark:text-slate-400 font-normal">({documents.length})</span>
           </h4>
-          {uploadMethod && (
-            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-              {uploadMethod}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {documents.length > 0 && leadId && (
+              <button
+                onClick={async () => { setDownloading(true); await downloadAllDocuments(leadId); setDownloading(false); }}
+                disabled={downloading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-60 transition-colors"
+                title="Download all documents as a ZIP (each file named by its type)"
+              >
+                {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                {downloading ? 'Preparing…' : 'Download All'}
+              </button>
+            )}
+            {uploadMethod && (
+              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                {uploadMethod}
+              </span>
+            )}
+          </div>
         </div>
         {documents.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">No documents uploaded.</p>
@@ -2425,7 +2465,7 @@ export default function Customer360DetailPage() {
           ) : activeTab === 'billing' ? (
             <BillingTab data={tabData.billing} loading={tabLoading.billing} leadId={leadId} />
           ) : activeTab === 'documents' ? (
-            <DocumentsTab data={tabData.documents} loading={tabLoading.documents} />
+            <DocumentsTab data={tabData.documents} loading={tabLoading.documents} leadId={leadId} />
           ) : activeTab === 'complaints' ? (
             <ComplaintsTab data={tabData.complaints} loading={tabLoading.complaints} />
           ) : activeTab === 'sam' ? (
