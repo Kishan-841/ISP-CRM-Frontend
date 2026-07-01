@@ -681,6 +681,7 @@ export default function Sidebar() {
       { name: 'Order Approvals', path: '/dashboard/order-approvals', icon: CheckCircle2, badge: counts.salesDirectorPending > 0 ? counts.salesDirectorPending : null },
       // Read-only view of every ISR's call outcomes; supports filtering by ISR.
       { name: 'Call History', path: '/dashboard/call-history', icon: History },
+      { name: 'Employees', path: '/dashboard/employees', icon: UserCircle },
     ] : []),
     // Super Admin only items
     ...(isSuperAdmin ? [

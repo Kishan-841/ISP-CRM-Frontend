@@ -63,6 +63,9 @@ export default function EmployeesPage() {
   useUnsavedChanges(isFormDirty);
 
   const isTL = user?.role === 'BDM_TEAM_LEADER';
+  // Sales Director may view + edit users (incl. setting a new password) but not
+  // create/delete, and never view existing passwords.
+  const isSalesDirector = user?.role === 'SALES_DIRECTOR';
   const canViewPasswords = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER';
 
   const hidePassword = useCallback((userId) => {
@@ -115,7 +118,7 @@ export default function EmployeesPage() {
   }, []);
 
   useEffect(() => {
-    if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'BDM_TEAM_LEADER' && user?.role !== 'MASTER') {
+    if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'SALES_DIRECTOR' && user?.role !== 'BDM_TEAM_LEADER' && user?.role !== 'MASTER') {
       router.push('/dashboard');
       return;
     }
@@ -232,7 +235,7 @@ export default function EmployeesPage() {
     fetchUsers({ page, limit: pageSize, search: debouncedSearch, role: roleFilter });
   }, [fetchUsers, page, pageSize, debouncedSearch, roleFilter]);
 
-  if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'BDM_TEAM_LEADER' && user?.role !== 'MASTER') {
+  if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'SALES_DIRECTOR' && user?.role !== 'BDM_TEAM_LEADER' && user?.role !== 'MASTER') {
     return null;
   }
 
@@ -253,15 +256,17 @@ export default function EmployeesPage() {
           <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {isTL ? 'Team BDMs' : 'All Employees'} ({totalUsers.toLocaleString()}{hasActiveFilter ? ' matching' : ''})
           </CardTitle>
-          <Button
-            onClick={openCreateModal}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            {isTL ? 'Add BDM' : 'Add Employee'}
-          </Button>
+          {!isSalesDirector && (
+            <Button
+              onClick={openCreateModal}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              {isTL ? 'Add BDM' : 'Add Employee'}
+            </Button>
+          )}
         </CardHeader>
 
         <CardContent className="p-0">
@@ -463,7 +468,7 @@ export default function EmployeesPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </Button>
-                          {u.id !== user.id && !isTL && (
+                          {u.id !== user.id && !isTL && !isSalesDirector && (
                             <Button
                               variant="ghost"
                               size="sm"
