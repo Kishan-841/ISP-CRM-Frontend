@@ -430,6 +430,15 @@ export default function AccountsDemoPlanPage() {
                   )
                 },
                 {
+                  key: 'reachedOn',
+                  label: 'Reached On',
+                  render: (lead) => (
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                      {lead.installationCompletedAt ? formatDate(lead.installationCompletedAt) : '—'}
+                    </span>
+                  )
+                },
+                {
                   key: 'customerUser',
                   label: 'Customer User',
                   render: (lead) => lead.customerUsername ? (

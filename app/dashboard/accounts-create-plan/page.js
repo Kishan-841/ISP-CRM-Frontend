@@ -1386,6 +1386,15 @@ export default function AccountsCreatePlanPage() {
                   )
                 },
                 {
+                  key: 'reachedOn',
+                  label: 'Reached On',
+                  render: (lead) => (
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                      {lead.customerAcceptanceAt ? formatDate(lead.customerAcceptanceAt) : '—'}
+                    </span>
+                  )
+                },
+                {
                   key: 'customerUser',
                   label: 'Customer User',
                   render: (lead) => lead.customerUsername ? (

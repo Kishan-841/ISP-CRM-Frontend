@@ -733,6 +733,15 @@ export default function AccountsVerificationPage() {
               ),
             },
             {
+              key: 'reachedOn',
+              label: 'Reached On',
+              render: (lead) => (
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  {lead.docsVerifiedAt ? formatDate(lead.docsVerifiedAt) : '—'}
+                </span>
+              ),
+            },
+            {
               key: 'contact',
               label: 'Contact',
               render: (lead) => (
@@ -1064,6 +1073,15 @@ export default function AccountsVerificationPage() {
                     </div>
                   )}
                 </div>
+              ),
+            },
+            {
+              key: 'reachedOn',
+              label: 'Reached On',
+              render: (lead) => (
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  {lead.docsVerifiedAt ? formatDate(lead.docsVerifiedAt) : '—'}
+                </span>
               ),
             },
             {
