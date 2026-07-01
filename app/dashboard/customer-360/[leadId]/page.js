@@ -176,6 +176,7 @@ async function downloadAllDocuments(leadId) {
   try {
     const response = await api.get(`/customer-360/${encodeURIComponent(leadId)}/documents/download`, {
       responseType: 'blob',
+      timeout: 0, // bundling docs can exceed the default 30s — don't time out
     });
     const cd = response.headers?.['content-disposition'] || '';
     const m = cd.match(/filename="?([^";]+)"?/i);
@@ -191,7 +192,17 @@ async function downloadAllDocuments(leadId) {
     window.URL.revokeObjectURL(url);
     toast.success('Documents downloaded', { id: t });
   } catch (err) {
-    toast.error('Failed to download documents', { id: t });
+    console.error('downloadAllDocuments error:', err?.code, err?.response?.status, err);
+    let msg = 'Failed to download documents';
+    const data = err?.response?.data;
+    if (data instanceof Blob) {
+      try { msg = JSON.parse(await data.text())?.message || msg; } catch { /* keep default */ }
+    } else if (data?.message) {
+      msg = data.message;
+    } else if (err?.code === 'ECONNABORTED') {
+      msg = 'Download timed out — too many documents. Please try again.';
+    }
+    toast.error(msg, { id: t });
   }
 }
 

@@ -118,7 +118,10 @@ export default function Customer360Page() {
     setDownloadingAll(true);
     const t = toast.loading('Preparing all documents…');
     try {
-      const response = await api.get('/customer-360/documents-report/download', { responseType: 'blob' });
+      const response = await api.get('/customer-360/documents-report/download', {
+        responseType: 'blob',
+        timeout: 0, // bundling many docs can exceed the default 30s — don't time out
+      });
       const cd = response.headers?.['content-disposition'] || '';
       const m = cd.match(/filename="?([^";]+)"?/i);
       const name = m?.[1] || 'all-customer-documents.zip';
@@ -132,7 +135,19 @@ export default function Customer360Page() {
       window.URL.revokeObjectURL(url);
       toast.success('Documents downloaded', { id: t });
     } catch (err) {
-      toast.error('Failed to download documents', { id: t });
+      // Surface the real reason instead of a generic message. When responseType
+      // is 'blob', a JSON error body arrives as a Blob and must be read out.
+      console.error('downloadAllDocs error:', err?.code, err?.response?.status, err);
+      let msg = 'Failed to download documents';
+      const data = err?.response?.data;
+      if (data instanceof Blob) {
+        try { msg = JSON.parse(await data.text())?.message || msg; } catch { /* keep default */ }
+      } else if (data?.message) {
+        msg = data.message;
+      } else if (err?.code === 'ECONNABORTED') {
+        msg = 'Download timed out — too many documents. Please try again.';
+      }
+      toast.error(msg, { id: t });
     } finally {
       setDownloadingAll(false);
     }
