@@ -19,10 +19,13 @@ import {
   IndianRupee,
   Users,
   X,
+  Download,
+  ChevronDown,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/PageHeader';
 import { formatCurrency } from '@/lib/formatters';
+import * as XLSX from 'xlsx';
 
 const STAGE_CONFIG = {
   funnel: { label: 'Funnel', dateField: null, color: 'bg-orange-600' },
@@ -69,6 +72,7 @@ export default function PipelineARCPage() {
   const [stageFilter, setStageFilter] = useState(searchParams.get('stage') || '');
   const [customFromDate, setCustomFromDate] = useState(searchParams.get('fromDate') || '');
   const [customToDate, setCustomToDate] = useState(searchParams.get('toDate') || '');
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Pagination — only affects which rows render. Totals stay computed from
   // the full filtered set so the footer always shows the grand total.
@@ -215,6 +219,36 @@ export default function PipelineARCPage() {
     { key: 'ftb', label: 'FTB Received', icon: Banknote, badgeClass: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400', dateField: 'ftbDate' },
   ];
 
+  // ── Excel export ──────────────────────────────────────────────────────────
+  const fmtExportDate = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
+  const buildExportRows = (leads) =>
+    (leads || []).map((l) => ({
+      'Company': l.company || '',
+      'Contact': l.contactName || '',
+      'Phone': l.phone && l.phone !== '-' ? l.phone : '',
+      'BDM': l.assignedToName || '',
+      'ARC': l.arcAmount ?? '',
+      'OTC': l.otcAmount ?? '',
+      'Login Date': fmtExportDate(l.loginCompletedAt),
+      'PO Received Date': fmtExportDate(l.accountsVerifiedAt),
+      'Installation Date': fmtExportDate(l.installationCompletedAt),
+      'Customer Accept Date': fmtExportDate(l.customerAcceptanceAt),
+      'FTB Date': fmtExportDate(l.ftbDate),
+      'FTB Amount': l.ftbAmount ?? '',
+    }));
+  const exportRowsToExcel = (rows, filenameBase) => {
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Note: 'No data' }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pipeline');
+    XLSX.writeFile(wb, `${filenameBase}.xlsx`);
+    setShowExportMenu(false);
+  };
+  // Filtered = exactly what the table shows (search + stage chip + period).
+  const handleExportFiltered = () =>
+    exportRowsToExcel(buildExportRows(filteredLeads), `pipeline-${stageFilter || 'all'}-filtered`);
+  // All = every pipeline lead in the current period/BDM, ignoring search + stage chip.
+  const handleExportAll = () => exportRowsToExcel(buildExportRows(pipelineLeads), 'pipeline-all');
+
   const selectedBDMName =
     selectedBDM === 'all'
       ? 'All BDMs'
@@ -332,6 +366,38 @@ export default function PipelineARCPage() {
             />
           </div>
         )}
+
+        {/* Export dropdown — filtered (current view) vs all (whole pipeline for
+            the selected period/BDM). Excel, client-side. */}
+        <div className="relative ml-auto">
+          <button
+            onClick={() => setShowExportMenu((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            <Download className="h-4 w-4" />
+            Export
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+          {showExportMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
+              <div className="absolute right-0 mt-1 z-20 w-60 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1">
+                <button
+                  onClick={handleExportFiltered}
+                  className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Export filtered data ({filteredLeads.length})
+                </button>
+                <button
+                  onClick={handleExportAll}
+                  className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Export all data ({pipelineLeads.length})
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Active Stage Filter */}
