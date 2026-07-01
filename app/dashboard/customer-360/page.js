@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useCustomer360Store } from '@/lib/store';
-import { Search, ArrowRight, Download, Loader2, Calendar, X } from 'lucide-react';
+import { Search, ArrowRight, Download, Loader2, Calendar, X, FileText, CheckCircle2 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -42,6 +42,12 @@ export default function Customer360Page() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportDateFrom, setExportDateFrom] = useState('');
   const [exportDateTo, setExportDateTo] = useState('');
+  // Documents completeness report + bulk download.
+  const [showDocReport, setShowDocReport] = useState(false);
+  const [docReportLoading, setDocReportLoading] = useState(false);
+  const [docReport, setDocReport] = useState(null); // { total, requiredCount, rows }
+  const [incompleteOnly, setIncompleteOnly] = useState(false);
+  const [downloadingAll, setDownloadingAll] = useState(false);
   const debounceRef = useRef(null);
 
   const runExport = async ({ dateFrom, dateTo } = {}) => {
@@ -88,6 +94,48 @@ export default function Customer360Page() {
     setExportDateFrom('');
     setExportDateTo('');
     setShowExportModal(true);
+  };
+
+  // Open the documents-completeness report (fast — reads only doc presence).
+  const openDocReport = async () => {
+    setShowDocReport(true);
+    setIncompleteOnly(false);
+    setDocReportLoading(true);
+    try {
+      const res = await api.get('/customer-360/documents-report');
+      setDocReport(res.data);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to load documents report');
+      setDocReport({ total: 0, requiredCount: 12, rows: [] });
+    } finally {
+      setDocReportLoading(false);
+    }
+  };
+
+  // Download every customer's documents as one ZIP (folder per company).
+  const downloadAllDocs = async () => {
+    if (downloadingAll) return;
+    setDownloadingAll(true);
+    const t = toast.loading('Preparing all documents…');
+    try {
+      const response = await api.get('/customer-360/documents-report/download', { responseType: 'blob' });
+      const cd = response.headers?.['content-disposition'] || '';
+      const m = cd.match(/filename="?([^";]+)"?/i);
+      const name = m?.[1] || 'all-customer-documents.zip';
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Documents downloaded', { id: t });
+    } catch (err) {
+      toast.error('Failed to download documents', { id: t });
+    } finally {
+      setDownloadingAll(false);
+    }
   };
 
   // Load all customers on mount
@@ -240,19 +288,25 @@ export default function Customer360Page() {
       {/* Page Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader title="Customer 360" description="Search and view complete customer lifecycle" />
-        <Button
-          onClick={handleExportClick}
-          disabled={exporting}
-          variant="outline"
-          className="gap-2"
-        >
-          {exporting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4" />
-          )}
-          {exporting ? 'Exporting…' : 'Export to Excel'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={openDocReport} variant="outline" className="gap-2">
+            <FileText className="h-4 w-4" />
+            Documents Report
+          </Button>
+          <Button
+            onClick={handleExportClick}
+            disabled={exporting}
+            variant="outline"
+            className="gap-2"
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {exporting ? 'Exporting…' : 'Export to Excel'}
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -369,6 +423,123 @@ export default function Customer360Page() {
                 {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 {exporting ? 'Exporting…' : (exportDateFrom || exportDateTo ? 'Export Range' : 'Export All')}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Documents completeness report + bulk download */}
+      {showDocReport && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !downloadingAll && setShowDocReport(false)}
+        >
+          <div
+            className="w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-orange-600" />
+                <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                  Documents Report
+                  {docReport && (
+                    <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">
+                      ({docReport.total} with documents)
+                    </span>
+                  )}
+                </h3>
+              </div>
+              <button
+                onClick={() => !downloadingAll && setShowDocReport(false)}
+                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-200 dark:border-slate-700">
+              <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={incompleteOnly}
+                  onChange={(e) => setIncompleteOnly(e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                Show incomplete only
+              </label>
+              <Button
+                size="sm"
+                onClick={downloadAllDocs}
+                disabled={downloadingAll || !docReport?.total}
+                className="bg-orange-600 hover:bg-orange-700 text-white gap-2"
+              >
+                {downloadingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {downloadingAll ? 'Preparing…' : 'Download All Documents'}
+              </Button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {docReportLoading ? (
+                <div className="flex items-center justify-center py-10 text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
+                </div>
+              ) : (() => {
+                const rows = docReport?.rows || [];
+                const shown = incompleteOnly ? rows.filter((r) => !r.complete) : rows;
+                if (shown.length === 0) {
+                  return (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
+                      {rows.length === 0 ? 'No customers have documents yet.' : 'All shown customers have complete documents.'}
+                    </p>
+                  );
+                }
+                return (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                        <th className="py-2 pr-3">Company</th>
+                        <th className="py-2 px-3 whitespace-nowrap">Docs</th>
+                        <th className="py-2 pl-3">Missing</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shown.map((r) => (
+                        <tr key={r.leadNumber} className="border-b border-slate-100 dark:border-slate-800 align-top">
+                          <td className="py-2 pr-3">
+                            <div className="font-medium text-slate-900 dark:text-white">{r.company}</div>
+                            <div className="text-xs text-slate-400">{r.leadNumber}</div>
+                          </td>
+                          <td className="py-2 px-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              r.complete
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                            }`}>
+                              {r.complete && <CheckCircle2 className="h-3 w-3" />}
+                              {r.presentCount}/{r.total}
+                            </span>
+                          </td>
+                          <td className="py-2 pl-3">
+                            {r.missing.length === 0 ? (
+                              <span className="text-xs text-emerald-600 dark:text-emerald-400">Complete</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {r.missing.map((m) => (
+                                  <span key={m} className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300 text-xs">
+                                    {m}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+              })()}
             </div>
           </div>
         </div>
