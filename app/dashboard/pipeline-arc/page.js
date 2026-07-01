@@ -67,8 +67,8 @@ export default function PipelineARCPage() {
   const [selectedBDM, setSelectedBDM] = useState(initialBDM);
   const [selectedPeriod, setSelectedPeriod] = useState(searchParams.get('period') || 'ytd');
   const [stageFilter, setStageFilter] = useState(searchParams.get('stage') || '');
-  const [customFromDate, setCustomFromDate] = useState('');
-  const [customToDate, setCustomToDate] = useState('');
+  const [customFromDate, setCustomFromDate] = useState(searchParams.get('fromDate') || '');
+  const [customToDate, setCustomToDate] = useState(searchParams.get('toDate') || '');
 
   // Pagination — only affects which rows render. Totals stay computed from
   // the full filtered set so the footer always shows the grand total.
@@ -295,6 +295,24 @@ export default function PipelineARCPage() {
             </button>
           ))}
         </div>
+
+        {/* Quarter dropdown (financial year: Q1 Apr–Jun … Q4 Jan–Mar) — kept as
+            a compact dropdown so the period row doesn't get cluttered. */}
+        <select
+          value={['q1', 'q2', 'q3', 'q4'].includes(selectedPeriod) ? selectedPeriod : ''}
+          onChange={(e) => e.target.value && setSelectedPeriod(e.target.value)}
+          className={`text-xs font-medium rounded-lg border px-2.5 py-2 bg-white dark:bg-slate-900 ${
+            ['q1', 'q2', 'q3', 'q4'].includes(selectedPeriod)
+              ? 'border-orange-500 text-orange-600 dark:text-orange-400'
+              : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+          }`}
+        >
+          <option value="">Quarter ▾</option>
+          <option value="q1">Q1 (Apr–Jun)</option>
+          <option value="q2">Q2 (Jul–Sep)</option>
+          <option value="q3">Q3 (Oct–Dec)</option>
+          <option value="q4">Q4 (Jan–Mar)</option>
+        </select>
 
         {/* Custom date inputs */}
         {selectedPeriod === 'custom' && (

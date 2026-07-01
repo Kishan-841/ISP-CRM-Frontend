@@ -46,6 +46,8 @@ export default function BDMOverallDashboard() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState('alltime');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
   const [bdmList, setBdmList] = useState([]);
   const [allMeetings, setAllMeetings] = useState([]);
   const [meetingStats, setMeetingStats] = useState({ upcoming: 0, today: 0 });
@@ -112,14 +114,21 @@ export default function BDMOverallDashboard() {
     try {
       // Map period to API format. 'alltime' omits the period param entirely —
       // the backend returns unbounded stats when no period is supplied.
-      const periodMap = {
-        '7days': 'last7days',
-        'month': 'lastMonth',
-        'year': 'lastYear',
-        'alltime': null,
-      };
-      const apiPeriod = dateRange in periodMap ? periodMap[dateRange] : 'last7days';
-      const periodQuery = apiPeriod ? `&period=${apiPeriod}` : '';
+      // Quarters (q1–q4) pass straight through; 'custom' sends fromDate/toDate.
+      let periodQuery = '';
+      if (dateRange === 'custom' && customFrom && customTo) {
+        periodQuery = `&period=custom&fromDate=${customFrom}&toDate=${customTo}`;
+      } else {
+        const periodMap = {
+          '7days': 'last7days',
+          'month': 'lastMonth',
+          'year': 'lastYear',
+          'alltime': null,
+          q1: 'q1', q2: 'q2', q3: 'q3', q4: 'q4',
+        };
+        const apiPeriod = dateRange in periodMap ? periodMap[dateRange] : null;
+        periodQuery = apiPeriod ? `&period=${apiPeriod}` : '';
+      }
 
       // For TL the backend's "userId=<tl>" path returns TL+team's stats; for
       // every other allowed role we want the platform-wide BDM aggregation
@@ -255,7 +264,7 @@ export default function BDMOverallDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateRange, user?.id, user?.role]);
+  }, [dateRange, customFrom, customTo, user?.id, user?.role]);
 
   useEffect(() => {
     if (isAllowed) {
@@ -307,7 +316,7 @@ export default function BDMOverallDashboard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1">
             {[
               { value: '7days', label: 'Last 7 Days' },
@@ -328,6 +337,54 @@ export default function BDMOverallDashboard() {
               </button>
             ))}
           </div>
+
+          {/* Quarter dropdown (financial year: Q1 Apr–Jun … Q4 Jan–Mar) — a
+              dropdown keeps the period row uncluttered vs. four more tabs. */}
+          <select
+            value={['q1', 'q2', 'q3', 'q4'].includes(dateRange) ? dateRange : ''}
+            onChange={(e) => e.target.value && setDateRange(e.target.value)}
+            className={`text-sm rounded-lg border px-2.5 py-1.5 bg-white dark:bg-slate-800 ${
+              ['q1', 'q2', 'q3', 'q4'].includes(dateRange)
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+            }`}
+          >
+            <option value="">Quarter ▾</option>
+            <option value="q1">Q1 (Apr–Jun)</option>
+            <option value="q2">Q2 (Jul–Sep)</option>
+            <option value="q3">Q3 (Oct–Dec)</option>
+            <option value="q4">Q4 (Jan–Mar)</option>
+          </select>
+
+          {/* Custom range */}
+          <button
+            onClick={() => setDateRange('custom')}
+            className={`px-3 py-1.5 text-sm rounded-lg border transition-colors whitespace-nowrap ${
+              dateRange === 'custom'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+            }`}
+          >
+            Custom
+          </button>
+          {dateRange === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="text-sm border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              />
+              <span className="text-slate-400 text-sm">to</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="text-sm border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              />
+            </div>
+          )}
+
           <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
@@ -355,9 +412,14 @@ export default function BDMOverallDashboard() {
                 onClick={() => {
                   // Propagate the active outer-period to the drill-in page
                   // so the user doesn't have to re-pick the date filter.
-                  const periodMap = { '7days': 'last7days', 'month': 'lastMonth', 'year': 'lastYear', 'alltime': null };
-                  const p = periodMap[dateRange];
-                  router.push(`/dashboard/pipeline-arc?stage=${stat.stage}${p ? `&period=${p}` : ''}`);
+                  const periodMap = { '7days': 'last7days', 'month': 'lastMonth', 'year': 'lastYear', 'alltime': null, q1: 'q1', q2: 'q2', q3: 'q3', q4: 'q4' };
+                  let periodPart = '';
+                  if (dateRange === 'custom' && customFrom && customTo) {
+                    periodPart = `&period=custom&fromDate=${customFrom}&toDate=${customTo}`;
+                  } else if (periodMap[dateRange]) {
+                    periodPart = `&period=${periodMap[dateRange]}`;
+                  }
+                  router.push(`/dashboard/pipeline-arc?stage=${stat.stage}${periodPart}`);
                 }}
               >
                 <CardContent className="p-3 md:p-4">
@@ -394,9 +456,14 @@ export default function BDMOverallDashboard() {
               <Card
                 key={i}
                 onClick={stat.stage ? () => {
-                  const periodMap = { '7days': 'last7days', 'month': 'lastMonth', 'year': 'lastYear', 'alltime': null };
-                  const p = periodMap[dateRange];
-                  router.push(`/dashboard/pipeline-arc?stage=${stat.stage}${p ? `&period=${p}` : ''}`);
+                  const periodMap = { '7days': 'last7days', 'month': 'lastMonth', 'year': 'lastYear', 'alltime': null, q1: 'q1', q2: 'q2', q3: 'q3', q4: 'q4' };
+                  let periodPart = '';
+                  if (dateRange === 'custom' && customFrom && customTo) {
+                    periodPart = `&period=custom&fromDate=${customFrom}&toDate=${customTo}`;
+                  } else if (periodMap[dateRange]) {
+                    periodPart = `&period=${periodMap[dateRange]}`;
+                  }
+                  router.push(`/dashboard/pipeline-arc?stage=${stat.stage}${periodPart}`);
                 } : undefined}
                 className={`rounded-xl md:rounded-2xl bg-white dark:bg-card border border-l-4 ${stat.borderColor} shadow-sm hover:shadow-lg transition-all duration-200 ${stat.stage ? 'cursor-pointer' : ''}`}
               >
