@@ -248,7 +248,7 @@ export default function AccountsCreatePlanPage() {
     bandwidth: '',
     uploadBandwidth: '',
     billingCycle: '30',
-    billingType: 'DAY_TO_DAY',
+    billingType: 'MONTHLY',
     price: '',
     isActive: true,
     startDate: new Date().toISOString().split('T')[0],
@@ -530,7 +530,7 @@ export default function AccountsCreatePlanPage() {
     else if (lead.actualPlanValidityDays === 180) billingCycle = '180';
     else if (lead.actualPlanValidityDays === 360 || lead.actualPlanValidityDays === 365) billingCycle = '360';
 
-    const billingType = lead.actualPlanBillingType || 'DAY_TO_DAY';
+    const billingType = lead.actualPlanBillingType || 'MONTHLY';
     const startDate = lead.actualPlanStartDate ? new Date(lead.actualPlanStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
     const { price: calcPrice } = calculatePriceFromArcWithType(lead.arcAmount, billingCycle, billingType, startDate);
     const calculatedPrice = lead.actualPlanPrice || calcPrice;
@@ -540,7 +540,7 @@ export default function AccountsCreatePlanPage() {
       bandwidth: lead.actualPlanBandwidth || lead.demoPlanBandwidth || '',
       uploadBandwidth: lead.actualPlanUploadBandwidth || lead.demoPlanUploadBandwidth || lead.actualPlanBandwidth || lead.demoPlanBandwidth || '',
       billingCycle: billingCycle,
-      billingType: lead.actualPlanBillingType || 'DAY_TO_DAY',
+      billingType: lead.actualPlanBillingType || 'MONTHLY',
       price: calculatedPrice,
       isActive: lead.actualPlanIsActive ?? true,
       startDate: lead.actualPlanStartDate ? new Date(lead.actualPlanStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -561,7 +561,7 @@ export default function AccountsCreatePlanPage() {
     else if (lead.actualPlanValidityDays === 180) billingCycle = '180';
     else if (lead.actualPlanValidityDays === 360 || lead.actualPlanValidityDays === 365) billingCycle = '360';
 
-    const billingType = lead.actualPlanBillingType || 'DAY_TO_DAY';
+    const billingType = lead.actualPlanBillingType || 'MONTHLY';
     const startDate = lead.actualPlanStartDate ? new Date(lead.actualPlanStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
     const { price: calcPrice } = calculatePriceFromArcWithType(lead.arcAmount, billingCycle, billingType, startDate);
     const calculatedPrice = lead.actualPlanPrice || calcPrice;
@@ -571,7 +571,7 @@ export default function AccountsCreatePlanPage() {
       bandwidth: lead.actualPlanBandwidth || lead.demoPlanBandwidth || '',
       uploadBandwidth: lead.actualPlanUploadBandwidth || lead.demoPlanUploadBandwidth || lead.actualPlanBandwidth || lead.demoPlanBandwidth || '',
       billingCycle: billingCycle,
-      billingType: lead.actualPlanBillingType || 'DAY_TO_DAY',
+      billingType: lead.actualPlanBillingType || 'MONTHLY',
       price: calculatedPrice,
       // Default a NEW plan to ACTIVE so the accounts user can't miss the toggle
       // (an inactive plan silently skips invoicing AND the SAM activation webhook).
@@ -634,7 +634,7 @@ export default function AccountsCreatePlanPage() {
       bandwidth: '',
       uploadBandwidth: '',
       billingCycle: '30',
-      billingType: 'DAY_TO_DAY',
+      billingType: 'MONTHLY',
       price: '',
       isActive: true,
       startDate: new Date().toISOString().split('T')[0],
