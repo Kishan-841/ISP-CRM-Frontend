@@ -538,7 +538,7 @@ export default function AccountsCreatePlanPage() {
     setPlanForm({
       planName: lead.actualPlanName || generatePlanName(lead.customerUsername, lead.bandwidthRequirement),
       bandwidth: lead.actualPlanBandwidth || lead.demoPlanBandwidth || '',
-      uploadBandwidth: lead.actualPlanUploadBandwidth || lead.demoPlanUploadBandwidth || '',
+      uploadBandwidth: lead.actualPlanUploadBandwidth || lead.demoPlanUploadBandwidth || lead.actualPlanBandwidth || lead.demoPlanBandwidth || '',
       billingCycle: billingCycle,
       billingType: lead.actualPlanBillingType || 'DAY_TO_DAY',
       price: calculatedPrice,
@@ -569,7 +569,7 @@ export default function AccountsCreatePlanPage() {
     setPlanForm({
       planName: lead.actualPlanName || generatePlanName(lead.customerUsername, lead.bandwidthRequirement),
       bandwidth: lead.actualPlanBandwidth || lead.demoPlanBandwidth || '',
-      uploadBandwidth: lead.actualPlanUploadBandwidth || lead.demoPlanUploadBandwidth || '',
+      uploadBandwidth: lead.actualPlanUploadBandwidth || lead.demoPlanUploadBandwidth || lead.actualPlanBandwidth || lead.demoPlanBandwidth || '',
       billingCycle: billingCycle,
       billingType: lead.actualPlanBillingType || 'DAY_TO_DAY',
       price: calculatedPrice,
