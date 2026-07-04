@@ -149,16 +149,20 @@ const calculateMonthEndDays = (startDateStr, billingCycleDays) => {
  * For Day to Day billing: uses standard cycle days (30, 90, 180, 360).
  */
 const calculatePriceFromArcWithType = (arcAmount, billingCycleDays, billingType, startDate) => {
-  if (!arcAmount || isNaN(arcAmount)) return { price: 0, actualDays: parseInt(billingCycleDays) || 30 };
+  if (!arcAmount || isNaN(arcAmount)) return { price: 0, actualDays: parseInt(billingCycleDays) || 30, firstInvoice: 0 };
   const arc = parseFloat(arcAmount);
+  const cycleDays = parseInt(billingCycleDays);
+  // The STORED plan price is always the FULL cycle price. The backend pro-rates
+  // the first (mid-month) month-end invoice exactly once — storing the
+  // already-pro-rated amount here would double-pro-rate the bill.
+  const fullPrice = Math.round((arc / 360) * cycleDays);
 
   if (billingType === 'MONTHLY' && startDate) {
     const { days } = calculateMonthEndDays(startDate, billingCycleDays);
-    return { price: Math.round((arc / 360) * days), actualDays: days };
+    return { price: fullPrice, actualDays: days, firstInvoice: Math.round((arc / 360) * days) };
   }
 
-  const days = parseInt(billingCycleDays);
-  return { price: Math.round((arc / 360) * days), actualDays: days };
+  return { price: fullPrice, actualDays: cycleDays, firstInvoice: fullPrice };
 };
 
 // Get billing cycle label
@@ -1638,14 +1642,19 @@ export default function AccountsCreatePlanPage() {
                       className="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
                     />
                     {selectedLead?.arcAmount && (() => {
-                      const { actualDays } = calculatePriceFromArcWithType(selectedLead.arcAmount, planForm.billingCycle, planForm.billingType, planForm.startDate);
+                      const { actualDays, firstInvoice } = calculatePriceFromArcWithType(selectedLead.arcAmount, planForm.billingCycle, planForm.billingType, planForm.startDate);
+                      const isProrated = planForm.billingType === 'MONTHLY' && actualDays !== parseInt(planForm.billingCycle);
                       return (
-                        <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                          Based on ARC: {formatCurrency(selectedLead.arcAmount)} ÷ 360 × {actualDays} days
-                          {planForm.billingType === 'MONTHLY' && actualDays !== parseInt(planForm.billingCycle) && (
-                            <span className="text-amber-600 dark:text-amber-400"> (pro-rated for month-end)</span>
+                        <>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                            Full cycle price: {formatCurrency(selectedLead.arcAmount)} ÷ 360 × {planForm.billingCycle} days
+                          </p>
+                          {isProrated && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                              First invoice (pro-rated, {actualDays} days): {formatCurrency(firstInvoice)}
+                            </p>
                           )}
-                        </p>
+                        </>
                       );
                     })()}
                   </div>
@@ -1739,13 +1748,13 @@ export default function AccountsCreatePlanPage() {
                         { cycle: '180', label: 'Half Yearly' },
                         { cycle: '360', label: 'Yearly' }
                       ].map(({ cycle, label }) => {
-                        const { price: cyclePrice, actualDays } = calculatePriceFromArcWithType(
+                        const { price: cyclePrice } = calculatePriceFromArcWithType(
                           selectedLead.arcAmount, cycle, planForm.billingType, planForm.startDate
                         );
                         const isSelected = planForm.billingCycle === cycle;
                         return (
                           <div key={cycle} className={`p-2 rounded ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/30 ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-700'}`}>
-                            <span className="text-slate-600 dark:text-slate-400">{label} ({actualDays}d):</span>
+                            <span className="text-slate-600 dark:text-slate-400">{label} ({cycle}d):</span>
                             <span className="ml-1 font-medium">{formatCurrency(cyclePrice)}</span>
                           </div>
                         );
@@ -1754,23 +1763,42 @@ export default function AccountsCreatePlanPage() {
 
                     {/* Selected billing cycle calculation */}
                     {planForm.price && (() => {
-                      const { actualDays } = calculatePriceFromArcWithType(selectedLead.arcAmount, planForm.billingCycle, planForm.billingType, planForm.startDate);
+                      const { actualDays, firstInvoice } = calculatePriceFromArcWithType(selectedLead.arcAmount, planForm.billingCycle, planForm.billingType, planForm.startDate);
+                      const isProrated = planForm.billingType === 'MONTHLY' && actualDays !== parseInt(planForm.billingCycle);
+                      const p = calculatePricing(planForm.price);
+                      const first = calculatePricing(firstInvoice);
                       return (
                       <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-600">
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Base Price ({getBillingCycleDaysLabel(planForm.billingCycle)} — {actualDays} days)</span>
-                          <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(calculatePricing(planForm.price).base)}</span>
+                          <span className="text-slate-600 dark:text-slate-400">Base Price ({getBillingCycleDaysLabel(planForm.billingCycle)} — {planForm.billingCycle} days)</span>
+                          <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(p.base)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-600 dark:text-slate-400">GST (18%)</span>
-                          <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(calculatePricing(planForm.price).gst)}</span>
+                          <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(p.gst)}</span>
                         </div>
                         <div className="border-t border-slate-200 dark:border-slate-600 pt-2 mt-2">
                           <div className="flex justify-between text-sm">
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">Total Amount (incl. GST)</span>
-                            <span className="font-bold text-emerald-600">{formatCurrency(calculatePricing(planForm.price).total)}</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">Total (full cycle, incl. GST)</span>
+                            <span className="font-bold text-emerald-600">{formatCurrency(p.total)}</span>
                           </div>
                         </div>
+                        {isProrated && (
+                          <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800 space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-amber-700 dark:text-amber-400">First invoice ({actualDays} days, pro-rated)</span>
+                              <span className="font-medium text-amber-700 dark:text-amber-400">{formatCurrency(first.base)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-amber-600 dark:text-amber-500">
+                              <span>+ GST (18%)</span>
+                              <span>{formatCurrency(first.gst)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm font-semibold text-amber-700 dark:text-amber-400">
+                              <span>First invoice total</span>
+                              <span>{formatCurrency(first.total)}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       );
                     })()}
