@@ -29,7 +29,8 @@ import {
   Wifi,
   Hash,
   Plus,
-  Search
+  Search,
+  Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CreateVendorModal from '@/components/CreateVendorModal';
@@ -72,6 +73,7 @@ export default function FeasibilityQueuePage() {
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromUrl || 'pending');
+  const [exporting, setExporting] = useState(false);
 
   // Disposition state
   const [decision, setDecision] = useState('');
@@ -641,6 +643,28 @@ export default function FeasibilityQueuePage() {
           </div>
         )
       });
+
+      // CAPEX / OPEX estimates set during feasibility review (reviewed leads only)
+      columns.push(
+        {
+          key: 'capex',
+          label: 'CAPEX',
+          render: (lead) => (
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              {lead.tentativeCapex != null ? `₹${Number(lead.tentativeCapex).toLocaleString('en-IN')}` : '-'}
+            </span>
+          )
+        },
+        {
+          key: 'opex',
+          label: 'OPEX',
+          render: (lead) => (
+            <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
+              {lead.tentativeOpex != null ? `₹${Number(lead.tentativeOpex).toLocaleString('en-IN')}` : '-'}
+            </span>
+          )
+        }
+      );
     }
 
     columns.push(
@@ -714,6 +738,41 @@ export default function FeasibilityQueuePage() {
     return 'No rejected leads. Rejected leads will appear here.';
   };
 
+  // Export the current tab's leads to Excel (Name, Address, Bandwidth, IPs, BDM, CAPEX, OPEX)
+  const handleExportExcel = async () => {
+    if (!currentList.length) {
+      toast.error('Nothing to export');
+      return;
+    }
+    setExporting(true);
+    try {
+      const XLSX = await import('xlsx');
+      const formatted = currentList.map((lead) => ({
+        'Name': lead.company || lead.name || '',
+        'Address': lead.fullAddress || lead.location || lead.city || '',
+        'Bandwidth': lead.bandwidthRequirement || '',
+        'IPs': lead.numberOfIPs ?? '',
+        'BDM': lead.bdm?.name || '',
+        'CAPEX': lead.tentativeCapex ?? '',
+        'OPEX': lead.tentativeOpex ?? '',
+      }));
+      const ws = XLSX.utils.json_to_sheet(formatted);
+      const headers = Object.keys(formatted[0]);
+      ws['!cols'] = headers.map((h) => ({
+        wch: Math.min(60, Math.max(h.length, ...formatted.map((row) => String(row[h] ?? '').length)) + 2),
+      }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Feasibility');
+      const stamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `feasibility_${activeTab}_${stamp}.xlsx`);
+      toast.success(`Exported ${formatted.length} lead${formatted.length === 1 ? '' : 's'}`);
+    } catch (e) {
+      toast.error('Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -743,6 +802,20 @@ export default function FeasibilityQueuePage() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
+
+      {/* Export */}
+      <div className="flex justify-end">
+        <Button
+          onClick={handleExportExcel}
+          disabled={exporting || !currentList.length}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <Download size={14} />
+          {exporting ? 'Exporting…' : 'Export to Excel'}
+        </Button>
+      </div>
 
       {/* Queue List */}
       <DataTable
