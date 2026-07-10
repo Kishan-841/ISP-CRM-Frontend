@@ -160,16 +160,25 @@ const calculatePriceFromArcWithType = (arcAmount, billingCycleDays, billingType,
   const cycleDays = parseInt(billingCycleDays);
   const isMonthly = cycleDays === 30;
   // MONTHLY plans price off ARC ÷ 12 months (a month is a month regardless of
-  // 28/30/31 calendar days), and the daily rate for the pro-rated first period
-  // is that monthly ÷ 30. Longer cycles price off ARC ÷ 360 × cycle days.
+  // 28/30/31 days). The first partial period is pro-rated by the CALENDAR days
+  // of the start month: (ARC/12) ÷ daysInMonth × remaining days.
+  //   e.g. 18 May → (ARC/12) ÷ 31 × 14. Longer cycles: ARC ÷ 360 × cycle days.
   // The STORED plan price is always the FULL cycle price; the backend pro-rates
   // the first (mid-month) invoice exactly once.
-  const dailyRate = isMonthly ? (arc / 12) / 30 : arc / 360;
   const fullPrice = isMonthly ? Math.round(arc / 12) : Math.round((arc / 360) * cycleDays);
 
   if (billingType === 'MONTHLY' && startDate) {
     const { days } = calculateMonthEndDays(startDate, billingCycleDays);
-    return { price: fullPrice, actualDays: days, firstInvoice: Math.round(dailyRate * days) };
+    let firstInvoice;
+    if (isMonthly) {
+      const s = new Date(startDate);
+      const daysInMonth = new Date(s.getFullYear(), s.getMonth() + 1, 0).getDate();
+      // Mirror the backend: fullPrice × remaining days ÷ daysInMonth, 2 decimals.
+      firstInvoice = Math.round((fullPrice * days / daysInMonth) * 100) / 100;
+    } else {
+      firstInvoice = Math.round((arc / 360) * days);
+    }
+    return { price: fullPrice, actualDays: days, firstInvoice };
   }
 
   return { price: fullPrice, actualDays: cycleDays, firstInvoice: fullPrice };
