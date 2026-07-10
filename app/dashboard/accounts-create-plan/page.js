@@ -124,22 +124,28 @@ const getCycleMonths = (billingCycleDays) => {
 
 /**
  * Calculate the billable number of days for Month End billing from a start date.
- * Days = full cycle days − days already elapsed in the start month + 1 (to
- * include the start day itself). The billing period still ENDS at the last day
- * of (startMonth + cycleMonths − 1); `days` is the pro-rate day-count, not the
- * literal calendar-day span.
- *   e.g. Jun 22, 90-day quarter → 90 − 22 + 1 = 69
- *        Jun 15, 120-day cycle  → 120 − 15 + 1 = 106
+ * The billing period still ENDS at the last day of (startMonth + cycleMonths − 1).
+ *
+ * For the MONTHLY cycle the first partial period runs to the end of the START
+ * MONTH, so the day-count uses the ACTUAL number of days in that month (May=31,
+ * Apr=30, Feb=28/29), NOT a fixed 30:
+ *   18 May → 31 − 18 + 1 = 14
+ * Longer cycles (quarter/half/year) keep the cycle-day basis:
+ *   Jun 22, 90-day quarter → 90 − 22 + 1 = 69
  * Returns { days, endDate }
  */
 const calculateMonthEndDays = (startDateStr, billingCycleDays) => {
   if (!startDateStr) return { days: parseInt(billingCycleDays) || 30, endDate: null };
   const start = new Date(startDateStr);
+  const cycleDays = parseInt(billingCycleDays);
   const cycleMonths = getCycleMonths(billingCycleDays);
   // Billing period still ends at the last day of (startMonth + cycleMonths − 1)
   const endDate = new Date(start.getFullYear(), start.getMonth() + cycleMonths, 0);
-  // Pro-rate day-count = cycle days − day-of-month + 1
-  const days = parseInt(billingCycleDays) - start.getDate() + 1;
+  // MONTHLY cycle → base on actual days in the start month; longer cycles → cycle days.
+  const basis = cycleDays === 30
+    ? new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate()
+    : cycleDays;
+  const days = basis - start.getDate() + 1;
   return { days, endDate };
 };
 
