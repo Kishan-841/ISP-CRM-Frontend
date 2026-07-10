@@ -158,14 +158,18 @@ const calculatePriceFromArcWithType = (arcAmount, billingCycleDays, billingType,
   if (!arcAmount || isNaN(arcAmount)) return { price: 0, actualDays: parseInt(billingCycleDays) || 30, firstInvoice: 0 };
   const arc = parseFloat(arcAmount);
   const cycleDays = parseInt(billingCycleDays);
-  // The STORED plan price is always the FULL cycle price. The backend pro-rates
-  // the first (mid-month) month-end invoice exactly once — storing the
-  // already-pro-rated amount here would double-pro-rate the bill.
-  const fullPrice = Math.round((arc / 360) * cycleDays);
+  const isMonthly = cycleDays === 30;
+  // MONTHLY plans price off ARC ÷ 12 months (a month is a month regardless of
+  // 28/30/31 calendar days), and the daily rate for the pro-rated first period
+  // is that monthly ÷ 30. Longer cycles price off ARC ÷ 360 × cycle days.
+  // The STORED plan price is always the FULL cycle price; the backend pro-rates
+  // the first (mid-month) invoice exactly once.
+  const dailyRate = isMonthly ? (arc / 12) / 30 : arc / 360;
+  const fullPrice = isMonthly ? Math.round(arc / 12) : Math.round((arc / 360) * cycleDays);
 
   if (billingType === 'MONTHLY' && startDate) {
     const { days } = calculateMonthEndDays(startDate, billingCycleDays);
-    return { price: fullPrice, actualDays: days, firstInvoice: Math.round((arc / 360) * days) };
+    return { price: fullPrice, actualDays: days, firstInvoice: Math.round(dailyRate * days) };
   }
 
   return { price: fullPrice, actualDays: cycleDays, firstInvoice: fullPrice };
@@ -1649,11 +1653,15 @@ export default function AccountsCreatePlanPage() {
                     />
                     {selectedLead?.arcAmount && (() => {
                       const { actualDays, firstInvoice } = calculatePriceFromArcWithType(selectedLead.arcAmount, planForm.billingCycle, planForm.billingType, planForm.startDate);
-                      const isProrated = planForm.billingType === 'MONTHLY' && actualDays !== parseInt(planForm.billingCycle);
+                      // Month-end billing pro-rates the first invoice only for a mid-month start (not the 1st).
+                      const isProrated = planForm.billingType === 'MONTHLY' && planForm.startDate && new Date(planForm.startDate).getDate() !== 1;
+                      const isMonthly = parseInt(planForm.billingCycle) === 30;
                       return (
                         <>
                           <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                            Full cycle price: {formatCurrency(selectedLead.arcAmount)} ÷ 360 × {planForm.billingCycle} days
+                            Full cycle price: {isMonthly
+                              ? `${formatCurrency(selectedLead.arcAmount)} ÷ 12 months`
+                              : `${formatCurrency(selectedLead.arcAmount)} ÷ 360 × ${planForm.billingCycle} days`}
                           </p>
                           {isProrated && (
                             <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
@@ -1770,13 +1778,14 @@ export default function AccountsCreatePlanPage() {
                     {/* Selected billing cycle calculation */}
                     {planForm.price && (() => {
                       const { actualDays, firstInvoice } = calculatePriceFromArcWithType(selectedLead.arcAmount, planForm.billingCycle, planForm.billingType, planForm.startDate);
-                      const isProrated = planForm.billingType === 'MONTHLY' && actualDays !== parseInt(planForm.billingCycle);
+                      const isProrated = planForm.billingType === 'MONTHLY' && planForm.startDate && new Date(planForm.startDate).getDate() !== 1;
+                      const isMonthly = parseInt(planForm.billingCycle) === 30;
                       const p = calculatePricing(planForm.price);
                       const first = calculatePricing(firstInvoice);
                       return (
                       <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-600">
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Base Price ({getBillingCycleDaysLabel(planForm.billingCycle)} — {planForm.billingCycle} days)</span>
+                          <span className="text-slate-600 dark:text-slate-400">Base Price ({isMonthly ? `${getBillingCycleDaysLabel(planForm.billingCycle)} — ARC ÷ 12` : `${getBillingCycleDaysLabel(planForm.billingCycle)} — ${planForm.billingCycle} days`})</span>
                           <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(p.base)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
