@@ -140,7 +140,7 @@ export default function StoreRequestsPage() {
 
   const handleSelectInventoryForItem = (itemId, inventoryItem, serialNumber) => {
     setAssignments(prev => {
-      const current = prev[itemId] || { serialsByPo: {}, bulkPoItemId: null, bulkQuantity: 0 };
+      const current = prev[itemId] || { serialsByPo: {}, bulkByPo: {} };
       const poId = inventoryItem.id;
 
       // Toggle the serial within ITS OWN PO bucket. A serialized item can be
@@ -161,32 +161,51 @@ export default function StoreRequestsPage() {
           ...current,
           serialsByPo: nextSerialsByPo,
           // Choosing serials clears any bulk selection for this item.
-          bulkPoItemId: null,
-          bulkQuantity: 0
+          bulkByPo: {}
         }
       };
     });
   };
 
-  // Handle bulk quantity input for items like fiber
-  const handleBulkQuantityChange = (itemId, inventoryItem, quantity, maxAvailable) => {
-    const validQuantity = Math.min(Math.max(0, parseInt(quantity) || 0), maxAvailable);
-    setAssignments(prev => ({
-      ...prev,
-      [itemId]: {
-        serialsByPo: {},
-        bulkPoItemId: inventoryItem.id,
-        bulkQuantity: validQuantity
-      }
-    }));
+  // Handle bulk quantity input for items like fiber. A bulk item can be drawn
+  // from SEVERAL POs at once, so each PO keeps its own quantity — typing into
+  // one PO must not clear what was entered against another.
+  const handleBulkQuantityChange = (itemId, inventoryItem, quantity, maxAvailable, requiredQty) => {
+    setAssignments(prev => {
+      const current = prev[itemId] || { serialsByPo: {}, bulkByPo: {} };
+      const nextBulkByPo = { ...(current.bulkByPo || {}) };
+
+      // Clamp to this PO's stock AND to the requirement still unfilled by the
+      // other POs, so the total across POs can never exceed what's required.
+      const otherTotal = Object.entries(nextBulkByPo)
+        .filter(([poId]) => poId !== inventoryItem.id)
+        .reduce((sum, [, qty]) => sum + (Number(qty) || 0), 0);
+      const headroom = Math.max(0, (requiredQty ?? maxAvailable) - otherTotal);
+      const validQuantity = Math.min(Math.max(0, parseInt(quantity) || 0), maxAvailable, headroom);
+
+      if (validQuantity > 0) nextBulkByPo[inventoryItem.id] = validQuantity;
+      else delete nextBulkByPo[inventoryItem.id];
+
+      return {
+        ...prev,
+        [itemId]: {
+          ...current,
+          // Entering a bulk quantity clears any serial selection for this item.
+          serialsByPo: {},
+          bulkByPo: nextBulkByPo
+        }
+      };
+    });
   };
 
   const getSelectedCount = (itemId) => {
     const assignment = assignments[itemId];
     if (!assignment) return 0;
-    // Bulk quantity if set, otherwise the total serial count summed across
-    // every PO the item is being fulfilled from.
-    if (assignment.bulkQuantity) return assignment.bulkQuantity;
+    // Bulk total summed across every PO, otherwise the total serial count
+    // summed across every PO the item is being fulfilled from.
+    const bulkTotal = Object.values(assignment.bulkByPo || {})
+      .reduce((sum, qty) => sum + (Number(qty) || 0), 0);
+    if (bulkTotal > 0) return bulkTotal;
     const byPo = assignment.serialsByPo || {};
     return Object.values(byPo).reduce((sum, arr) => sum + (arr?.length || 0), 0);
   };
@@ -199,9 +218,9 @@ export default function StoreRequestsPage() {
   const handleAssignItems = async () => {
     if (!selectedRequest) return;
 
-    // Build assignments array. Serialized items can draw from multiple POs, so
-    // we send a `sources` list (one entry per PO) plus the flat union of serials
-    // for backward compatibility. Bulk items remain a single PO + quantity.
+    // Build assignments array. Both serialized and bulk items can draw from
+    // multiple POs, so we send a per-PO list (`sources` / `bulkSources`) plus a
+    // flat union / total for backward compatibility.
     const assignmentData = selectedRequest.items.map(item => {
       const assignment = assignments[item.id];
       if (!assignment) return null;
@@ -221,13 +240,20 @@ export default function StoreRequestsPage() {
         };
       }
 
-      if (assignment.bulkQuantity > 0) {
+      const bulkSources = Object.entries(assignment.bulkByPo || {})
+        .filter(([, qty]) => Number(qty) > 0)
+        .map(([poItemId, qty]) => ({ poItemId, bulkQuantity: Number(qty) }));
+
+      if (bulkSources.length > 0) {
+        const bulkTotal = bulkSources.reduce((sum, s) => sum + s.bulkQuantity, 0);
         return {
           itemId: item.id,
-          poItemId: assignment.bulkPoItemId || null,
+          bulkSources,
+          // Legacy/back-compat: first PO + the TOTAL across every source.
+          poItemId: bulkSources[0].poItemId,
           serialNumbers: [],
           quantity: item.quantity,
-          bulkQuantity: assignment.bulkQuantity
+          bulkQuantity: bulkTotal
         };
       }
 
@@ -797,8 +823,8 @@ export default function StoreRequestsPage() {
                                           type="number"
                                           min="0"
                                           max={Math.min(inv.availableQuantity, item.quantity)}
-                                          value={assignments[item.id]?.bulkPoItemId === inv.id ? (assignments[item.id]?.bulkQuantity || '') : ''}
-                                          onChange={(e) => handleBulkQuantityChange(item.id, inv, e.target.value, Math.min(inv.availableQuantity, item.quantity))}
+                                          value={assignments[item.id]?.bulkByPo?.[inv.id] || ''}
+                                          onChange={(e) => handleBulkQuantityChange(item.id, inv, e.target.value, Math.min(inv.availableQuantity, item.quantity), item.quantity)}
                                           placeholder="0"
                                           className="w-24 h-10 text-center text-lg font-bold"
                                         />
@@ -932,8 +958,8 @@ export default function StoreRequestsPage() {
                                           type="number"
                                           min="0"
                                           max={Math.min(inv.availableQuantity, item.quantity)}
-                                          value={assignments[item.id]?.bulkPoItemId === inv.id ? (assignments[item.id]?.bulkQuantity || '') : ''}
-                                          onChange={(e) => handleBulkQuantityChange(item.id, inv, e.target.value, Math.min(inv.availableQuantity, item.quantity))}
+                                          value={assignments[item.id]?.bulkByPo?.[inv.id] || ''}
+                                          onChange={(e) => handleBulkQuantityChange(item.id, inv, e.target.value, Math.min(inv.availableQuantity, item.quantity), item.quantity)}
                                           placeholder="0"
                                           className="w-24 h-10 text-center text-lg font-bold"
                                         />
