@@ -59,7 +59,7 @@ import {
 } from 'lucide-react';
 import DocumentUploadSlot from '@/components/DocumentUploadSlot';
 import DocumentPreviewModal from '@/components/DocumentPreviewModal';
-import { getAllDocumentTypes, getVisibleDocumentTypes, getUploadProgress, getMissingDocuments, getDocumentTypeById, getRequiredCount } from '@/lib/documentTypes';
+import { getAllDocumentTypes, getVisibleDocumentTypes, getUploadProgress, getMissingDocuments, getDocumentTypeById, getRequiredCount, splitDocuments } from '@/lib/documentTypes';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
 import { useModal } from '@/lib/useModal';
 import { formatCurrency } from '@/lib/formatters';
@@ -228,6 +228,8 @@ export default function QuotationManagementPage() {
   const [hasGst, setHasGst] = useState(true);
   const [leadDocuments, setLeadDocuments] = useState({});
   const [uploadingType, setUploadingType] = useState(null);
+  // Name for the next "Others" document (each upload becomes its own OTHER_<id>).
+  const [otherLabel, setOtherLabel] = useState('');
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
 
@@ -506,7 +508,9 @@ export default function QuotationManagementPage() {
     setLinkExpiryDays(7);
     setCustomerNote('');
     // Initialize all documents as selected for link generation
-    setSelectedDocsForLink(getAllDocumentTypes().map(d => d.id));
+    // "Others" is staff-only (multi-file, server-minted keys) — never offered on
+    // the customer upload link.
+    setSelectedDocsForLink(getAllDocumentTypes().filter(d => d.id !== 'OTHERS').map(d => d.id));
     // Reset advance OTC states
     const existingAdvanceOtc = lead.documents?.ADVANCE_OTC;
     setAdvanceOtcMethod(existingAdvanceOtc?.paymentMethod || '');
@@ -2911,7 +2915,12 @@ export default function QuotationManagementPage() {
         // hasOtc is set at quote creation; non-OTC leads also drop ADVANCE_OTC
         // from the docs grid, customer-link selector and progress count.
         const hasOtcForLead = selectedLead?.hasOtc !== false;
-        const allDocTypes = getVisibleDocumentTypes({ hasGst, hasOtc: hasOtcForLead });
+        // "Others" is excluded from the fixed grid + customer-link selector: it's
+        // a staff-only multi-file bucket rendered in its own section below (each
+        // upload becomes its own OTHER_<id> doc with a name).
+        const allDocTypes = getVisibleDocumentTypes({ hasGst, hasOtc: hasOtcForLead })
+          .filter(d => d.id !== 'OTHERS');
+        const otherDocs = splitDocuments(leadDocuments).others;
         const bdmDocTypes = allDocTypes.filter(d => !customerDocIds.includes(d.id));
         const customerDocTypes = allDocTypes.filter(d => customerDocIds.includes(d.id));
         const requiredDocsCount = getRequiredCount(testMode, { hasGst, hasOtc: hasOtcForLead });
@@ -3339,6 +3348,119 @@ export default function QuotationManagementPage() {
                           </div>
                         );
                       })}
+                    </div>
+
+                    {/* Others — any additional document not in the list above.
+                        Unlike the fixed types, this holds MANY files, each named. */}
+                    <div className="mt-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                          <FileText size={14} />
+                          Others
+                          <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                            (optional — any doc required but not listed above)
+                          </span>
+                        </h3>
+                        {otherDocs.length > 0 && (
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            {otherDocs.length} uploaded
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Existing "Others" documents */}
+                      {otherDocs.length > 0 && (
+                        <div className="space-y-1.5 mb-2">
+                          {otherDocs.map((doc) => (
+                            <div
+                              key={doc.key}
+                              className="flex items-center justify-between gap-2 p-2 bg-white dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-700"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                                  {doc.label || 'Other Document'}
+                                </p>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                  {doc.originalName}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <a
+                                  href={doc.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] px-2 py-1 rounded text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30"
+                                >
+                                  View
+                                </a>
+                                <button
+                                  onClick={async () => {
+                                    const result = await removeDocument(selectedLead.id, doc.key);
+                                    if (result.success) {
+                                      setLeadDocuments(result.documents || {});
+                                      toast.success('Document removed');
+                                    } else {
+                                      toast.error(result.error || 'Failed to remove document');
+                                    }
+                                  }}
+                                  className="text-[11px] px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add another: name + file */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={otherLabel}
+                          onChange={(e) => setOtherLabel(e.target.value)}
+                          placeholder="Document name (e.g. Board Resolution)"
+                          className="flex-1 h-9 px-2 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                        />
+                        <label
+                          className={`text-xs px-3 h-9 flex items-center rounded cursor-pointer whitespace-nowrap ${
+                            otherLabel.trim()
+                              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                              : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
+                          }`}
+                        >
+                          {uploadingType === 'OTHERS' ? 'Uploading…' : 'Upload'}
+                          <input
+                            type="file"
+                            className="hidden"
+                            disabled={!otherLabel.trim() || uploadingType === 'OTHERS'}
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx,.xls"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const name = otherLabel.trim();
+                              if (!name) {
+                                toast.error('Please enter a name for the document');
+                                return;
+                              }
+                              setUploadingType('OTHERS');
+                              const result = await uploadDocument(selectedLead.id, 'OTHERS', file, { label: name });
+                              if (result.success) {
+                                setLeadDocuments(result.documents || {});
+                                setOtherLabel('');
+                                toast.success(`${name} uploaded`);
+                              } else {
+                                toast.error(result.error || 'Failed to upload document');
+                              }
+                              setUploadingType(null);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                        Name the document first, then choose the file. Others don&apos;t count toward the required documents.
+                      </p>
                     </div>
 
                   </div>

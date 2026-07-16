@@ -56,7 +56,9 @@ import { InlineError } from '@/components/ui/inline-error';
 const getDocumentsArray = (documents) => {
   if (!documents) return [];
   if (Array.isArray(documents)) return documents;
-  return Object.values(documents);
+  // Keep the map key: "Others" docs are stored under dynamic OTHER_<id> keys and
+  // all share documentType 'OTHERS', so the key is what makes each one unique.
+  return Object.entries(documents).map(([key, value]) => ({ key, ...value }));
 };
 
 // Helper to get document count
@@ -1913,8 +1915,11 @@ export default function AccountsVerificationPage() {
                   <div className="space-y-2">
                     {getDocumentsArray(selectedLead.documents).map((doc, index) => {
                       const docTypeInfo = doc.documentType ? getDocumentTypeById(doc.documentType) : null;
+                      // An "Others" doc shows the name the BDM gave it, not the
+                      // generic "Others" type label.
+                      const docLabel = doc.label || docTypeInfo?.label;
                       return (
-                        <div key={doc.documentType || index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                        <div key={doc.key || doc.documentType || index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                           <div className="flex items-center gap-3">
                             {getFileIcon(doc.mimetype)}
                             <div>
@@ -1922,9 +1927,9 @@ export default function AccountsVerificationPage() {
                                 <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                   {doc.originalName}
                                 </p>
-                                {docTypeInfo && (
+                                {docLabel && (
                                   <Badge variant="outline" className="text-xs bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800">
-                                    {docTypeInfo.label}
+                                    {docLabel}
                                   </Badge>
                                 )}
                               </div>

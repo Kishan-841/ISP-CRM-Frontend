@@ -47,7 +47,9 @@ const getDocumentsArray = (documents) => {
   // If already an array (legacy format), return as-is
   if (Array.isArray(documents)) return documents;
   // If object (new typed format), convert to array
-  return Object.values(documents);
+  // Keep the map key: "Others" docs are stored under dynamic OTHER_<id> keys and
+  // all share documentType 'OTHERS', so the key is what makes each one unique.
+  return Object.entries(documents).map(([key, value]) => ({ key, ...value }));
 };
 
 // Helper to get document count
@@ -1032,8 +1034,11 @@ export default function DocsVerificationPage() {
                     {getDocumentsArray(selectedLead.documents).map((doc, index) => {
                       const docTypeInfo = doc.documentType ? getDocumentTypeById(doc.documentType) : null;
                       const isAdvanceOtc = doc.documentType === 'ADVANCE_OTC';
+                      // An "Others" doc shows the name the BDM gave it, not the
+                      // generic "Others" type label.
+                      const docLabel = doc.label || docTypeInfo?.label;
                       return (
-                        <div key={doc.documentType || index} className={`p-3 rounded-lg ${isAdvanceOtc ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700' : 'bg-slate-50 dark:bg-slate-800'}`}>
+                        <div key={doc.key || doc.documentType || index} className={`p-3 rounded-lg ${isAdvanceOtc ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700' : 'bg-slate-50 dark:bg-slate-800'}`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               {getFileIcon(doc.mimetype)}
@@ -1042,9 +1047,9 @@ export default function DocsVerificationPage() {
                                   <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                     {doc.originalName}
                                   </p>
-                                  {docTypeInfo && (
+                                  {docLabel && (
                                     <Badge variant="outline" className={`text-xs ${isAdvanceOtc ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-600' : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'}`}>
-                                      {docTypeInfo.label}
+                                      {docLabel}
                                     </Badge>
                                   )}
                                 </div>
@@ -1317,7 +1322,7 @@ export default function DocsVerificationPage() {
                     </h2>
                     {previewDoc.documentType && (
                       <Badge className={previewDoc.documentType === 'ADVANCE_OTC' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'}>
-                        {getDocumentTypeById(previewDoc.documentType)?.label || previewDoc.documentType}
+                        {previewDoc.label || getDocumentTypeById(previewDoc.documentType)?.label || previewDoc.documentType}
                       </Badge>
                     )}
                   </div>
