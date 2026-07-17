@@ -178,11 +178,23 @@ export default function ISROverallDashboard() {
       let isrPerformance = [];
       let dailyDataMap = {};
 
-      for (const isr of isrUsers) {
+      // One request per ISR, but fired in PARALLEL. This used to await inside
+      // the loop, so the page cost one blocking round-trip per ISR and got
+      // slower with every ISR hired.
+      const isrDashResults = await Promise.all(
+        isrUsers.map((isr) =>
+          api.get(`/users/${isr.id}/dashboard?period=${dateRange}`)
+            .then((res) => ({ isr, data: res.data }))
+            .catch((err) => {
+              console.error(`Error fetching stats for ISR ${isr.id}:`, err);
+              return { isr, data: null };
+            })
+        )
+      );
+
+      for (const { isr, data } of isrDashResults) {
         try {
-          const isrDashRes = await api.get(`/users/${isr.id}/dashboard?period=${dateRange}`).catch(() => ({ data: null }));
-          if (isrDashRes.data) {
-            const data = isrDashRes.data;
+          if (data) {
             const isrStats = data.stats || {};
             const isrTodayStats = data.todayCallStats || {};
             const isrCallStats = data.callStats || {};
@@ -205,7 +217,11 @@ export default function ISROverallDashboard() {
 
             aggregatedCallStats.totalCalls += isrCallStats.totalCalls || 0;
             aggregatedCallStats.todayCalls += isrCallStats.todayCalls || 0;
-            aggregatedCallStats.totalDuration += (isrCallStats.avgCallDuration || 0) * (isrCallStats.totalCalls || 0);
+            // Use the raw total the API returns. Re-deriving it as
+            // (rounded avg x calls) multiplied the rounding error back in, so the
+            // team-wide average drifted. Fall back for safety only.
+            aggregatedCallStats.totalDuration += isrCallStats.totalDuration
+              ?? ((isrCallStats.avgCallDuration || 0) * (isrCallStats.totalCalls || 0));
 
             if (data.statusDistribution) {
               data.statusDistribution.forEach(item => {
@@ -215,12 +231,16 @@ export default function ISROverallDashboard() {
 
             if (data.weeklyProgress) {
               data.weeklyProgress.forEach(day => {
-                if (!dailyDataMap[day.label]) {
-                  dailyDataMap[day.label] = { label: day.label, total: 0, working: 0, converted: 0 };
+                // Bucket on the ISO `date` the API returns, not the display
+                // label: labels are "Mon" / "Week 1" / "Jan", which can't be
+                // ordered chronologically (see the sort below).
+                const bucket = day.date || day.label;
+                if (!dailyDataMap[bucket]) {
+                  dailyDataMap[bucket] = { date: day.date, label: day.label, total: 0, working: 0, converted: 0 };
                 }
-                dailyDataMap[day.label].total += day.total || 0;
-                dailyDataMap[day.label].working += day.working || 0;
-                dailyDataMap[day.label].converted += day.converted || 0;
+                dailyDataMap[bucket].total += day.total || 0;
+                dailyDataMap[bucket].working += day.working || 0;
+                dailyDataMap[bucket].converted += day.converted || 0;
               });
             }
 
@@ -252,7 +272,11 @@ export default function ISROverallDashboard() {
         .map(([status, count]) => ({ status, name: status.replace(/_/g, ' '), count, color: getStatusColor(status) }));
       setStatusDistribution(statusData);
 
-      const weeklyData = Object.values(dailyDataMap).sort((a, b) => new Date(a.label) - new Date(b.label));
+      // Sort on the ISO date. The previous sort compared `new Date(label)` where
+      // label is "Mon" / "Week 1" / "Jan" — all Invalid Date, so the comparator
+      // returned NaN and the sort silently did nothing.
+      const weeklyData = Object.values(dailyDataMap)
+        .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
       setWeeklyProgress(weeklyData);
 
       isrPerformance.sort((a, b) => b.converted - a.converted);
@@ -297,6 +321,8 @@ export default function ISROverallDashboard() {
 
   const pieData = statusDistribution.map(item => ({ name: item.name, value: item.count, color: item.color }));
   const totalOutcomes = todayCallStats.callsMade || 1;
+  // Caption for the cards/sections that are scoped to the selected date filter.
+  const periodLabel = `In ${PERIOD_OPTIONS.find(p => p.value === dateRange)?.label?.toLowerCase() || 'period'}`;
 
   const outcomeItems = [
     { label: 'Interested', value: todayCallStats.outcomes.interested, icon: UserCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
@@ -363,11 +389,16 @@ export default function ISROverallDashboard() {
           {/* ── Section: Overview Stats ── */}
           <div className="grid grid-cols-12 gap-4">
             {/* Stat Cards */}
+            {/* `scope` tells the reader which cards move with the date filter.
+                Total Assigned / Pending are the ISR's CURRENT workload (there is
+                no assignedAt to filter them on); the rest measure work done in
+                the selected period. Without this, an unchanging "Total Assigned"
+                reads as a broken filter. */}
             {[
-              { label: 'Total Assigned', value: stats.totalAssigned, icon: ClipboardList, color: 'bg-orange-500/10', iconColor: 'text-orange-500' },
-              { label: 'Working Data', value: stats.workingData, icon: Clock, color: 'bg-blue-500/10', iconColor: 'text-blue-500' },
-              { label: 'Pending Data', value: stats.pendingData, icon: AlertCircle, color: 'bg-amber-500/10', iconColor: 'text-amber-500' },
-              { label: 'Converted to Lead', value: stats.convertedToLead, icon: Users, color: 'bg-emerald-500/10', iconColor: 'text-emerald-500' },
+              { label: 'Total Assigned', value: stats.totalAssigned, scope: 'Current total', icon: ClipboardList, color: 'bg-orange-500/10', iconColor: 'text-orange-500' },
+              { label: 'Working Data', value: stats.workingData, scope: periodLabel, icon: Clock, color: 'bg-blue-500/10', iconColor: 'text-blue-500' },
+              { label: 'Pending Data', value: stats.pendingData, scope: 'Current total', icon: AlertCircle, color: 'bg-amber-500/10', iconColor: 'text-amber-500' },
+              { label: 'Converted to Lead', value: stats.convertedToLead, scope: periodLabel, icon: Users, color: 'bg-emerald-500/10', iconColor: 'text-emerald-500' },
             ].map((stat, i) => {
               const bucket = BUCKET_FOR_LABEL[stat.label];
               const handleClick = () => {
@@ -389,6 +420,9 @@ export default function ISROverallDashboard() {
                       <div>
                         <p className="text-sm text-muted-foreground">{stat.label}</p>
                         <p className="text-3xl font-bold mt-1">{stat.value.toLocaleString()}</p>
+                        {stat.scope && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{stat.scope}</p>
+                        )}
                       </div>
                       <div className={`h-10 w-10 rounded-lg ${stat.color} flex items-center justify-center`}>
                         <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
@@ -549,7 +583,7 @@ export default function ISROverallDashboard() {
               <Card className="col-span-12 lg:col-span-6 rounded-2xl shadow-sm hover:shadow-md transition">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg">Status Distribution</CardTitle>
-                  <CardDescription>Breakdown of all data statuses</CardDescription>
+                  <CardDescription>Status of data worked {periodLabel.toLowerCase()}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {pieData.length > 0 ? (
