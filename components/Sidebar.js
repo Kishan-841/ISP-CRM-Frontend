@@ -38,6 +38,7 @@ import {
   CalendarCheck,
   UserPlus,
   Warehouse,
+  Undo2,
   CheckCircle2,
   ClipboardCheck,
   Network,
@@ -367,6 +368,7 @@ export default function Sidebar() {
         { name: 'Store Inventory', path: '/dashboard/store-inventory' },
         { name: 'Inventory', path: '/dashboard/inventory' },
         { name: 'Store Requests', path: '/dashboard/store-requests', badge: counts.storeRequests > 0 ? counts.storeRequests : null },
+        { name: 'Returned Material', path: '/dashboard/material-returns' },
       ]
     },
     {
@@ -383,8 +385,8 @@ export default function Sidebar() {
       name: 'Approvals',
       icon: CheckCircle2,
       menuKey: 'masterApprovals',
-      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) + (counts.quickDisconnectPending || 0) > 0
-        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) + (counts.quickDisconnectPending || 0)
+      badge: (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) + (counts.quickDisconnectPending || 0) + (counts.materialReturnsPending || 0) > 0
+        ? (counts.poApprovalPending || 0) + (counts.deliveryRequestPending || 0) + (counts.salesDirectorPending || 0) + (counts.deliveryOrderApprovalPending || 0) + (counts.vendorsPendingAdmin || 0) + (counts.sa2Pending || 0) + (counts.cnPendingApproval || 0) + (counts.dateChangeApprovalPending || 0) + (counts.quickDisconnectPending || 0) + (counts.materialReturnsPending || 0)
         : null,
       submenu: [
         { name: 'Quotation Approval', path: '/dashboard/super-admin2-approval', badge: counts.sa2Pending > 0 ? counts.sa2Pending : null },
@@ -399,6 +401,7 @@ export default function Sidebar() {
         { name: 'Order Approvals', path: '/dashboard/order-approvals', badge: counts.salesDirectorPending > 0 ? counts.salesDirectorPending : null },
         { name: 'Date Change Approvals', path: '/dashboard/order-approvals?status=PENDING_ADMIN_DATE_APPROVAL', badge: counts.dateChangeApprovalPending > 0 ? counts.dateChangeApprovalPending : null },
         { name: 'CN Approval', path: '/dashboard/credit-note-approvals', badge: counts.cnPendingApproval > 0 ? counts.cnPendingApproval : null },
+        { name: 'Material Return Approval', path: '/dashboard/material-return-approvals', badge: counts.materialReturnsPending > 0 ? counts.materialReturnsPending : null },
         { name: 'Vendor Approval', path: '/dashboard/vendor-approval', badge: counts.vendorsPendingAdmin > 0 ? counts.vendorsPendingAdmin : null },
         { name: 'Vendor PO Approval', path: '/dashboard/vendor-po-approval' },
         // SAM-raised quick-disconnect requests waiting on admin decision.
@@ -655,6 +658,7 @@ export default function Sidebar() {
       { name: 'Store Inventory', path: '/dashboard/store-inventory', icon: Warehouse },
       { name: 'Inventory', path: '/dashboard/inventory', icon: Warehouse },
       { name: 'Store Requests', path: '/dashboard/store-requests', icon: ClipboardCheck, badge: counts.storeRequests > 0 ? counts.storeRequests : null },
+      { name: 'Returned Material', path: '/dashboard/material-returns', icon: Undo2 },
       { name: 'Reports', path: '/dashboard/store-reports', icon: BarChart3 },
     ] : []),
     // Leads - available for all roles except Docs Team, Accounts Team, Store Manager, and OPS Team

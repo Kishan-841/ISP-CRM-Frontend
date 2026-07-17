@@ -508,10 +508,23 @@ export default function StoreInventoryPage() {
                     render: (item) => {
                       const isFiber = item.category === 'FIBER' || item.unit === 'mtrs';
                       const unitLabel = isFiber ? 'mtrs' : 'pcs';
+                      // Recovered-faulty stock is quarantined: it's held here but can
+                      // never be assigned. Split it out so the headline number isn't
+                      // read as "this much is available".
+                      const faulty = item.faultyQuantity || 0;
+                      const available = item.totalQuantity - faulty;
                       return (
                         <>
-                          <span className="font-semibold text-slate-900 dark:text-slate-100">{item.totalQuantity}</span>
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">{available}</span>
                           <span className="text-sm text-slate-500 dark:text-slate-400 ml-1">{unitLabel}</span>
+                          {faulty > 0 && (
+                            <span
+                              className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                              title={`${faulty} ${unitLabel} returned faulty — quarantined, not assignable`}
+                            >
+                              +{faulty} faulty
+                            </span>
+                          )}
                         </>
                       );
                     }
