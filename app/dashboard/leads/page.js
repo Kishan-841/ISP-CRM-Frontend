@@ -33,7 +33,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   XCircle,
-  Download
+  Download,
+  MapPin
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import StatCard from '@/components/StatCard';
@@ -108,6 +109,10 @@ export default function LeadsPage() {
     source: 'Self Lead'
   });
   const [isCreatingLead, setIsCreatingLead] = useState(false);
+  const [isCapturingLocation, setIsCapturingLocation] = useState(false);
+  // 'UNSUPPORTED' | 1 (denied) | 2 (services off) | 3 (timeout) — shows the
+  // "Location Required" dialog with turn-it-on instructions + retry.
+  const [locationError, setLocationError] = useState(null);
 
   const loadLeads = () => {
     fetchLeads(page, pageSize, {
@@ -344,6 +349,20 @@ export default function LeadsPage() {
     setAddLeadForm(prev => ({ ...prev, [field]: value }));
   };
 
+  // Resolve the device's current GPS position. Rejects with the raw
+  // GeolocationPositionError (code 1/2/3) or Error('UNSUPPORTED').
+  const captureCurrentLocation = () => new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('UNSUPPORTED'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos.coords),
+      (err) => reject(err),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+
   const handleCreateLead = async () => {
     // Validate required fields
     if (!addLeadForm.company?.trim()) {
@@ -359,6 +378,23 @@ export default function LeadsPage() {
       return;
     }
 
+    // Location is mandatory for BDM-type roles; captured for everyone who allows it.
+    const isBdmUser = ['BDM', 'BDM_CP', 'BDM_TEAM_LEADER'].includes(user?.role);
+    let coords = null;
+    setIsCapturingLocation(true);
+    try {
+      coords = await captureCurrentLocation();
+    } catch (err) {
+      if (isBdmUser) {
+        setIsCapturingLocation(false);
+        // Open the "Location Required" dialog with instructions + Try Again.
+        setLocationError(err.message === 'UNSUPPORTED' ? 'UNSUPPORTED' : (err.code || 3));
+        return; // keep the modal open with entered data
+      }
+      // Non-BDM roles proceed without location.
+    }
+    setIsCapturingLocation(false);
+
     setIsCreatingLead(true);
 
     const result = await createSelfLead({
@@ -372,7 +408,12 @@ export default function LeadsPage() {
       linkedinUrl: addLeadForm.linkedinUrl?.trim() || null,
       notes: addLeadForm.notes?.trim() || null,
       source: addLeadForm.source || 'Self Lead',
-      createAsLead: true
+      createAsLead: true,
+      ...(coords ? {
+        createdLatitude: coords.latitude,
+        createdLongitude: coords.longitude,
+        locationAccuracy: coords.accuracy
+      } : {})
     });
 
     if (result.success) {
@@ -1778,10 +1819,15 @@ export default function LeadsPage() {
               </Button>
               <Button
                 onClick={handleCreateLead}
-                disabled={isCreatingLead}
+                disabled={isCreatingLead || isCapturingLocation}
                 className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
               >
-                {isCreatingLead ? (
+                {isCapturingLocation ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Capturing location...
+                  </>
+                ) : isCreatingLead ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Creating...
@@ -1793,6 +1839,61 @@ export default function LeadsPage() {
                   </>
                 )}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Location Required dialog — shown when GPS capture fails for BDM users */}
+      {locationError !== null && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-orange-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Location Required
+              </h2>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">
+              {locationError === 'UNSUPPORTED'
+                ? 'Your device or browser does not support location services. Lead creation cannot continue on this device.'
+                : locationError === 1
+                  ? 'Location access is required to create a lead. Please enable location permission for this site and try again.'
+                  : locationError === 2
+                    ? 'Your device’s location appears to be turned off. Please turn on location (GPS) and try again.'
+                    : 'We couldn’t determine your current location. Please make sure location is turned on and try again.'}
+            </p>
+            {locationError !== 'UNSUPPORTED' && (
+              <ol className="text-sm text-slate-600 dark:text-slate-300 list-decimal ml-5 space-y-1 mb-4">
+                {locationError === 1 ? (
+                  <>
+                    <li>Tap the lock / settings icon next to the address bar</li>
+                    <li>Open Site settings &rarr; Location and choose Allow</li>
+                    <li>Come back and tap Try Again</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Open your device&rsquo;s quick settings or Settings app</li>
+                    <li>Turn on Location / GPS</li>
+                    <li>Come back and tap Try Again</li>
+                  </>
+                )}
+              </ol>
+            )}
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="outline" onClick={() => setLocationError(null)}>
+                Cancel
+              </Button>
+              {locationError !== 'UNSUPPORTED' && (
+                <Button
+                  onClick={() => { setLocationError(null); handleCreateLead(); }}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  Try Again
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -415,6 +415,7 @@ export default function Sidebar() {
       submenu: [
         { name: 'Team Dashboard', path: '/dashboard/admin-dashboards' },
         { name: 'Customer 360', path: '/dashboard/customer-360' },
+        { name: 'BDM Leads', path: '/dashboard/bdm-leads' },
         { name: 'Lead Buckets', path: '/dashboard/buckets' },
         { name: 'Employees', path: '/dashboard/employees' },
         { name: 'Vendors', path: '/dashboard/vendors' },
@@ -436,6 +437,8 @@ export default function Sidebar() {
   const navItems = isMaster ? masterNavItems : [
     // Super Admin / Sales Director top item
     ...(isSuperAdmin || isSalesDirector ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
+    // BDM field-visit leads (GPS captured at creation) — management only
+    ...(isSuperAdmin || isAdminRole || isSalesDirector ? [{ name: 'BDM Leads', path: '/dashboard/bdm-leads', icon: MapPin }] : []),
     // Master-only lead deletion (SUPER_ADMIN sees it here too)
     ...(isSuperAdmin ? [{ name: 'Delete Lead', path: '/dashboard/master/delete-lead', icon: Trash2 }] : []),
     // NEXUS Knowledge Base (SUPER_ADMIN only)
