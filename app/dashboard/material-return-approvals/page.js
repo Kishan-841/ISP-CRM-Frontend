@@ -22,7 +22,8 @@ import { formatDate } from '@/lib/formatters';
 
 const CATEGORY_LABELS = {
   SWITCH: 'Switch', SFP: 'SFP', CLOSURE: 'Closure', RF: 'RF',
-  PATCH_CORD: 'Patch Cord', FIBER: 'Fiber', MEDIA_CONVERTER: 'Media Converter', ROUTER: 'Router'
+  PATCH_CORD: 'Patch Cord', FIBER: 'Fiber', MEDIA_CONVERTER: 'Media Converter', ROUTER: 'Router',
+  UPS: 'UPS', BATTERY: 'Battery', SERVER_RACK: 'Server Rack'
 };
 
 export default function MaterialReturnApprovalsPage() {

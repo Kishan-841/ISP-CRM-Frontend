@@ -35,7 +35,10 @@ const CATEGORY_LABELS = {
   PATCH_CORD: 'Patch Cord',
   FIBER: 'Fiber',
   MEDIA_CONVERTER: 'Media Converter',
-  ROUTER: 'Router'
+  ROUTER: 'Router',
+  UPS: 'UPS',
+  BATTERY: 'Battery',
+  SERVER_RACK: 'Server Rack'
 };
 
 export default function MaterialReturnsPage() {

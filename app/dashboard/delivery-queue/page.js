@@ -2026,6 +2026,9 @@ export default function DeliveryQueuePage() {
                                 <option value="FIBER">Fiber</option>
                                 <option value="MEDIA_CONVERTER">Media Converter</option>
                                 <option value="ROUTER">Router</option>
+                                <option value="UPS">UPS</option>
+                                <option value="BATTERY">Battery</option>
+                                <option value="SERVER_RACK">Server Rack</option>
                               </select>
                               <select
                                 value={item.productId}
@@ -2236,6 +2239,9 @@ export default function DeliveryQueuePage() {
                             <option value="FIBER">Fiber</option>
                             <option value="MEDIA_CONVERTER">Media Converter</option>
                             <option value="ROUTER">Router</option>
+                            <option value="UPS">UPS</option>
+                            <option value="BATTERY">Battery</option>
+                            <option value="SERVER_RACK">Server Rack</option>
                           </select>
                           <select
                             value={item.productId}

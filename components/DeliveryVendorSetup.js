@@ -33,6 +33,9 @@ const MATERIAL_CATEGORIES = [
   { key: 'RF', label: 'RF' },
   { key: 'MEDIA_CONVERTER', label: 'Media Converter' },
   { key: 'ROUTER', label: 'Router' },
+  { key: 'UPS', label: 'UPS' },
+  { key: 'BATTERY', label: 'Battery' },
+  { key: 'SERVER_RACK', label: 'Server Rack' },
 ];
 
 export default function DeliveryVendorSetup({ lead, onSaved }) {
