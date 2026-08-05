@@ -34,8 +34,10 @@ import {
   Info,
   ClipboardList,
   Paperclip,
-  ExternalLink
+  ExternalLink,
+  Download
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/components/PageHeader';
@@ -325,6 +327,39 @@ export default function AccountsCreatePlanPage() {
   }, [user, isAccountsTeam, isAdmin, router]);
 
   useSocketRefresh(() => { fetchQueue(); }, { enabled: isAccountsTeam || isAdmin });
+
+  // Export the Created tab to Excel (admin/master only; endpoint is
+  // unpaginated so `leads` always holds every created plan).
+  const handleExportCreatedPlans = () => {
+    if (!leads.length) {
+      toast.error('No created plans to export');
+      return;
+    }
+    const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN') : '');
+    const rows = leads.map((l) => ({
+      'Lead Number': l.leadNumber || '',
+      'Company Name': l.company || '',
+      'Customer Name': l.name || '',
+      'Phone': l.phone || '',
+      'Plan Name': l.actualPlanName || '',
+      'Bandwidth': l.actualPlanBandwidth ?? '',
+      'ARC': l.arcAmount ?? '',
+      'OTC': l.otcAmount ?? '',
+      'Billing Start Date': fmtDate(l.actualPlanStartDate),
+      'Billing Cycle': l.actualPlanBillingCycle || '',
+      'Plan Created On': fmtDate(l.actualPlanCreatedAt),
+      'Created By': l.actualPlanCreatedBy?.name || ''
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 12 }, { wch: 28 }, { wch: 20 }, { wch: 14 }, { wch: 20 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 16 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Created Plans');
+    XLSX.writeFile(workbook, `created-plans-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success(`Exported ${rows.length} plan${rows.length === 1 ? '' : 's'}`);
+  };
 
   // Fetch queue
   const fetchQueue = async () => {
@@ -1386,6 +1421,17 @@ export default function AccountsCreatePlanPage() {
               defaultPageSize={10}
               emptyMessage={activeTab === 'pending' ? 'No leads pending plan creation' : 'No plans created yet'}
               emptyIcon={FileText}
+              headerExtra={activeTab === 'created' && isAdmin ? (
+                <Button
+                  onClick={handleExportCreatedPlans}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export Excel
+                </Button>
+              ) : undefined}
               columns={[
                 {
                   key: 'company',
