@@ -256,7 +256,7 @@ export default function EmployeesPage() {
           <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {isTL ? 'Team BDMs' : 'All Employees'} ({totalUsers.toLocaleString()}{hasActiveFilter ? ' matching' : ''})
           </CardTitle>
-          {!isSalesDirector && (
+          {(
             <Button
               onClick={openCreateModal}
               className="bg-orange-600 hover:bg-orange-700 text-white"
@@ -691,7 +691,8 @@ export default function EmployeesPage() {
                         <option value="STORE_MANAGER">Store Manager</option>
                         <option value="NOC">NOC</option>
                         <option value="NOC_HEAD">NOC Head</option>
-                        <option value="SALES_DIRECTOR">Sales Director</option>
+                        {/* SD cannot create/assign admin-level roles (enforced server-side too) */}
+                        {!isSalesDirector && <option value="SALES_DIRECTOR">Sales Director</option>}
                         <option value="BDM_CP">BDM (Channel Partner)</option>
                       </select>
                     </div>
