@@ -167,9 +167,10 @@ export default function BDMMeetingsPage() {
     setMeetingOutcome('');
     setDropReason('');
     setSelectedFTUser('');
-    // Customer Location (To)
-    setLatitude('');
-    setLongitude('');
+    // Customer Location (To) — auto-filled from the GPS captured when the BDM
+    // created the lead; still editable if the meeting site differs.
+    setLatitude(meeting.createdLatitude != null ? String(meeting.createdLatitude) : '');
+    setLongitude(meeting.createdLongitude != null ? String(meeting.createdLongitude) : '');
     setFullAddress('');
     // Source/POP Location (From)
     setFromAddress('');
