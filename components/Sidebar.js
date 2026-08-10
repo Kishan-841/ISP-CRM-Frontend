@@ -11,6 +11,7 @@ import {
   Activity,
   Users,
   MapPin,
+  Globe,
   Settings,
   Package,
   Database,
@@ -416,6 +417,7 @@ export default function Sidebar() {
         { name: 'Team Dashboard', path: '/dashboard/admin-dashboards' },
         { name: 'Customer 360', path: '/dashboard/customer-360' },
         { name: 'BDM Leads', path: '/dashboard/bdm-leads' },
+        { name: 'Website Leads', path: '/dashboard/website-leads' },
         { name: 'Lead Buckets', path: '/dashboard/buckets' },
         { name: 'Employees', path: '/dashboard/employees' },
         { name: 'Vendors', path: '/dashboard/vendors' },
@@ -439,6 +441,8 @@ export default function Sidebar() {
     ...(isSuperAdmin || isSalesDirector ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
     // BDM field-visit leads (GPS captured at creation) — management only
     ...(isSuperAdmin || isAdminRole || isSalesDirector ? [{ name: 'BDM Leads', path: '/dashboard/bdm-leads', icon: MapPin }] : []),
+    // Website enquiry-form leads — management only
+    ...(isSuperAdmin || isAdminRole || isSalesDirector ? [{ name: 'Website Leads', path: '/dashboard/website-leads', icon: Globe }] : []),
     // Master-only lead deletion (SUPER_ADMIN sees it here too)
     ...(isSuperAdmin ? [{ name: 'Delete Lead', path: '/dashboard/master/delete-lead', icon: Trash2 }] : []),
     // NEXUS Knowledge Base (SUPER_ADMIN only)
