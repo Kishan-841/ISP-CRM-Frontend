@@ -18,6 +18,7 @@ export default function WebsiteLeadsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [formType, setFormType] = useState(''); // '' | 'BUSINESS' | 'ENTERPRISE'
 
   const allowed = user && ALLOWED_ROLES.includes(user.role);
 
@@ -28,14 +29,16 @@ export default function WebsiteLeadsPage() {
   const loadLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/website-leads/list', { params: { page, limit } });
+      const { data } = await api.get('/website-leads/list', {
+        params: { page, limit, ...(formType ? { type: formType } : {}) }
+      });
       setLeads(data.leads);
       setPagination(data.pagination);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to load website leads');
     }
     setLoading(false);
-  }, [page, limit]);
+  }, [page, limit, formType]);
 
   useEffect(() => {
     if (allowed) loadLeads();
@@ -43,8 +46,30 @@ export default function WebsiteLeadsPage() {
 
   if (!allowed) return null;
 
+  const typeOfRow = (row) => {
+    const code = row.campaignData?.campaign?.code;
+    if (code === 'WEBSITE_BUSINESS') return 'Business';
+    if (code === 'WEBSITE_ENTERPRISE') return 'Enterprise';
+    return '—';
+  };
+
   const columns = [
     { key: 'leadNumber', label: 'Lead ID', render: (row) => <span className="font-mono">{row.leadNumber || '—'}</span> },
+    {
+      key: 'type', label: 'Type',
+      render: (row) => {
+        const t = typeOfRow(row);
+        return t === '—' ? <span className="text-slate-400">—</span> : (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            t === 'Business'
+              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+              : 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
+          }`}>
+            {t}
+          </span>
+        );
+      }
+    },
     { key: 'name', label: 'Name', render: (row) => row.campaignData?.name || '—' },
     { key: 'company', label: 'Company', render: (row) => row.campaignData?.company || '—' },
     { key: 'email', label: 'Email', render: (row) => row.campaignData?.email || '—' },
@@ -92,6 +117,17 @@ export default function WebsiteLeadsPage() {
         columns={columns}
         data={leads}
         loading={loading}
+        filters={
+          <select
+            value={formType}
+            onChange={(e) => { setFormType(e.target.value); setPage(1); }}
+            className="h-9 px-3 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+          >
+            <option value="">All Types</option>
+            <option value="BUSINESS">Business</option>
+            <option value="ENTERPRISE">Enterprise</option>
+          </select>
+        }
         serverPagination={pagination}
         onPageChange={(newPage) => setPage(newPage)}
         onPageSizeChange={(newSize) => { setLimit(newSize); setPage(1); }}
