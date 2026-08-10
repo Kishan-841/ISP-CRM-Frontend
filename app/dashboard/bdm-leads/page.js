@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, ExternalLink } from 'lucide-react';
+import { MapPin, ExternalLink, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import DataTable from '@/components/DataTable';
@@ -23,6 +24,7 @@ export default function BdmLeadsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [detailLead, setDetailLead] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const allowed = user && ALLOWED_ROLES.includes(user.role);
 
@@ -57,6 +59,59 @@ export default function BdmLeadsPage() {
 
   const openMap = (lat, lng) => {
     window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+  };
+
+  // Export ALL leads matching the current filters (the table is
+  // server-paginated, so we page through the endpoint at limit=100).
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const filterParams = {
+        ...(bdmId ? { bdmId } : {}),
+        ...(dateFrom ? { dateFrom } : {}),
+        ...(dateTo ? { dateTo } : {})
+      };
+      let exportPage = 1;
+      let all = [];
+      for (;;) {
+        const { data } = await api.get('/leads/bdm-leads/list', {
+          params: { ...filterParams, page: exportPage, limit: 100 }
+        });
+        all = all.concat(data.leads || []);
+        if (exportPage >= (data.pagination?.totalPages || 1)) break;
+        exportPage += 1;
+      }
+      if (!all.length) {
+        toast.error('No leads to export');
+        return;
+      }
+      const fmt = (d) => (d ? new Date(d).toLocaleString('en-IN') : '');
+      const rows = all.map((l) => ({
+        'Lead Number': l.leadNumber || '',
+        'Customer Name': l.campaignData?.name || '',
+        'Company': l.campaignData?.company || '',
+        'Contact': l.campaignData?.phone || '',
+        'BDM': l.createdBy?.name || '',
+        'Location Captured At': fmt(l.locationCapturedAt || l.createdAt),
+        'Latitude': l.createdLatitude ?? '',
+        'Longitude': l.createdLongitude ?? '',
+        'Accuracy (m)': l.locationAccuracy != null ? Math.round(l.locationAccuracy) : '',
+        'Google Maps Link': `https://www.google.com/maps?q=${l.createdLatitude},${l.createdLongitude}`
+      }));
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet['!cols'] = [
+        { wch: 12 }, { wch: 20 }, { wch: 28 }, { wch: 14 }, { wch: 18 },
+        { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 44 },
+      ];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'BDM Leads');
+      XLSX.writeFile(workbook, `bdm-leads-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast.success(`Exported ${rows.length} lead${rows.length === 1 ? '' : 's'}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to export');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (!allowed) return null;
@@ -139,6 +194,16 @@ export default function BdmLeadsPage() {
         columns={columns}
         data={leads}
         loading={loading}
+        headerExtra={
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="inline-flex items-center gap-2 h-9 px-3 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            {isExporting ? 'Exporting…' : 'Export Excel'}
+          </button>
+        }
         filters={filterControls}
         serverPagination={pagination}
         onPageChange={(newPage) => setPage(newPage)}
