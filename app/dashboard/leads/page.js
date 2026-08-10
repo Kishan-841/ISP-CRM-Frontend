@@ -936,7 +936,7 @@ export default function LeadsPage() {
             <Download size={16} className="mr-2" />
             Export
           </Button>
-          {isBDM && (
+          {(isBDM || user?.role === 'BDM_TEAM_LEADER') && (
             <Button
               onClick={() => setShowAddLeadModal(true)}
               className="bg-orange-600 hover:bg-orange-700 text-white"
