@@ -12,6 +12,8 @@ import {
   Users,
   MapPin,
   Globe,
+  Gauge,
+  Mail,
   Settings,
   Package,
   Database,
@@ -243,6 +245,7 @@ export default function Sidebar() {
         { name: 'Create Opportunity', path: '/dashboard/create-opportunity' },
         { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
         { name: 'Delivery Completed', path: '/dashboard/delivery-completed', badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
+        { name: 'Bandwidth on Demand', path: '/dashboard/bandwidth-on-demand' },
       ]
     },
     {
@@ -293,6 +296,7 @@ export default function Sidebar() {
         { name: 'Vendor Docs', path: '/dashboard/vendors', badge: counts.vendorDocsToVerify > 0 ? counts.vendorDocsToVerify : null },
         { name: 'Demo Plan Assignment', path: '/dashboard/accounts-demo-plan', badge: counts.demoPlanPending > 0 ? counts.demoPlanPending : null },
         { name: 'Create Plan', path: '/dashboard/accounts-create-plan', badge: counts.createPlanPending > 0 ? counts.createPlanPending : null },
+        { name: 'BOD Requests', path: '/dashboard/accounts-bod', badge: counts.bodPendingAccounts > 0 ? counts.bodPendingAccounts : null },
         // Order Requests is the canonical Accounts surface for DISCONNECTION
         // orders (Create Plan filters them out — that page is for plan changes
         // only). Without this entry there was no sidebar path to the
@@ -418,6 +422,7 @@ export default function Sidebar() {
         { name: 'Customer 360', path: '/dashboard/customer-360' },
         { name: 'BDM Leads', path: '/dashboard/bdm-leads' },
         { name: 'Website Leads', path: '/dashboard/website-leads' },
+        { name: 'Contact Messages', path: '/dashboard/contact-messages' },
         { name: 'Lead Buckets', path: '/dashboard/buckets' },
         { name: 'Employees', path: '/dashboard/employees' },
         { name: 'Vendors', path: '/dashboard/vendors' },
@@ -443,6 +448,8 @@ export default function Sidebar() {
     ...(isSuperAdmin || isAdminRole || isSalesDirector ? [{ name: 'BDM Leads', path: '/dashboard/bdm-leads', icon: MapPin }] : []),
     // Website enquiry-form leads — management only
     ...(isSuperAdmin || isAdminRole || isSalesDirector ? [{ name: 'Website Leads', path: '/dashboard/website-leads', icon: Globe }] : []),
+    // Website contact-page messages — management only
+    ...(isSuperAdmin || isAdminRole || isSalesDirector ? [{ name: 'Contact Messages', path: '/dashboard/contact-messages', icon: Mail }] : []),
     // Master-only lead deletion (SUPER_ADMIN sees it here too)
     ...(isSuperAdmin ? [{ name: 'Delete Lead', path: '/dashboard/master/delete-lead', icon: Trash2 }] : []),
     // NEXUS Knowledge Base (SUPER_ADMIN only)
@@ -493,6 +500,7 @@ export default function Sidebar() {
       { name: 'Create Opportunity', path: '/dashboard/create-opportunity', icon: Plus },
       { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
       { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
+      { name: 'Bandwidth on Demand', path: '/dashboard/bandwidth-on-demand', icon: Gauge },
       {
         name: 'Reports',
         icon: BarChart3,
@@ -512,6 +520,7 @@ export default function Sidebar() {
       { name: 'Create Opportunity', path: '/dashboard/create-opportunity', icon: Plus },
       { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
       { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
+      { name: 'Bandwidth on Demand', path: '/dashboard/bandwidth-on-demand', icon: Gauge },
       {
         name: 'Reports',
         icon: BarChart3,
@@ -576,6 +585,7 @@ export default function Sidebar() {
       { name: 'Vendor Docs', path: '/dashboard/vendors', icon: Building2, badge: counts.vendorDocsToVerify > 0 ? counts.vendorDocsToVerify : null },
       { name: 'Demo Plan Assignment', path: '/dashboard/accounts-demo-plan', icon: FileText, badge: counts.demoPlanPending > 0 ? counts.demoPlanPending : null },
       { name: 'Create Plan', path: '/dashboard/accounts-create-plan', icon: FileText, badge: counts.createPlanPending > 0 ? counts.createPlanPending : null },
+      { name: 'BOD Requests', path: '/dashboard/accounts-bod', icon: Gauge, badge: counts.bodPendingAccounts > 0 ? counts.bodPendingAccounts : null },
       // Order Requests = the dedicated surface for DISCONNECTION orders +
       // accounts-stage upgrade/downgrade processing. Create Plan filters out
       // disconnections, so without this entry there was no nav path to act
