@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuthStore, useUserStore } from '@/lib/store';
+import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +64,15 @@ export default function EmployeesPage() {
   useUnsavedChanges(isFormDirty);
 
   const isTL = user?.role === 'BDM_TEAM_LEADER';
+
+  // "Reports To" options, fetched independently of the paginated employee
+  // table — filtering the table page missed leaders on other pages.
+  const [leaderOptions, setLeaderOptions] = useState({});
+  useEffect(() => {
+    const roles = ['BDM_TEAM_LEADER', 'NOC_HEAD', 'SAM_HEAD'];
+    Promise.all(roles.map(r => api.get('/users/by-role', { params: { role: r } }).catch(() => null)))
+      .then(results => setLeaderOptions(Object.fromEntries(roles.map((r, i) => [r, results[i]?.data?.users || []]))));
+  }, []);
   // Sales Director may view + edit users (incl. setting a new password) but not
   // create/delete, and never view existing passwords.
   const isSalesDirector = user?.role === 'SALES_DIRECTOR';
@@ -719,7 +729,7 @@ export default function EmployeesPage() {
                             className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-600 focus:border-transparent"
                           >
                             <option value="">None</option>
-                            {users.filter(u => u.role === config.filterRole && u.isActive).map(tl => (
+                            {(leaderOptions[config.filterRole] || []).map(tl => (
                               <option key={tl.id} value={tl.id}>{tl.name}</option>
                             ))}
                           </select>
