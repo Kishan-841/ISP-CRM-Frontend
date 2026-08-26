@@ -232,6 +232,12 @@ export default function BdmLeadsPage() {
               <div className="flex justify-between"><dt className="text-slate-500">Latitude</dt><dd className="font-mono">{detailLead.createdLatitude?.toFixed(6)}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-500">Longitude</dt><dd className="font-mono">{detailLead.createdLongitude?.toFixed(6)}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-500">Accuracy</dt><dd>{detailLead.locationAccuracy ? `±${Math.round(detailLead.locationAccuracy)} m` : '—'}</dd></div>
+              {/* Competitor connection captured at add-lead — the same data the
+                  ISP Expiry Tracker reports on. Blank for older leads. */}
+              <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-800" />
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Existing ISP</dt><dd>{detailLead.existingIsp || '—'}</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Existing bandwidth</dt><dd>{detailLead.existingBandwidth || '—'}</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Plan expires</dt><dd>{detailLead.existingPlanExpiryDate ? new Date(detailLead.existingPlanExpiryDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</dd></div>
             </dl>
             <div className="flex justify-end gap-3 mt-5">
               <button onClick={() => setDetailLead(null)}

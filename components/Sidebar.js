@@ -11,6 +11,7 @@ import {
   Activity,
   Users,
   MapPin,
+  CalendarClock,
   Globe,
   Gauge,
   Mail,
@@ -421,6 +422,7 @@ export default function Sidebar() {
         { name: 'Team Dashboard', path: '/dashboard/admin-dashboards' },
         { name: 'Customer 360', path: '/dashboard/customer-360' },
         { name: 'BDM Leads', path: '/dashboard/bdm-leads' },
+        { name: 'ISP Expiry Tracker', path: '/dashboard/isp-expiry-tracker' },
         { name: 'Website Leads', path: '/dashboard/website-leads' },
         { name: 'Contact Messages', path: '/dashboard/contact-messages' },
         { name: 'Lead Buckets', path: '/dashboard/buckets' },
@@ -446,6 +448,8 @@ export default function Sidebar() {
     ...(isSuperAdmin || isSalesDirector ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
     // BDM field-visit leads (GPS captured at creation) — management only
     ...(isSuperAdmin || isAdminRole || isSalesDirector ? [{ name: 'BDM Leads', path: '/dashboard/bdm-leads', icon: MapPin }] : []),
+    // Stage-1 leads still on a competitor connection, by plan expiry — management only
+    ...(isSuperAdmin || isAdminRole || isSalesDirector ? [{ name: 'ISP Expiry Tracker', path: '/dashboard/isp-expiry-tracker', icon: CalendarClock }] : []),
     // Website enquiry-form leads — management only
     ...(isSuperAdmin || isAdminRole || isSalesDirector ? [{ name: 'Website Leads', path: '/dashboard/website-leads', icon: Globe }] : []),
     // Website contact-page messages — management only

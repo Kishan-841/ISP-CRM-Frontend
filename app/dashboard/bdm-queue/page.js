@@ -138,15 +138,22 @@ export default function BDMQueuePage() {
     industry: '',
     city: '',
     bandwidthRequirement: '',
+    // Competitor connection the prospect is on today — all three required.
+    existingIsp: '',
+    existingBandwidth: '',
+    existingPlanExpiryDate: '',
     notes: '',
   };
   const [addLeadForm, setAddLeadForm] = useState(emptyAddLeadForm);
   const [addLeadProductIds, setAddLeadProductIds] = useState([]);
+  const [isCapturingLocation, setIsCapturingLocation] = useState(false);
+  // "Location Required" dialog with turn-it-on instructions + retry.
+  const [locationError, setLocationError] = useState(null);
 
   useModal(showDispositionDialog, () => !isSaving && setShowDispositionDialog(false));
   useModal(showMOMDialog, () => setShowMOMDialog(false));
   useModal(showTransferModal, () => !isTransferring && setShowTransferModal(false));
-  useModal(showAddLeadModal, () => !isAddingLead && setShowAddLeadModal(false));
+  useModal(showAddLeadModal, () => !isAddingLead && !isCapturingLocation && setShowAddLeadModal(false));
 
   // Inline-error hook instances — one per action surface (independent error state).
   const addLeadAction = useActionError();
@@ -222,6 +229,7 @@ export default function BDMQueuePage() {
     }
     setAddLeadForm(emptyAddLeadForm);
     setAddLeadProductIds([]);
+    setLocationError(null);
     setShowAddLeadModal(true);
   };
 
@@ -235,20 +243,59 @@ export default function BDMQueuePage() {
     );
   };
 
+  // Resolve the device's current GPS position. Rejects with the raw
+  // GeolocationPositionError (code 1/2/3) or Error('UNSUPPORTED').
+  const captureCurrentLocation = () => new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('UNSUPPORTED'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos.coords),
+      (err) => reject(err),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+
   const handleSubmitAddLead = async () => {
-    const { name, company, phone, email } = addLeadForm;
+    const { name, company, phone, email, existingIsp, existingBandwidth, existingPlanExpiryDate } = addLeadForm;
     if (!name.trim()) return addLeadAction.fail('Full name is required.');
     if (!company.trim()) return addLeadAction.fail('Company is required.');
     const phoneDigits = phone.replace(/\D/g, '');
     if (phoneDigits.length !== 10) return addLeadAction.fail('Phone must be exactly 10 digits.');
     if (!email.trim()) return addLeadAction.fail('Email is required.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return addLeadAction.fail('Please enter a valid email address.');
+    if (!existingIsp.trim()) return addLeadAction.fail('Existing ISP is required.');
+    if (!existingBandwidth.trim()) return addLeadAction.fail('Existing bandwidth is required.');
+    if (!existingPlanExpiryDate) return addLeadAction.fail('Existing plan expiry date is required.');
+
+    // Location is mandatory for BDM-type roles; captured for everyone who allows it.
+    const isBdmUser = ['BDM', 'BDM_CP', 'BDM_TEAM_LEADER'].includes(user?.role);
+    let coords = null;
+    setIsCapturingLocation(true);
+    try {
+      coords = await captureCurrentLocation();
+    } catch (err) {
+      if (isBdmUser) {
+        setIsCapturingLocation(false);
+        // Open the "Location Required" dialog with instructions + Try Again.
+        setLocationError(err.message === 'UNSUPPORTED' ? 'UNSUPPORTED' : (err.code || 3));
+        return; // keep the modal open with entered data
+      }
+      // Non-BDM roles proceed without location.
+    }
+    setIsCapturingLocation(false);
 
     setIsAddingLead(true);
     const result = await addLeadAction.runAction(() => createDirectLead({
       ...addLeadForm,
       phone: phoneDigits,
       productIds: addLeadProductIds,
+      ...(coords ? {
+        createdLatitude: coords.latitude,
+        createdLongitude: coords.longitude,
+        locationAccuracy: coords.accuracy,
+      } : {}),
     }));
 
     if (result.success) {
@@ -1994,6 +2041,53 @@ export default function BDMQueuePage() {
                 </div>
               </div>
 
+              {/* Existing connection — feeds the ISP Expiry Tracker */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                  Existing Connection
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                  What the prospect is running today. Used to plan the follow-up before their current plan lapses.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Existing ISP <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addLeadForm.existingIsp}
+                      onChange={(e) => handleAddLeadFieldChange('existingIsp', e.target.value)}
+                      placeholder="e.g. Airtel"
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Existing Bandwidth <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addLeadForm.existingBandwidth}
+                      onChange={(e) => handleAddLeadFieldChange('existingBandwidth', e.target.value)}
+                      placeholder="e.g. 50 Mbps"
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Current Plan Expiry Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={addLeadForm.existingPlanExpiryDate}
+                      onChange={(e) => handleAddLeadFieldChange('existingPlanExpiryDate', e.target.value)}
+                      className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Requirement section */}
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
@@ -2071,13 +2165,68 @@ export default function BDMQueuePage() {
                 </Button>
                 <Button
                   onClick={handleSubmitAddLead}
-                  disabled={isAddingLead}
+                  disabled={isAddingLead || isCapturingLocation}
                   size="sm"
                   className="bg-orange-600 hover:bg-orange-700 text-white"
                 >
-                  {isAddingLead ? 'Adding...' : 'Add Lead'}
+                  {isCapturingLocation ? 'Getting location...' : isAddingLead ? 'Adding...' : 'Add Lead'}
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Location Required dialog — shown when GPS capture fails for BDM users */}
+      {locationError !== null && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-orange-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Location Required
+              </h2>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">
+              {locationError === 'UNSUPPORTED'
+                ? 'Your device or browser does not support location services. Lead creation cannot continue on this device.'
+                : locationError === 1
+                  ? 'Location access is required to create a lead. Please enable location permission for this site and try again.'
+                  : locationError === 2
+                    ? 'Your device’s location appears to be turned off. Please turn on location (GPS) and try again.'
+                    : 'We couldn’t determine your current location. Please make sure location is turned on and try again.'}
+            </p>
+            {locationError !== 'UNSUPPORTED' && (
+              <ol className="text-sm text-slate-600 dark:text-slate-300 list-decimal ml-5 space-y-1 mb-4">
+                {locationError === 1 ? (
+                  <>
+                    <li>Tap the lock / settings icon next to the address bar</li>
+                    <li>Open Site settings &rarr; Location and choose Allow</li>
+                    <li>Come back and tap Try Again</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Open your device&rsquo;s quick settings or Settings app</li>
+                    <li>Turn on Location / GPS</li>
+                    <li>Come back and tap Try Again</li>
+                  </>
+                )}
+              </ol>
+            )}
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="outline" onClick={() => setLocationError(null)}>
+                Cancel
+              </Button>
+              {locationError !== 'UNSUPPORTED' && (
+                <Button
+                  onClick={() => { setLocationError(null); handleSubmitAddLead(); }}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  Try Again
+                </Button>
+              )}
             </div>
           </div>
         </div>
