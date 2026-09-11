@@ -13,6 +13,8 @@ import { formatDate } from '@/lib/formatters';
 import { PageHeader } from '@/components/PageHeader';
 import { useActionError } from '@/lib/useActionError';
 import { InlineError } from '@/components/ui/inline-error';
+import BdmAccessSelect from '@/components/BdmAccessSelect';
+import { Users } from 'lucide-react';
 
 export default function ProductsPage() {
   const router = useRouter();
@@ -21,10 +23,40 @@ export default function ProductsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
+  // BDM access modal — the only way to restrict a product that already exists
+  // (the list page has no edit form, and ILL predates this feature).
+  const [accessProduct, setAccessProduct] = useState(null);
+  const [accessBdmIds, setAccessBdmIds] = useState([]);
+  const [savingAccess, setSavingAccess] = useState(false);
 
   // Inline-error hook instances — one per action surface (independent state).
   const editTitleAction = useActionError();
   const deleteProductAction = useActionError();
+  const accessAction = useActionError();
+
+  const openAccessModal = (product) => {
+    setAccessProduct(product);
+    setAccessBdmIds((product.assignments || []).map((a) => a.userId));
+    accessAction.clearError();
+  };
+
+  const handleSaveAccess = async () => {
+    if (!accessProduct) return;
+    setSavingAccess(true);
+    const result = await accessAction.runAction(() =>
+      updateProduct(accessProduct.id, { bdmIds: accessBdmIds })
+    );
+    setSavingAccess(false);
+    if (result.success) {
+      toast.success(
+        accessBdmIds.length === 0
+          ? 'Product is now visible to all BDMs'
+          : `Product restricted to ${accessBdmIds.length} BDM${accessBdmIds.length === 1 ? '' : 's'}`
+      );
+      setAccessProduct(null);
+      fetchProducts();
+    }
+  };
 
   const isAdmin = user?.role === 'SUPER_ADMIN';
 
@@ -355,6 +387,24 @@ export default function ProductsPage() {
                         {isAdmin && (
                           <td className="py-4 px-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
+                              {/* BDM access — badge doubles as the button so the
+                                  current state is visible without opening it */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openAccessModal(product)}
+                                title="Choose which BDMs can see this product"
+                                className={
+                                  (product.assignments?.length || 0) > 0
+                                    ? 'text-amber-700 border-amber-300 hover:bg-amber-50 dark:text-amber-300 dark:border-amber-800 dark:hover:bg-amber-900/20'
+                                    : 'text-slate-600 border-slate-200 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800'
+                                }
+                              >
+                                <Users className="w-4 h-4 mr-1" />
+                                {(product.assignments?.length || 0) > 0
+                                  ? `${product.assignments.length} BDM${product.assignments.length === 1 ? '' : 's'}`
+                                  : 'All BDMs'}
+                              </Button>
                               {/* Edit Button */}
                               <Button
                                 size="sm"
@@ -404,6 +454,51 @@ export default function ProductsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* BDM access modal */}
+      {accessProduct && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => !savingAccess && setAccessProduct(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-lg p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              BDM access
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              {accessProduct.title}
+            </p>
+
+            <BdmAccessSelect
+              value={accessBdmIds}
+              onChange={setAccessBdmIds}
+              disabled={savingAccess}
+            />
+
+            <InlineError
+              message={accessAction.error}
+              onDismiss={accessAction.clearError}
+              className="mt-3"
+            />
+
+            <div className="flex justify-end gap-2 mt-5">
+              <Button variant="outline" onClick={() => setAccessProduct(null)} disabled={savingAccess}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveAccess}
+                disabled={savingAccess}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {savingAccess ? 'Saving…' : 'Save access'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
