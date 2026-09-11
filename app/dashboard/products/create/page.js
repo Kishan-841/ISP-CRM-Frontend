@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/PageHeader';
 import { useActionError } from '@/lib/useActionError';
 import { InlineError } from '@/components/ui/inline-error';
+import BdmAccessSelect from '@/components/BdmAccessSelect';
 
 export default function CreateProductPage() {
   const router = useRouter();
@@ -25,6 +26,8 @@ export default function CreateProductPage() {
     parentId: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  // Empty = visible to all BDMs. Restriction is opt-in.
+  const [bdmIds, setBdmIds] = useState([]);
 
   // Inline-error hook instance for the create-product form.
   const createProductAction = useActionError();
@@ -59,7 +62,8 @@ export default function CreateProductPage() {
       code: formData.code || null,
       isSerialized: formData.isSerialized,
       status: formData.status,
-      parentId: formData.parentId || null
+      parentId: formData.parentId || null,
+      bdmIds
     };
 
     const result = await createProductAction.runAction(() => createProduct(submitData));
@@ -178,6 +182,14 @@ export default function CreateProductPage() {
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Select a parent product to create this as a sub-product. Leave empty to create a main product.
               </p>
+            </div>
+
+            {/* BDM access — empty means every BDM sees it */}
+            <div className="space-y-2">
+              <Label className="text-slate-700 dark:text-slate-300">
+                Visible to BDMs
+              </Label>
+              <BdmAccessSelect value={bdmIds} onChange={setBdmIds} disabled={isLoading} />
             </div>
 
             {/* Status */}
