@@ -707,6 +707,16 @@ export default function Sidebar() {
       // Read-only view of every ISR's call outcomes; supports filtering by ISR.
       { name: 'Call History', path: '/dashboard/call-history', icon: History },
       { name: 'Employees', path: '/dashboard/employees', icon: UserCircle },
+      // Same product rights as Super Admin, including per-product BDM access.
+      {
+        name: 'Product Master',
+        icon: Package,
+        menuKey: 'products',
+        submenu: [
+          { name: 'Products', path: '/dashboard/products' },
+          { name: 'Create Product', path: '/dashboard/products/create' },
+        ]
+      },
     ] : []),
     // Super Admin only items
     ...(isSuperAdmin ? [

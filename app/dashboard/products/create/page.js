@@ -36,7 +36,10 @@ export default function CreateProductPage() {
     fetchParentProducts();
   }, [fetchParentProducts]);
 
-  const isAdmin = user?.role === 'SUPER_ADMIN';
+  // Sales Director manages the product catalogue alongside Super Admin,
+  // including which BDMs each product is visible to. Mirrors the route
+  // guard in backend/src/routes/product.routes.js.
+  const isAdmin = ['SUPER_ADMIN', 'SALES_DIRECTOR'].includes(user?.role);
 
   // Redirect if not admin
   if (!isAdmin) {
