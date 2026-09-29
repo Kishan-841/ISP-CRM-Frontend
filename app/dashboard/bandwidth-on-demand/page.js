@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Gauge, Plus, Clock, RotateCcw, Receipt, Zap, CheckCircle2, XCircle, Search, Pencil, Ban } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { BDM_LIKE_ROLES } from '@/lib/roles';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import DataTable, { StatusBadge } from '@/components/DataTable';
 import TabBar from '@/components/TabBar';
 
-const ALLOWED_ROLES = ['BDM', 'BDM_TEAM_LEADER', 'SUPER_ADMIN', 'MASTER'];
+const ALLOWED_ROLES = [...BDM_LIKE_ROLES, 'BDM_TEAM_LEADER', 'SUPER_ADMIN', 'MASTER'];
 const STATUS_COLORS = {
   PENDING_ACCOUNTS: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   SENT_BACK: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',

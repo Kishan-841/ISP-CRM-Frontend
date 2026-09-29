@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { isBdmLikeRole } from '@/lib/roles';
 import { useAuthStore, useCampaignStore, useUserStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -21,7 +22,7 @@ export default function CampaignManagementPage() {
   const assignISRAction = useActionError();
 
   const isAdmin = user?.role === 'SUPER_ADMIN';
-  const isBDM = user?.role === 'BDM';
+  const isBDM = isBdmLikeRole(user?.role);
   const isBDMTeamLeader = user?.role === 'BDM_TEAM_LEADER';
   const canViewAllCampaigns = isAdmin || isBDM || isBDMTeamLeader;
   const canCreateCampaigns = isAdmin || isBDM || isBDMTeamLeader;

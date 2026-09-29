@@ -38,6 +38,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
+import { isBdmLikeRole } from '@/lib/roles';
 import { formatCompactCurrency } from '@/lib/formatters';
 
 export default function BDMOverallDashboard() {
@@ -158,11 +159,18 @@ export default function BDMOverallDashboard() {
       // The directory is only used to render the "{N} BDMs" subtitle; the
       // numbers all come from the single dashboard call.
       const [usersRes, dashboardRes, meetingsRes] = await Promise.all([
-        api.get('/users/by-role?role=BDM').catch(() => ({ data: null })),
+        Promise.all([
+          api.get('/users/by-role?role=BDM'),
+          // TL view is unchanged: no SAM fetch. A SAM failure must not blank the BDM list.
+          isTl ? Promise.resolve({ data: { users: [] } })
+               : api.get('/users/by-role?role=SAM').catch(() => ({ data: { users: [] } })),
+        ]).then(([b, s]) => ({ data: { users: [...(b.data.users || []), ...(s.data.users || [])] } }))
+          .catch(() => ({ data: null })),
         api.get(`/leads/bdm/dashboard-stats?${dashboardQuery}`).catch(() => ({ data: null })),
         api.get(meetingsUrl).catch(() => ({ data: null })),
       ]);
-      const bdmUsers = (usersRes?.data?.users || []).filter(u => u.role === 'BDM');
+      // count solo BDMs, SAM and team BDMs (TL/CP excluded as before)
+      const bdmUsers = (usersRes?.data?.users || []).filter(u => isBdmLikeRole(u.role));
       setBdmList(bdmUsers);
 
       // Combine all meetings and sort by date
@@ -312,7 +320,7 @@ export default function BDMOverallDashboard() {
               <div className="h-7 w-1.5 bg-orange-500 rounded-full" />
               <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">BDM Team Dashboard</h1>
             </div>
-            <p className="text-slate-600 dark:text-slate-400 text-sm ml-[18px]">Overall performance overview • {bdmList.length} BDMs</p>
+            <p className="text-slate-600 dark:text-slate-400 text-sm ml-[18px]">Overall performance overview • {bdmList.length} {bdmList.some(u => u.role === 'SAM') ? 'BDMs & SAMs' : 'BDMs'}</p>
           </div>
         </div>
 

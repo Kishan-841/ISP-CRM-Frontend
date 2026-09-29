@@ -69,7 +69,7 @@ export default function EmployeesPage() {
   // table — filtering the table page missed leaders on other pages.
   const [leaderOptions, setLeaderOptions] = useState({});
   useEffect(() => {
-    const roles = ['BDM_TEAM_LEADER', 'NOC_HEAD', 'SAM_HEAD'];
+    const roles = ['BDM_TEAM_LEADER', 'NOC_HEAD'];
     Promise.all(roles.map(r => api.get('/users/by-role', { params: { role: r } }).catch(() => null)))
       .then(results => setLeaderOptions(Object.fromEntries(roles.map((r, i) => [r, results[i]?.data?.users || []]))));
   }, []);
@@ -304,8 +304,7 @@ export default function EmployeesPage() {
                 <option value="BDM_TEAM_LEADER">BDM Team Leader</option>
                 <option value="ISR">ISR</option>
                 <option value="SAM">SAM</option>
-                <option value="SAM_HEAD">SAM Head</option>
-                <option value="SAM_EXECUTIVE">SAM Executive</option>
+                <option value="SAM_INTEGRATION">API (SAM)</option>
                 <option value="FEASIBILITY_TEAM">Feasibility</option>
                 <option value="DOCS_TEAM">Docs Team</option>
                 <option value="OPS_TEAM">OPS Team</option>
@@ -379,11 +378,7 @@ export default function EmployeesPage() {
                               : u.role === 'BDM_TEAM_LEADER'
                               ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
                               : u.role === 'SAM'
-                              ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
-                              : u.role === 'SAM_HEAD'
-                              ? 'bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-800'
-                              : u.role === 'SAM_EXECUTIVE'
-                              ? 'bg-lime-100 dark:bg-lime-900 text-lime-700 dark:text-lime-300 border-lime-200 dark:border-lime-800'
+                              ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
                               : u.role === 'FEASIBILITY_TEAM'
                               ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                               : u.role === 'OPS_TEAM'
@@ -403,11 +398,11 @@ export default function EmployeesPage() {
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                           }
                         >
-                          {u.role === 'SUPER_ADMIN' ? 'Super Admin' : u.role === 'ADMIN' ? 'Admin' : u.role === 'BDM' ? 'BDM' : u.role === 'BDM_TEAM_LEADER' ? 'BDM Team Leader' : u.role === 'SAM' ? 'SAM' : u.role === 'SAM_HEAD' ? 'SAM Head' : u.role === 'SAM_EXECUTIVE' ? 'SAM Executive' : u.role === 'FEASIBILITY_TEAM' ? 'Feasibility Team' : u.role === 'OPS_TEAM' ? 'OPS Team' : u.role === 'DOCS_TEAM' ? 'Docs Team' : u.role === 'ACCOUNTS_TEAM' ? 'Accounts Team' : u.role === 'DELIVERY_TEAM' ? 'Delivery Team' : u.role === 'STORE_MANAGER' ? 'Store Manager' : u.role === 'NOC' ? 'NOC' : u.role === 'NOC_HEAD' ? 'NOC Head' : u.role === 'SALES_DIRECTOR' ? 'Sales Director' : u.role === 'BDM_CP' ? 'BDM (CP)' : 'ISR'}
+                          {u.role === 'SUPER_ADMIN' ? 'Super Admin' : u.role === 'ADMIN' ? 'Admin' : u.role === 'BDM' ? 'BDM' : u.role === 'BDM_TEAM_LEADER' ? 'BDM Team Leader' : u.role === 'SAM' ? 'SAM' : u.role === 'SAM_INTEGRATION' ? 'API (SAM)' : u.role === 'FEASIBILITY_TEAM' ? 'Feasibility Team' : u.role === 'OPS_TEAM' ? 'OPS Team' : u.role === 'DOCS_TEAM' ? 'Docs Team' : u.role === 'ACCOUNTS_TEAM' ? 'Accounts Team' : u.role === 'DELIVERY_TEAM' ? 'Delivery Team' : u.role === 'STORE_MANAGER' ? 'Store Manager' : u.role === 'NOC' ? 'NOC' : u.role === 'NOC_HEAD' ? 'NOC Head' : u.role === 'SALES_DIRECTOR' ? 'Sales Director' : u.role === 'BDM_CP' ? 'BDM (CP)' : 'ISR'}
                         </Badge>
                         {u.teamLeader && (
                           <span className="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">
-                            {u.role === 'NOC' ? 'Head' : u.role === 'SAM_EXECUTIVE' ? 'Head' : 'TL'}: {u.teamLeader.name}
+                            {u.role === 'NOC' ? 'Head' : 'TL'}: {u.teamLeader.name}
                           </span>
                         )}
                         {/* Show team members count for leaders */}
@@ -691,8 +686,6 @@ export default function EmployeesPage() {
                         <option value="BDM">BDM (Business Development Manager)</option>
                         <option value="BDM_TEAM_LEADER">BDM Team Leader</option>
                         <option value="SAM">SAM (Sales Account Manager)</option>
-                        <option value="SAM_HEAD">SAM Head</option>
-                        <option value="SAM_EXECUTIVE">SAM Executive</option>
                         <option value="FEASIBILITY_TEAM">Feasibility Team</option>
                         <option value="OPS_TEAM">OPS Team</option>
                         <option value="DOCS_TEAM">Docs Verification Team</option>
@@ -704,6 +697,8 @@ export default function EmployeesPage() {
                         {/* SD cannot create/assign admin-level roles (enforced server-side too) */}
                         {!isSalesDirector && <option value="SALES_DIRECTOR">Sales Director</option>}
                         <option value="BDM_CP">BDM (Channel Partner)</option>
+                        {/* Existing integration accounts only: shown when editing so the select keeps their role; never offered on create */}
+                        {editingUser?.role === 'SAM_INTEGRATION' && <option value="SAM_INTEGRATION">API (SAM)</option>}
                       </select>
                     </div>
 
@@ -714,8 +709,8 @@ export default function EmployeesPage() {
                         'BDM_CP': { label: 'BDM Team Leader', filterRole: 'BDM_TEAM_LEADER' },
                         'ISR': { label: 'BDM Team Leader', filterRole: 'BDM_TEAM_LEADER' },
                         'NOC': { label: 'NOC Head', filterRole: 'NOC_HEAD' },
-                        'SAM_EXECUTIVE': { label: 'SAM Head', filterRole: 'SAM_HEAD' },
                       };
+                      if (formData.role === 'SAM') return null; // SAM is solo, never has a TL
                       const config = leaderConfig[formData.role];
                       if (!config) return null;
                       return (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { isBdmLikeRole, BDM_LIKE_ROLES } from '@/lib/roles';
 import { useAuthStore, useLeadStore, useCampaignStore, useProductStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +53,7 @@ export default function LeadsPage() {
   const [deletingId, setDeletingId] = useState(null);
 
   const isAdmin = user?.role === 'SUPER_ADMIN';
-  const isBDM = user?.role === 'BDM';
+  const isBDM = isBdmLikeRole(user?.role);
   const isISR = user?.role === 'ISR';
   const isTL = user?.role === 'BDM_TEAM_LEADER';
   const isFeasibilityTeam = user?.role === 'FEASIBILITY_TEAM';
@@ -379,7 +380,7 @@ export default function LeadsPage() {
     }
 
     // Location is mandatory for BDM-type roles; captured for everyone who allows it.
-    const isBdmUser = ['BDM', 'BDM_CP', 'BDM_TEAM_LEADER'].includes(user?.role);
+    const isBdmUser = [...BDM_LIKE_ROLES, 'BDM_CP', 'BDM_TEAM_LEADER'].includes(user?.role);
     let coords = null;
     setIsCapturingLocation(true);
     try {

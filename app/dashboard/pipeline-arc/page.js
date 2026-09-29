@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { isBdmLikeRole } from '@/lib/roles';
 import { useLeadStore, useAuthStore } from '@/lib/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,7 +49,7 @@ export default function PipelineARCPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { fetchBDMDashboardStats, bdmDashboardStats, bdmDashboardLoading, fetchBDMUsers, bdmUsers } = useLeadStore();
-  const isBDM = user?.role === 'BDM';
+  const isBDM = isBdmLikeRole(user?.role);
   const isTL = user?.role === 'BDM_TEAM_LEADER';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isMaster = user?.role === 'MASTER';

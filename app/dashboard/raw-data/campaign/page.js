@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { isBdmLikeRole } from '@/lib/roles';
 import { useAuthStore, useCampaignStore, useUserStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -20,7 +21,7 @@ export default function RawDataCampaignPage() {
 
   const router = useRouter();
   const isAdmin = user?.role === 'SUPER_ADMIN';
-  const isBDM = user?.role === 'BDM';
+  const isBDM = isBdmLikeRole(user?.role);
   const isISR = user?.role === 'ISR';
   const isBDMCP = user?.role === 'BDM_CP';
   const isBDMTeamLeader = user?.role === 'BDM_TEAM_LEADER';
@@ -289,8 +290,6 @@ export default function RawDataCampaignPage() {
                 BDM: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
                 BDM_TEAM_LEADER: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400',
                 ISR: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
-                SAM_EXECUTIVE: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
-                SAM_HEAD: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400',
               };
               const colorClass = roleColors[creator.role] || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-400';
               return (

@@ -236,7 +236,7 @@ export default function AccountsOrderRequests() {
         }}
         onPageChange={(page) => setPagination(p => ({ ...p, page }))}
         onPageSizeChange={(limit) => setPagination(p => ({ ...p, limit, page: 1 }))}
-        onRowClick={(row) => router.push(`/dashboard/sam-executive/orders/${row.id}`)}
+        onRowClick={(row) => router.push(`/dashboard/service-orders/${row.id}`)}
         emptyMessage="No orders pending billing"
       />
 

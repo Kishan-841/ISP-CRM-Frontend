@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { isBdmLikeRole } from '@/lib/roles';
 import { useAuthStore, useCampaignStore, useUserStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +24,7 @@ export default function RawDataSelfDataPage() {
   const { fetchUsersByRole } = useUserStore();
 
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MASTER';
-  const isBDM = user?.role === 'BDM';
+  const isBDM = isBdmLikeRole(user?.role);
   const isBDMCP = user?.role === 'BDM_CP';
   const isBDMTeamLeader = user?.role === 'BDM_TEAM_LEADER';
   // Matches the backend gate in deleteSelfCampaign — BDM-tier can no

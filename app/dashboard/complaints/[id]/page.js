@@ -310,7 +310,6 @@ export default function ComplaintDetailPage() {
                 <InfoRow icon={Phone} label="Phone" value={complaint.lead?.campaignData?.phone} />
                 <InfoRow icon={Mail} label="Email" value={complaint.lead?.campaignData?.email} />
                 <InfoRow icon={Globe} label="Username" value={complaint.lead?.customerUsername} />
-                <InfoRow icon={Wifi} label="Service Type" value={complaint.lead?.serviceType} />
                 {complaint.lead?.actualPlanName && (
                   <InfoRow
                     icon={Tag}

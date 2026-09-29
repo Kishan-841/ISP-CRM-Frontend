@@ -24,10 +24,8 @@ import Link from 'next/link';
 // Keep in one place so adding a new reminder type is a single-row change.
 const TYPE_STYLES = {
   MEETING_BDM:    { icon: Users,          header: 'Meeting Reminder',   gradient: 'from-amber-500 to-orange-500',   badge: 'BDM' },
-  MEETING_SAM:    { icon: Users,          header: 'Meeting Reminder',   gradient: 'from-amber-500 to-orange-500',   badge: 'SAM' },
   FOLLOW_UP_ISR:  { icon: Phone,          header: 'Follow-up Call',     gradient: 'from-sky-500 to-blue-600',       badge: 'ISR' },
   FOLLOW_UP_BDM:  { icon: Phone,          header: 'Follow-up Call',     gradient: 'from-sky-500 to-blue-600',       badge: 'BDM' },
-  SAM_VISIT:      { icon: MapPin,         header: 'Customer Visit',     gradient: 'from-emerald-500 to-teal-600',   badge: 'SAM' },
   COMPLAINT_TAT:  { icon: AlertTriangle,  header: 'TAT Warning',        gradient: 'from-red-500 to-rose-600',       badge: 'Complaint' },
   INVOICE_DUE:    { icon: DollarSign,     header: 'Invoice Due Soon',   gradient: 'from-violet-500 to-indigo-600',  badge: 'Accounts' },
   // Fallback for any unknown future type

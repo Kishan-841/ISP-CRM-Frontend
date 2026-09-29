@@ -197,7 +197,7 @@ export default function DeleteLeadPage() {
           <div className="text-sm text-red-800 dark:text-red-200">
             <p className="font-semibold">This action is permanent and irreversible.</p>
             <p className="mt-1 opacity-90">
-              All invoices, payments, ledger entries, delivery requests, complaints, SAM records,
+              All invoices, payments, ledger entries, delivery requests, complaints,
               document uploads, and every other trace of this lead will be wiped. There is no undo.
             </p>
           </div>
@@ -453,11 +453,6 @@ function humanize(key) {
     statusChangeLogs: 'Status change log entries',
     notifications: 'Notifications',
     nexusConversations: 'VECTRA conversations',
-    samMeetings: 'SAM meetings',
-    samVisits: 'SAM visits',
-    samCommunications: 'SAM communications',
-    samAssignmentHistory: 'SAM assignment history',
-    samAssignments: 'SAM assignments',
     leadProducts: 'Lead products',
     minutesOfMeeting: 'Minutes of meeting',
     documentUploadLinks: 'Document upload links',

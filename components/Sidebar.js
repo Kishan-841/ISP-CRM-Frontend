@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { isBdmLikeRole } from '@/lib/roles';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore, useThemeStore, useSidebarStore, useNotificationStore } from '@/lib/store';
 import { canViewAuditLog } from '@/lib/useRoleCheck';
@@ -50,8 +51,6 @@ import {
   Menu,
   Headphones,
   ClipboardList,
-  TrendingDown,
-  Inbox,
   Plus,
   Sparkles,
   Trash2,
@@ -188,10 +187,10 @@ export default function Sidebar() {
   const isAdminRole = user?.role === 'ADMIN';
   const isAdmin = isSuperAdmin; // For backward compatibility
   const canApprovePO = isSuperAdmin || isAdminRole; // Both can approve POs
-  const isBDM = user?.role === 'BDM';
+  const isBDM = isBdmLikeRole(user?.role);
+  const isSamIntegration = user?.role === 'SAM_INTEGRATION';
   const isBDMTeamLeader = user?.role === 'BDM_TEAM_LEADER';
   const isISR = user?.role === 'ISR';
-  const isSAM = user?.role === 'SAM';
   const isFeasibilityTeam = user?.role === 'FEASIBILITY_TEAM';
   const isOpsTeam = user?.role === 'OPS_TEAM';
   const isDocsTeam = user?.role === 'DOCS_TEAM';
@@ -200,8 +199,6 @@ export default function Sidebar() {
   const isStoreManager = user?.role === 'STORE_MANAGER';
   const isNOC = user?.role === 'NOC';
   const isNOCHead = user?.role === 'NOC_HEAD';
-  const isSAMHead = user?.role === 'SAM_HEAD';
-  const isSAMExecutive = user?.role === 'SAM_EXECUTIVE';
   const isSupportTeam = user?.role === 'SUPPORT_TEAM';
   const isSalesDirector = user?.role === 'SALES_DIRECTOR';
   const isBDMCP = user?.role === 'BDM_CP';
@@ -338,33 +335,6 @@ export default function Sidebar() {
       ]
     },
     {
-      name: 'SAM Head',
-      icon: Users,
-      menuKey: 'masterSAMHead',
-      submenu: [
-        { name: 'Customer Assignment', path: '/dashboard/sam-head', badge: counts.unassignedCustomers > 0 ? counts.unassignedCustomers : null },
-        { name: 'SAM Executives', path: '/dashboard/sam-head/executives' },
-        { name: 'Customer Referrals', path: '/dashboard/sam-head/customer-referrals', badge: counts.pendingEnquiries > 0 ? counts.pendingEnquiries : null },
-        { name: 'All MOMs', path: '/dashboard/sam-head/meetings' },
-        { name: 'Order Mgmt', path: '/dashboard/sam-head/orders', badge: counts.allOrdersPending > 0 ? counts.allOrdersPending : null },
-        { name: 'Business Impact', path: '/dashboard/sam-head/business-impact' },
-        { name: 'SAM Leads', path: '/dashboard/sam-leads' },
-      ]
-    },
-    {
-      name: 'SAM Executive',
-      icon: UserCircle,
-      menuKey: 'masterSAMExec',
-      submenu: [
-        { name: 'SAM Dashboard', path: '/dashboard/sam-executive' },
-        { name: 'My Customers', path: '/dashboard/sam-executive/customers' },
-        { name: 'Meeting MOM', path: '/dashboard/sam-executive/meetings', badge: counts.pendingMomEmails > 0 ? counts.pendingMomEmails : null },
-        { name: 'Order Mgmt', path: '/dashboard/sam-executive/orders', badge: counts.ordersPending > 0 ? counts.ordersPending : null },
-        { name: 'Business Impact', path: '/dashboard/sam-executive/business-impact' },
-        { name: 'SAM Leads', path: '/dashboard/sam-leads' },
-      ]
-    },
-    {
       name: 'Store',
       icon: Warehouse,
       menuKey: 'masterStore',
@@ -443,7 +413,7 @@ export default function Sidebar() {
     { name: 'Delete Lead', path: '/dashboard/master/delete-lead', icon: Trash2 },
   ];
 
-  const navItems = isMaster ? masterNavItems : [
+  const navItems = isMaster ? masterNavItems : isSamIntegration ? [] : [
     // Super Admin / Sales Director top item
     ...(isSuperAdmin || isSalesDirector ? [{ name: 'Team Dashboard & Reports', path: '/dashboard/admin-dashboards', icon: BarChart3 }] : []),
     // BDM field-visit leads (GPS captured at creation) — management only
@@ -461,7 +431,7 @@ export default function Sidebar() {
     // Audit Log — SUPER_ADMIN (and MASTER via canViewAuditLog) can read
     // every CRM change. MASTER reaches the same page via masterNavItems above.
     ...(canViewAuditLog(user) ? [{ name: 'Event Log', path: '/dashboard/audit-log', icon: ShieldCheck }] : []),
-    ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isStoreManager && !isSalesDirector && !isBDMCP ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
+    ...(!isOpsTeam && !isDocsTeam && !isAccountsTeam && !isDeliveryTeam && !isNOC && !isNOCHead && !isSuperAdmin && !isSuperAdmin2 && !isStoreManager && !isSalesDirector && !isBDMCP && !isSamIntegration ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
     // Team Performance sits directly under Dashboard for TLs — it's the
     // primary oversight surface and should be one click away from landing.
     ...(isBDMTeamLeader ? [
@@ -488,11 +458,6 @@ export default function Sidebar() {
     ...(isISR ? [
       { name: 'Calling Queue', path: '/dashboard/calling-queue', icon: PhoneCall, badge: counts.callingQueue > 0 ? counts.callingQueue : null },
       { name: 'Retry Queue', path: '/dashboard/retry-calls', icon: PhoneMissed, badge: counts.retryQueue > 0 ? counts.retryQueue : null },
-    ] : []),
-    // SAM-only items
-    ...(isSAM ? [
-      { name: 'Add Data', path: '/dashboard/sam-data', icon: UserPlus },
-      { name: 'Self Calling Queue', path: '/dashboard/sam-calling-queue', icon: PhoneCall, badge: counts.callingQueue > 0 ? counts.callingQueue : null },
     ] : []),
     // BDM-only items (ordered by priority)
     ...(isBDM ? [
@@ -642,7 +607,6 @@ export default function Sidebar() {
     ...(isSuperAdmin || isSalesDirector ? [
       { name: 'Customer 360', path: '/dashboard/customer-360', icon: UserCircle },
       { name: 'Lead Buckets', path: '/dashboard/buckets', icon: Briefcase },
-      { name: 'Business Impact', path: '/dashboard/sam-head/business-impact', icon: TrendingDown },
       { name: 'CP Leads', path: '/dashboard/cp-leads', icon: Handshake },
     ] : []),
     // Complaint Management
@@ -651,25 +615,6 @@ export default function Sidebar() {
     ] : []),
     ...(isSuperAdmin || isSalesDirector || isNOC || isNOCHead || isSupportTeam || isOpsTeam || isAccountsTeam ? [
       { name: 'Customer Complaints', path: '/dashboard/customer-complaints', icon: Users },
-    ] : []),
-    // SAM Head-only items
-    ...(isSAMHead ? [
-      { name: 'Customer Assignment', path: '/dashboard/sam-head', icon: Users, badge: counts.unassignedCustomers > 0 ? counts.unassignedCustomers : null },
-      { name: 'SAM Executives', path: '/dashboard/sam-head/executives', icon: UserPlus },
-      { name: 'Customer Referrals', path: '/dashboard/sam-head/customer-referrals', icon: Inbox, badge: counts.pendingEnquiries > 0 ? counts.pendingEnquiries : null },
-      { name: 'All MOMs', path: '/dashboard/sam-head/meetings', icon: CalendarCheck },
-      { name: 'Order Mgmt', path: '/dashboard/sam-head/orders', icon: ClipboardList, badge: counts.allOrdersPending > 0 ? counts.allOrdersPending : null },
-      { name: 'Business Impact', path: '/dashboard/sam-head/business-impact', icon: TrendingDown },
-      { name: 'SAM Leads', path: '/dashboard/sam-leads', icon: UserPlus },
-    ] : []),
-    // SAM Executive-only items
-    ...(isSAMExecutive ? [
-      { name: 'SAM Dashboard', path: '/dashboard/sam-executive', icon: LayoutDashboard },
-      { name: 'My Customers', path: '/dashboard/sam-executive/customers', icon: Users },
-      { name: 'Meeting MOM', path: '/dashboard/sam-executive/meetings', icon: CalendarCheck, badge: counts.pendingMomEmails > 0 ? counts.pendingMomEmails : null },
-      { name: 'Order Mgmt', path: '/dashboard/sam-executive/orders', icon: ClipboardList, badge: counts.ordersPending > 0 ? counts.ordersPending : null },
-      { name: 'Business Impact', path: '/dashboard/sam-executive/business-impact', icon: TrendingDown },
-      { name: 'SAM Leads', path: '/dashboard/sam-leads', icon: UserPlus },
     ] : []),
     // Store Manager-only items
     ...(isStoreManager ? [
@@ -683,16 +628,12 @@ export default function Sidebar() {
       { name: 'Reports', path: '/dashboard/store-reports', icon: BarChart3 },
     ] : []),
     // Leads - available for all roles except Docs Team, Accounts Team, Store Manager, and OPS Team
-    ...(!isBDM && !isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isNOCHead && !isSuperAdmin && !isSalesDirector && !isSuperAdmin2 && !isSAMHead && !isSAMExecutive && !isBDMCP ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
+    ...(!isBDM && !isDocsTeam && !isAccountsTeam && !isStoreManager && !isOpsTeam && !isDeliveryTeam && !isBDMTeamLeader && !isNOC && !isNOCHead && !isSuperAdmin && !isSalesDirector && !isSuperAdmin2 && !isBDMCP ? [{ name: 'Leads', path: '/dashboard/leads', icon: Users }] : []),
     // ISR-only items
     ...(isISR ? [
       { name: 'Follow-Ups', path: '/dashboard/follow-ups', icon: Clock, badge: counts.followUps > 0 ? counts.followUps : null },
       { name: 'Call History', path: '/dashboard/call-history', icon: History },
       { name: 'Reports', path: '/dashboard/reports', icon: BarChart3 },
-    ] : []),
-    // SAM Follow-ups
-    ...(isSAM ? [
-      { name: 'Follow-Ups', path: '/dashboard/sam-follow-ups', icon: Clock, badge: counts.followUps > 0 ? counts.followUps : null },
     ] : []),
     // PO Approval - Admin only (Super Admin gets it via Approvals submenu)
     ...(canApprovePO && !isSuperAdmin ? [

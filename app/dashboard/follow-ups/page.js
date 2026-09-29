@@ -933,7 +933,7 @@ export default function FollowUpsPage() {
                       >
                         <option value="">Select Team Leader / BDM...</option>
                         {teamLeaders.map((tl) => (
-                          <option key={tl.id} value={tl.id}>{tl.name}{tl.kind === 'BDM' ? ' (BDM)' : ''}</option>
+                          <option key={tl.id} value={tl.id}>{tl.name}{tl.kind === 'BDM' ? ' (BDM)' : tl.kind === 'SAM' ? ' (SAM)' : ''}</option>
                         ))}
                       </select>
                     )

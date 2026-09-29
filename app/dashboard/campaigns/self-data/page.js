@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { isBdmLikeRole } from '@/lib/roles';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useCampaignStore, useUserStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
@@ -26,12 +27,11 @@ export default function AddSelfDataPage() {
   const [isrUsers, setIsrUsers] = useState([]);
   const [loadingISRs, setLoadingISRs] = useState(false);
 
-  const isBDM = user?.role === 'BDM';
-  const isSAM = user?.role === 'SAM';
+  const isBDM = isBdmLikeRole(user?.role);
   const isISR = user?.role === 'ISR';
-  const canAssignToOthers = isBDM || isSAM; // BDM and SAM can assign to ISR
+  const canAssignToOthers = isBDM; // BDM can assign to ISR
 
-  // Fetch ISR users when BDM/SAM loads the page
+  // Fetch ISR users when BDM loads the page
   useEffect(() => {
     if (canAssignToOthers) {
       loadISRUsers();
@@ -258,7 +258,7 @@ export default function AddSelfDataPage() {
       }
     }
 
-    // Validate ISR selection if BDM/SAM chooses to assign to ISR
+    // Validate ISR selection if BDM chooses to assign to ISR
     if (canAssignToOthers && assignmentType === 'isr' && !selectedISR) {
       setError('Please select an ISR to assign the data to.');
       return;
@@ -453,7 +453,7 @@ export default function AddSelfDataPage() {
               />
             </div>
 
-            {/* Assignment Option (BDM and SAM) */}
+            {/* Assignment Option (BDM) */}
             {canAssignToOthers && (
               <div className="space-y-3">
                 <Label className="text-slate-700 dark:text-slate-300">

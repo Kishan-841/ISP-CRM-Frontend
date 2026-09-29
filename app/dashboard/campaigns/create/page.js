@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { isBdmLikeRole } from '@/lib/roles';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useCampaignStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
@@ -50,7 +51,7 @@ export default function CreateCampaignPage() {
   }, []);
 
   // Redirect if not admin, BDM, or BDM Team Leader
-  const canCreateCampaign = user?.role === 'SUPER_ADMIN' || user?.role === 'BDM' || user?.role === 'BDM_TEAM_LEADER';
+  const canCreateCampaign = user?.role === 'SUPER_ADMIN' || isBdmLikeRole(user?.role) || user?.role === 'BDM_TEAM_LEADER';
 
   useEffect(() => {
     if (user && !canCreateCampaign) {

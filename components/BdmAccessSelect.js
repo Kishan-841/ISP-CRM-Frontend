@@ -10,6 +10,7 @@ import { Loader2, Users } from 'lucide-react';
 // permanently locked out of every product that has any assignment.
 const RESTRICTED_ROLES = [
   { role: 'BDM', label: 'BDM' },
+  { role: 'SAM', label: 'SAM' },
   { role: 'BDM_CP', label: 'BDM (Channel Partner)' },
   { role: 'BDM_TEAM_LEADER', label: 'BDM Team Leader' },
 ];

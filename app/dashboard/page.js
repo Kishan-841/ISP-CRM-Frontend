@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { isBdmLikeRole } from '@/lib/roles';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore, useCampaignStore, useUserStore, useLeadStore } from '@/lib/store';
 import api from '@/lib/api';
@@ -88,7 +89,7 @@ export default function DashboardPage() {
 
   const isAdmin = user?.role === 'SUPER_ADMIN';
   const isTL = user?.role === 'BDM_TEAM_LEADER';
-  const isBDM = user?.role === 'BDM' || isTL;
+  const isBDM = isBdmLikeRole(user?.role) || isTL;
   const isFeasibilityTeam = user?.role === 'FEASIBILITY_TEAM';
   // Redirect roles that don't have a dashboard on /dashboard to their first sidebar page
   useEffect(() => {
@@ -100,11 +101,9 @@ export default function DashboardPage() {
       DELIVERY_TEAM: '/dashboard/delivery-queue',
       STORE_MANAGER: '/dashboard/product-management',
       NOC: '/dashboard/noc-queue',
-      SAM_HEAD: '/dashboard/sam-head',
-      SAM_EXECUTIVE: '/dashboard/sam-executive',
       SUPPORT_TEAM: '/dashboard/complaints',
       SUPER_ADMIN_2: '/dashboard/super-admin2-approval',
-      SAM: '/dashboard/sam-data',
+      SAM_INTEGRATION: '/dashboard/api-account',
     };
     const target = redirectMap[user.role];
     if (target) router.replace(target);
@@ -135,6 +134,7 @@ export default function DashboardPage() {
     { value: 'ALL', label: 'All Users' },
     { value: 'ISR', label: 'ISR' },
     { value: 'BDM', label: 'BDM' },
+    { value: 'SAM', label: 'SAM' },
   ];
 
   // Handle URL params for direct user access (from Team Dashboards)
@@ -250,7 +250,7 @@ export default function DashboardPage() {
         // Find the selected user to determine their role
         const selectedUser = usersList.find(u => u.id === selectedUserId);
 
-        if (selectedUser?.role === 'BDM') {
+        if (isBdmLikeRole(selectedUser?.role)) {
           // Admin viewing a BDM's dashboard - fetch BDM stats
           const result = await fetchBDMDashboardStats(selectedUserId);
           if (result.success) {

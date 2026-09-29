@@ -1,5 +1,6 @@
 'use client';
 
+import { BDM_LIKE_ROLES } from '@/lib/roles';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeadStore, useProductStore } from '@/lib/store';
@@ -270,7 +271,7 @@ export default function BDMQueuePage() {
     if (!existingPlanExpiryDate) return addLeadAction.fail('Existing plan expiry date is required.');
 
     // Location is mandatory for BDM-type roles; captured for everyone who allows it.
-    const isBdmUser = ['BDM', 'BDM_CP', 'BDM_TEAM_LEADER'].includes(user?.role);
+    const isBdmUser = [...BDM_LIKE_ROLES, 'BDM_CP', 'BDM_TEAM_LEADER'].includes(user?.role);
     let coords = null;
     setIsCapturingLocation(true);
     try {

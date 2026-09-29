@@ -260,7 +260,6 @@ const TABS = [
   { key: 'billing', label: 'Billing', icon: DollarSign },
   { key: 'documents', label: 'Documents', icon: FileText },
   { key: 'complaints', label: 'Complaints', icon: AlertTriangle },
-  { key: 'sam', label: 'SAM', icon: Users },
   { key: 'history', label: 'History', icon: Clock },
 ];
 
@@ -1839,196 +1838,6 @@ function ComplaintsTab({ data, loading }) {
   );
 }
 
-// ─── SAM Activity Tab ───
-
-function getMeetingTypeIcon(type) {
-  switch (type) {
-    case 'VIDEO_CALL': return Video;
-    case 'PHONE_CALL': return PhoneCall;
-    case 'IN_PERSON': return MapPinIcon;
-    default: return MessageSquare;
-  }
-}
-
-function SamTab({ data, loading }) {
-  if (loading) return <TabSkeleton label="SAM activity" />;
-  if (!data) return <EmptyTab message="No SAM data available." />;
-
-  const { assignment, meetings = [], visits = [], communications = [] } = data;
-
-  return (
-    <div className="space-y-6">
-      {/* SAM Assignment Card */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-        <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">SAM Assignment</h4>
-        {assignment ? (
-          <div className="flex items-center gap-4">
-            <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-              <User className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-900 dark:text-white">{assignment.samExecutive?.name}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {assignment.samExecutive?.email}
-              </p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                Assigned by {assignment.assignedBy?.name || '-'} on {formatDate(assignment.assignedAt)}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">No SAM executive assigned.</p>
-        )}
-      </div>
-
-      {/* Meetings Table */}
-      {meetings.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-          <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">
-            Meetings <span className="text-slate-500 dark:text-slate-400 font-normal">({meetings.length})</span>
-          </h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Title</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Follow-up</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {meetings.map((m) => {
-                  const TypeIcon = getMeetingTypeIcon(m.meetingType);
-                  return (
-                    <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                      <td className="py-2 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">{formatDate(m.meetingDate)}</td>
-                      <td className="py-2 px-3">
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
-                          <TypeIcon className="h-3.5 w-3.5" />
-                          {formatStatus(m.meetingType || '')}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-slate-900 dark:text-white max-w-[200px] truncate">{m.title || '-'}</td>
-                      <td className="py-2 px-3">
-                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                          m.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                            : m.status === 'CANCELLED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                        }`}>
-                          {formatStatus(m.status)}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">{formatDate(m.followUpDate)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Visits Table */}
-      {visits.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-          <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">
-            Visits <span className="text-slate-500 dark:text-slate-400 font-normal">({visits.length})</span>
-          </h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Purpose</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Outcome</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Next Visit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {visits.map((v) => (
-                  <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="py-2 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">{formatDate(v.visitDate)}</td>
-                    <td className="py-2 px-3 text-slate-600 dark:text-slate-400">{formatStatus(v.visitType || '')}</td>
-                    <td className="py-2 px-3 text-slate-900 dark:text-white max-w-[180px] truncate">{v.purpose || '-'}</td>
-                    <td className="py-2 px-3 text-slate-600 dark:text-slate-400 max-w-[180px] truncate">{v.outcome || '-'}</td>
-                    <td className="py-2 px-3">
-                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                        v.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                      }`}>
-                        {formatStatus(v.status)}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">{formatDate(v.nextVisitDate)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Communications Table */}
-      {communications.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-          <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">
-            Communications <span className="text-slate-500 dark:text-slate-400 font-normal">({communications.length})</span>
-          </h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Channel</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subject</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Sent</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">By</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {communications.map((comm) => (
-                  <tr key={comm.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="py-2 px-3">
-                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                        {formatStatus(comm.communicationType || '')}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 text-slate-600 dark:text-slate-400">{formatStatus(comm.channel || '')}</td>
-                    <td className="py-2 px-3 text-slate-900 dark:text-white max-w-[200px] truncate">{comm.subject || '-'}</td>
-                    <td className="py-2 px-3">
-                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                        comm.status === 'SENT' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                          : comm.status === 'FAILED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                      }`}>
-                        {formatStatus(comm.status)}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">{formatDate(comm.sentAt)}</td>
-                    <td className="py-2 px-3 text-slate-600 dark:text-slate-400">{comm.samExecutive?.name || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Empty state for no activity */}
-      {!assignment && meetings.length === 0 && visits.length === 0 && communications.length === 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-8">
-          <p className="text-center text-slate-500 dark:text-slate-400">No SAM activity recorded for this customer.</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Feasibility / Vendor tab ───
 
 const VENDOR_TYPE_LABELS = {
@@ -2380,7 +2189,7 @@ export default function Customer360DetailPage() {
 
   useSocketRefresh(() => {
     const currentTab = useCustomer360Store.getState().activeTab;
-    ['journey', 'billing', 'documents', 'complaints', 'sam'].forEach(invalidateTab);
+    ['journey', 'billing', 'documents', 'complaints'].forEach(invalidateTab);
     refreshSummary(leadId);
     // Re-fetch the currently active tab so user sees fresh data
     fetchTabData(leadId, currentTab, { force: true });
@@ -2479,8 +2288,6 @@ export default function Customer360DetailPage() {
             <DocumentsTab data={tabData.documents} loading={tabLoading.documents} leadId={leadId} />
           ) : activeTab === 'complaints' ? (
             <ComplaintsTab data={tabData.complaints} loading={tabLoading.complaints} />
-          ) : activeTab === 'sam' ? (
-            <SamTab data={tabData.sam} loading={tabLoading.sam} />
           ) : activeTab === 'feasibility' ? (
             <FeasibilityTab data={tabData.feasibility} loading={tabLoading.feasibility} />
           ) : activeTab === 'history' ? (
@@ -2533,7 +2340,6 @@ function SummaryHeader({ summary }) {
     : null;
   const invoiceStats = summary.invoicesSummary;
   const complaintStats = summary.complaintsSummary;
-  const samExecutiveName = summary.samExecutive?.name || null;
 
   // Determine plan status label and color
   let planStatusLabel = 'Inactive';
@@ -2650,12 +2456,6 @@ function SummaryHeader({ summary }) {
               ? 'text-amber-500 dark:text-amber-400'
               : 'text-slate-500 dark:text-slate-400'
           }
-        />
-        <StatCard
-          icon={Users}
-          label="SAM"
-          value={samExecutiveName || 'Not assigned'}
-          color="text-slate-500 dark:text-slate-400"
         />
       </div>
 

@@ -80,16 +80,20 @@ export default function AdminDashboardsPage() {
         });
       } else {
         // Super Admin / Sales Director / Master: fetch every role.
-        const [isrRes, bdmRes, bdmTLRes, accountsRes, deliveryRes] = await Promise.all([
+        const [isrRes, bdmRes, samRes, bdmTLRes, accountsRes, deliveryRes] = await Promise.all([
           api.get('/users/by-role?role=ISR'),
           api.get('/users/by-role?role=BDM&includeTeam=1'),
+          // SAM failure must not blank the whole admin dashboard.
+          api.get('/users/by-role?role=SAM&includeTeam=1').catch(() => ({ data: { users: [] } })),
           api.get('/users/by-role?role=BDM_TEAM_LEADER'),
           api.get('/users/by-role?role=ACCOUNTS_TEAM'),
           api.get('/users/by-role?role=DELIVERY_TEAM'),
         ]);
         setUsers({
           isr: isrRes.data.users || [],
-          bdm: bdmRes.data.users || [],
+          // SAM users work as solo BDMs -> merged into the BDM list; with no
+          // teamLeaderId they land in the "No Team Leader" group.
+          bdm: [...(bdmRes.data.users || []), ...(samRes.data.users || [])],
           bdmTL: bdmTLRes.data.users || [],
           accounts: accountsRes.data.users || [],
           delivery: deliveryRes.data.users || [],
@@ -309,7 +313,10 @@ export default function AdminDashboardsPage() {
                               <UserCog className="h-3 w-3" />
                               {group.label}
                               <span className="ml-auto text-[10px] text-slate-400 normal-case tracking-normal">
-                                {group.members.length} {group.members.length === 1 ? 'BDM' : 'BDMs'}
+                                {group.members.length}{' '}
+                                {group.id === '__unassigned__'
+                                  ? (group.members.length === 1 ? 'member' : 'members')
+                                  : (group.members.length === 1 ? 'BDM' : 'BDMs')}
                               </span>
                             </SelectLabel>
                             {group.members.map((member) => (
@@ -318,7 +325,7 @@ export default function AdminDashboardsPage() {
                                   <div className={`w-6 h-6 rounded-full flex items-center justify-center ${role.iconBg} text-xs font-semibold`}>
                                     {member.name?.charAt(0)?.toUpperCase() || '?'}
                                   </div>
-                                  <span>{member.name}</span>
+                                  <span>{member.name}{member.role === 'SAM' ? ' (SAM)' : ''}</span>
                                 </div>
                               </SelectItem>
                             ))}

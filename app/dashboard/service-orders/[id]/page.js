@@ -153,11 +153,8 @@ export default function ServiceOrderDetail() {
 
   // Determine back link based on route path
   const getBackPath = () => {
-    if (pathname.includes('/sam-head/')) return '/dashboard/sam-head/orders';
     if (pathname.includes('/order-approvals')) return '/dashboard/order-approvals';
-    if (pathname.includes('/accounts-order-requests')) return '/dashboard/accounts-order-requests';
-    if (pathname.includes('/accounts-dashboard/')) return '/dashboard/accounts-dashboard/order-requests';
-    return '/dashboard/sam-executive/orders';
+    return '/dashboard/accounts-dashboard/order-requests';
   };
 
   const fetchOrder = useCallback(async () => {
@@ -230,7 +227,6 @@ export default function ServiceOrderDetail() {
   const isMaster = user?.role === 'MASTER';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN' || isMaster;
   const isAccountsOrNOC = user?.role === 'ACCOUNTS_TEAM' || user?.role === 'NOC';
-  const isSAM = user?.role === 'SAM_EXECUTIVE' || user?.role === 'SAM_HEAD' || isMaster;
   const attachments = Array.isArray(order.attachments) ? order.attachments : [];
   const isNonDisconnection = ['UPGRADE', 'DOWNGRADE', 'RATE_REVISION'].includes(order.orderType);
   const pipeline = isNonDisconnection ? UPGRADE_PIPELINE : DISCONNECTION_PIPELINE;
