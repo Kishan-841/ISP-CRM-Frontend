@@ -7,6 +7,7 @@ import { useRoleCheck } from '@/lib/useRoleCheck';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   Building2,
   User,
@@ -75,7 +76,8 @@ const PIPELINE_STAGES = [
   { id: 'demo_plan_pending', label: 'Demo Plan', status: 'DEMO_PLAN_PENDING', color: 'pink', icon: FileText },
   { id: 'speed_test', label: 'Speed Test', status: 'SPEED_TEST', color: 'cyan', icon: Camera },
   { id: 'customer_acceptance', label: 'Customer Accept', status: 'CUSTOMER_ACCEPTANCE', color: 'teal', icon: ThumbsUp },
-  { id: 'completed', label: 'Completed', status: 'COMPLETED', color: 'emerald', icon: CheckCircle }
+  { id: 'completed', label: 'Completed', status: 'COMPLETED', color: 'emerald', icon: CheckCircle },
+  { id: 'cancelled', label: 'Cancelled', status: 'CANCELLED', color: 'red', icon: XCircle }
 ];
 
 export default function DeliveryQueuePage() {
@@ -87,6 +89,10 @@ export default function DeliveryQueuePage() {
     deliveryQueue,
     deliveryStats,
     fetchDeliveryQueue,
+    fetchCancelledDeliveryLeads,
+    cancelDeliveryLead,
+    cancelledDeliveryLeads,
+    cancelledDeliveryPagination,
     fetchDeliveryLeadDetails,
     assignDeliveryLead,
     updateDeliveryProducts,
@@ -106,6 +112,12 @@ export default function DeliveryQueuePage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isPushingToNoc, setIsPushingToNoc] = useState(false);
   const [updatingStatusLeadId, setUpdatingStatusLeadId] = useState(null);
+
+  // Cancel lead modal state
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
 
   // Inline-error hook instances — one per action surface (independent error state).
   const materialRequestAction = useActionError();
@@ -266,14 +278,43 @@ export default function DeliveryQueuePage() {
     }
   }, [user, isDeliveryTeam, isAdmin, isBDMTeamLeader, router]);
 
-  useSocketRefresh(() => fetchDeliveryQueue(activeTab), { enabled: isDeliveryTeam || isAdmin || isBDMTeamLeader });
+  const refreshActiveTab = () => {
+    if (activeTab === 'cancelled') {
+      return fetchCancelledDeliveryLeads({ page: 1, limit: 25 });
+    }
+    return fetchDeliveryQueue(activeTab);
+  };
+
+  const closeCancelModal = () => {
+    setCancelTarget(null);
+    setCancelReason('');
+    setCancelError(null);
+  };
+
+  const submitCancel = async () => {
+    setCancelling(true);
+    setCancelError(null);
+    const res = await cancelDeliveryLead(cancelTarget.id, cancelReason);
+    setCancelling(false);
+    if (!res.success) {
+      setCancelError(res.error);
+      return;
+    }
+    const n = res.data?.serialsReturned?.length || 0;
+    toast.success(n > 0 ? `Lead cancelled. ${n} serial(s) returned to store.` : 'Lead cancelled.');
+    closeCancelModal();
+    setShowDetailsModal(false);
+    refreshActiveTab();
+  };
+
+  useSocketRefresh(() => refreshActiveTab(), { enabled: isDeliveryTeam || isAdmin || isBDMTeamLeader });
 
   // Fetch queue based on active tab
   useEffect(() => {
     if (isDeliveryTeam || isAdmin || isBDMTeamLeader) {
-      fetchDeliveryQueue(activeTab);
+      refreshActiveTab();
     }
-  }, [isDeliveryTeam, isAdmin, isBDMTeamLeader, activeTab, fetchDeliveryQueue]);
+  }, [isDeliveryTeam, isAdmin, isBDMTeamLeader, activeTab, fetchDeliveryQueue, fetchCancelledDeliveryLeads]);
 
   // Initialize editable data when viewing details
   useEffect(() => {
@@ -916,7 +957,7 @@ export default function DeliveryQueuePage() {
   };
 
   // Get action button for each stage
-  const getStageAction = (lead) => {
+  const getStageActionBase = (lead) => {
     const stage = getLeadStage(lead);
     const activeRequest = lead.activeDeliveryRequest;
 
@@ -1093,6 +1134,27 @@ export default function DeliveryQueuePage() {
     }
   };
 
+  const CANCELLABLE_STAGES = ['vendor_setup', 'pending', 'material_requested', 'pushed_to_noc', 'installing', 'demo_plan_pending', 'speed_test', 'customer_acceptance'];
+
+  // Stage action plus a Cancel button on stages where cancelling is allowed
+  const getStageAction = (lead) => {
+    const action = getStageActionBase(lead);
+    if (isBDMTeamLeader || !CANCELLABLE_STAGES.includes(getLeadStage(lead))) return action;
+    return (
+      <div className="flex items-center justify-center gap-1.5">
+        {action}
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 text-xs"
+          onClick={(e) => { e.stopPropagation(); setCancelTarget(lead); }}
+        >
+          Cancel
+        </Button>
+      </div>
+    );
+  };
+
   // "Add More Material" affordance — available any time the lead already has an
   // active (original) request. If a supplementary is already in flight, show its
   // status instead of the button (only one open at a time).
@@ -1144,6 +1206,7 @@ export default function DeliveryQueuePage() {
       case 'speed_test': return deliveryStats.speedTest || 0;
       case 'customer_acceptance': return deliveryStats.customerAcceptance || 0;
       case 'completed': return deliveryStats.completed || 0;
+      case 'cancelled': return deliveryStats.cancelled || 0;
       default: return 0;
     }
   };
@@ -1185,6 +1248,7 @@ export default function DeliveryQueuePage() {
               pink: { active: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 ring-1 ring-pink-300 dark:ring-pink-700', badge: 'bg-pink-200/60 dark:bg-pink-800/60' },
               cyan: { active: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 ring-1 ring-cyan-300 dark:ring-cyan-700', badge: 'bg-cyan-200/60 dark:bg-cyan-800/60' },
               teal: { active: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 ring-1 ring-teal-300 dark:ring-teal-700', badge: 'bg-teal-200/60 dark:bg-teal-800/60' },
+              red: { active: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 ring-1 ring-red-300 dark:ring-red-700', badge: 'bg-red-200/60 dark:bg-red-800/60' },
               emerald: { active: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-300 dark:ring-emerald-700', badge: 'bg-emerald-200/60 dark:bg-emerald-800/60' },
             };
             const colors = colorMap[stage.color] || colorMap.orange;
@@ -1212,8 +1276,31 @@ export default function DeliveryQueuePage() {
           })}
         </div>
 
+        {/* Cancelled tab: flat-shaped rows from the dedicated endpoint */}
+        {activeTab === 'cancelled' && (
+          <DataTable
+            columns={[
+              { key: 'company', label: 'Company', render: (r) => <span className="font-medium text-slate-900 dark:text-slate-100">{r.company || '-'}</span> },
+              { key: 'contact', label: 'Contact', render: (r) => (<div><p className="text-sm">{r.contactName || '-'}</p><p className="text-xs text-slate-500">{r.phone || '-'}</p></div>) },
+              { key: 'cancelledBy', label: 'Cancelled By', render: (r) => <span className="text-sm">{r.cancelledBy || '-'}</span> },
+              { key: 'cancelledAt', label: 'Cancelled On', render: (r) => <span className="text-sm">{r.cancelledAt ? formatDateTime(r.cancelledAt) : '-'}</span> },
+              { key: 'stage', label: 'Stage', render: (r) => <span className="text-sm">{r.cancelledAtStage || '-'}</span> },
+              { key: 'arc', label: 'ARC', render: (r) => <span className="text-sm">{r.arcAmount != null ? formatCurrency(r.arcAmount) : '-'}</span> },
+              { key: 'otc', label: 'OTC', render: (r) => <span className="text-sm">{r.otcAmount != null ? formatCurrency(r.otcAmount) : '-'}</span> },
+              { key: 'reason', label: 'Reason', render: (r) => <span className="text-sm text-slate-700 dark:text-slate-300 line-clamp-2 max-w-[260px]" title={r.cancelledReason || ''}>{r.cancelledReason || '-'}</span> },
+            ]}
+            data={cancelledDeliveryLeads || []}
+            loading={isLoading}
+            pagination={true}
+            serverPagination={cancelledDeliveryPagination}
+            onPageChange={(page) => fetchCancelledDeliveryLeads({ page, limit: cancelledDeliveryPagination?.limit || 25 })}
+            emptyMessage="No cancelled leads"
+            emptyIcon={XCircle}
+          />
+        )}
+
         {/* Mobile Card View */}
-        {isLoading ? (
+        {activeTab === 'cancelled' ? null : isLoading ? (
           <div className="lg:hidden flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
           </div>
@@ -1289,7 +1376,7 @@ export default function DeliveryQueuePage() {
 
         {/* Desktop Table View */}
         <DataTable
-          className="hidden lg:block"
+          className={activeTab === 'cancelled' ? 'hidden' : 'hidden lg:block'}
           columns={[
             {
               key: 'company',
@@ -2594,6 +2681,76 @@ export default function DeliveryQueuePage() {
           </div>
           </div>
         </div>
+      )}
+
+      {/* Cancel Lead Modal */}
+      {cancelTarget && (
+        <Dialog open onOpenChange={(open) => { if (!open) closeCancelModal(); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-red-600 dark:text-red-400">
+                Cancel {cancelTarget.company || 'this lead'}?
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {(() => {
+                const items = cancelTarget.activeDeliveryRequest?.items || [];
+                const serials = items.flatMap(i =>
+                  (i.assignedSerialNumbers || []).filter(s => !(i.returnedSerialNumbers || []).includes(s))
+                    .map(s => ({ serial: s, model: i.product?.modelNumber }))
+                );
+                if (serials.length === 0) return null;
+                return (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+                    <p className="font-medium text-amber-900 dark:text-amber-200">
+                      {serials.length} item(s) will return to store inventory:
+                    </p>
+                    <ul className="mt-2 space-y-1 text-amber-800 dark:text-amber-300">
+                      {serials.map(({ serial, model }) => (
+                        <li key={serial} className="font-mono text-xs">{model ? `${model} \u2014 ` : ''}{serial}</li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  className="w-full rounded-md border border-input bg-background p-2 text-sm"
+                  rows={3}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Why is this lead being cancelled?"
+                />
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Any unpaid invoice for this lead will be cancelled. This cannot be undone.
+              </p>
+
+              {cancelError && (
+                <p className="rounded-md bg-red-50 p-2 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-400">
+                  {cancelError}
+                </p>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={closeCancelModal} disabled={cancelling}>Keep lead</Button>
+              <Button
+                className="bg-red-600 text-white hover:bg-red-700"
+                disabled={!cancelReason.trim() || cancelling}
+                onClick={submitCancel}
+              >
+                {cancelling ? 'Cancelling\u2026' : 'Cancel lead'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   );
