@@ -875,6 +875,9 @@ export default function DeliveryQueuePage() {
 
   // Determine the actual stage of a lead (same logic as backend)
   const getLeadStage = (lead) => {
+    // Mirror of backend/src/utils/deliveryStage.js - keep both in step.
+    if (lead.cancelledAt || lead.deliveryStatus === 'CANCELLED') return 'cancelled';
+
     const status = lead.deliveryStatus;
     const activeRequest = lead.activeDeliveryRequest;
 
