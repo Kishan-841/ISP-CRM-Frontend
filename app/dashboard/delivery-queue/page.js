@@ -303,7 +303,7 @@ export default function DeliveryQueuePage() {
     const n = res.data?.serialsReturned?.length || 0;
     toast.success(n > 0 ? `Lead cancelled. ${n} serial(s) returned to store.` : 'Lead cancelled.');
     closeCancelModal();
-    setShowDetailsModal(false);
+    handleCloseDetails();
     refreshActiveTab();
   };
 
@@ -2685,7 +2685,7 @@ export default function DeliveryQueuePage() {
 
       {/* Cancel Lead Modal */}
       {cancelTarget && (
-        <Dialog open onOpenChange={(open) => { if (!open) closeCancelModal(); }}>
+        <Dialog open onOpenChange={(open) => { if (!open && !cancelling) closeCancelModal(); }}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle className="text-red-600 dark:text-red-400">
