@@ -57,6 +57,7 @@ import {
   Briefcase,
   ShieldCheck,
   Truck,
+  XCircle,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -244,6 +245,7 @@ export default function Sidebar() {
         { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
         { name: 'Delivery Completed', path: '/dashboard/delivery-completed', badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
         { name: 'Bandwidth on Demand', path: '/dashboard/bandwidth-on-demand' },
+        { name: 'Cancelled Leads', path: '/dashboard/cancelled-leads', badge: counts.cancelledLeads > 0 ? counts.cancelledLeads : null },
       ]
     },
     {
@@ -470,6 +472,7 @@ export default function Sidebar() {
       { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
       { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
       { name: 'Bandwidth on Demand', path: '/dashboard/bandwidth-on-demand', icon: Gauge },
+      { name: 'Cancelled Leads', path: '/dashboard/cancelled-leads', icon: XCircle, badge: counts.cancelledLeads > 0 ? counts.cancelledLeads : null },
       {
         name: 'Reports',
         icon: BarChart3,
@@ -490,6 +493,7 @@ export default function Sidebar() {
       { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
       { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
       { name: 'Bandwidth on Demand', path: '/dashboard/bandwidth-on-demand', icon: Gauge },
+      { name: 'Cancelled Leads', path: '/dashboard/cancelled-leads', icon: XCircle, badge: counts.cancelledLeads > 0 ? counts.cancelledLeads : null },
       {
         name: 'Reports',
         icon: BarChart3,
@@ -510,6 +514,7 @@ export default function Sidebar() {
       { name: 'Create Opportunity', path: '/dashboard/create-opportunity', icon: Plus },
       { name: 'Opportunity Pipeline', path: '/dashboard/quotation-mgmt', icon: FileText, badge: counts.leadPipeline > 0 ? counts.leadPipeline : null },
       { name: 'Delivery Completed', path: '/dashboard/delivery-completed', icon: CheckCircle2, badge: counts.deliveryCompleted > 0 ? counts.deliveryCompleted : null },
+      { name: 'Cancelled Leads', path: '/dashboard/cancelled-leads', icon: XCircle, badge: counts.cancelledLeads > 0 ? counts.cancelledLeads : null },
       {
         name: 'Reports',
         icon: BarChart3,

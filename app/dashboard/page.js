@@ -697,6 +697,12 @@ export default function DashboardPage() {
             { label: 'Total OTC', value: formatCurrency(dashStats.totalOtcAmount), icon: DollarSign, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconText: 'text-emerald-600 dark:text-emerald-400', link: '/dashboard/pipeline-arc?stage=otc' },
             { label: 'Login OTC', value: formatCurrency(dashStats.loginOtcAmount), icon: DollarSign, borderColor: 'border-l-cyan-500', iconBg: 'bg-cyan-100 dark:bg-cyan-900/40', iconText: 'text-cyan-600 dark:text-cyan-400', link: '/dashboard/pipeline-arc?stage=login-otc' },
             { label: 'PO Received OTC', value: formatCurrency(dashStats.poReceivedOtcAmount), icon: DollarSign, borderColor: 'border-l-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconText: 'text-emerald-600 dark:text-emerald-400', link: '/dashboard/pipeline-arc?stage=po-otc' },
+            { label: `Cancelled (${dashStats.cancelledCount || 0})`, value: formatCurrency(dashStats.cancelledArcAmount), icon: XCircle,
+              borderColor: 'border-l-red-500', iconBg: 'bg-red-100 dark:bg-red-950/40',
+              iconText: 'text-red-600 dark:text-red-400', link: '/dashboard/cancelled-leads' },
+            { label: `Cancelled OTC`, value: formatCurrency(dashStats.cancelledOtcAmount), icon: XCircle,
+              borderColor: 'border-l-red-400', iconBg: 'bg-red-100 dark:bg-red-950/40',
+              iconText: 'text-red-600 dark:text-red-400', link: '/dashboard/cancelled-leads' },
           ].map((stat, i) => (
             <Card
               key={i}
