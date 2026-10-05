@@ -71,19 +71,65 @@ export default function CancelledLeadsPage() {
       ) }
   ];
 
+  const hasFilters = Boolean(search || fromDate || toDate);
+  const clearFilters = () => {
+    setSearch('');
+    setFromDate('');
+    setToDate('');
+    setPage(1);
+  };
+
+  // Every control is h-9 with an explicit width, matching dashboard/leads/page.js.
+  // Without a width the Input defaults to w-full and each filter claims its own row.
+  const dateClass =
+    'h-9 w-[150px] bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700';
+
   const filterControls = (
     <>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <Input
-          className="pl-9"
-          placeholder="Search company, contact or phone"
+          type="text"
+          placeholder="Company, contact, phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          className="h-9 w-56 pl-9 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
         />
       </div>
-      <Input type="date" value={fromDate} onChange={(e) => { setPage(1); setFromDate(e.target.value); }} />
-      <Input type="date" value={toDate} onChange={(e) => { setPage(1); setToDate(e.target.value); }} />
+
+      {/* Two bare date inputs read as "dd/mm/yyyy" twice with no way to tell
+          which end of the range each one is. */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-slate-500 dark:text-slate-400">From</span>
+        <Input
+          type="date"
+          value={fromDate}
+          max={toDate || undefined}
+          onChange={(e) => { setPage(1); setFromDate(e.target.value); }}
+          className={dateClass}
+        />
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-slate-500 dark:text-slate-400">To</span>
+        <Input
+          type="date"
+          value={toDate}
+          min={fromDate || undefined}
+          onChange={(e) => { setPage(1); setToDate(e.target.value); }}
+          className={dateClass}
+        />
+      </div>
+
+      {hasFilters && (
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="h-9 px-3 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+        >
+          Clear
+        </button>
+      )}
     </>
   );
 
@@ -91,6 +137,7 @@ export default function CancelledLeadsPage() {
     <div className="space-y-4">
       <PageHeader title="Cancelled Leads" description="Leads cancelled during delivery" />
       <DataTable
+        title="Cancelled Lead List"
         columns={columns}
         data={cancelledLeads}
         filters={filterControls}
