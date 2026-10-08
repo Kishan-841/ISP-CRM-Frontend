@@ -739,6 +739,24 @@ export default function FeasibilityQueuePage() {
   };
 
   // Export the current tab's leads to Excel (Name, Address, Bandwidth, IPs, BDM, CAPEX, OPEX)
+  // feasibilityNotes holds the reviewer's reason as plain text, but on older
+  // leads it holds a JSON vendor-details blob instead (the details modal does
+  // the same JSON.parse test around line 920). Dumping that blob into a
+  // spreadsheet cell would be worse than leaving it empty, so only real text
+  // is exported.
+  const feasibilityReasonText = (notes) => {
+    if (!notes) return '';
+    let parsed = null;
+    try { parsed = JSON.parse(notes); } catch { return notes; }   // not JSON -> it IS the reason
+    if (parsed && typeof parsed === 'object') {
+      const text = parsed.notes || parsed.description || parsed.reason;
+      return typeof text === 'string' ? text : '';
+    }
+    // Parsed to a scalar — e.g. a reason of "123" is valid JSON for a number.
+    // The raw string was the reason all along.
+    return notes;
+  };
+
   const handleExportExcel = async () => {
     if (!currentList.length) {
       toast.error('Nothing to export');
@@ -755,6 +773,7 @@ export default function FeasibilityQueuePage() {
         'BDM': lead.bdm?.name || '',
         'CAPEX': lead.tentativeCapex ?? '',
         'OPEX': lead.tentativeOpex ?? '',
+        'Reason': feasibilityReasonText(lead.feasibilityNotes),
       }));
       const ws = XLSX.utils.json_to_sheet(formatted);
       const headers = Object.keys(formatted[0]);
