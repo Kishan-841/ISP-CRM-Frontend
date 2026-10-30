@@ -640,7 +640,12 @@ export default function QuotationManagementPage() {
         formData.append('file', file);
 
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:5001/api/emails/upload-attachment', {
+        // Must come from the env var like every other call on this page: a
+        // hardcoded localhost resolves to the USER'S machine in the browser,
+        // so this upload could only ever work for a developer running the
+        // backend locally.
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+        const response = await fetch(`${apiBase}/emails/upload-attachment`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
