@@ -38,6 +38,7 @@ import {
   MapPin
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import SendToMspModal from '@/components/SendToMspModal';
 import StatCard from '@/components/StatCard';
 import { PageHeader } from '@/components/PageHeader';
 import { useSocketRefresh } from '@/lib/useSocketRefresh';
@@ -51,6 +52,7 @@ export default function LeadsPage() {
   const { campaigns, fetchCampaigns } = useCampaignStore();
   const { fetchProducts } = useProductStore();
   const [deletingId, setDeletingId] = useState(null);
+  const [mspLead, setMspLead] = useState(null);
 
   const isAdmin = user?.role === 'SUPER_ADMIN';
   const isBDM = isBdmLikeRole(user?.role);
@@ -891,6 +893,16 @@ export default function LeadsPage() {
         title="View Details"
       >
         <Eye size={16} />
+      </button>
+
+      {/* Send to MSP CRM — the modal owns permission and required-field
+          checks, so the button is always offered and explains itself. */}
+      <button
+        onClick={() => setMspLead(lead)}
+        className="p-1.5 rounded-md hover:bg-violet-100 dark:hover:bg-violet-900/30 text-slate-500 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+        title={lead.mspStatusLabel ? `MSP CRM: ${lead.mspStatusLabel}` : 'Send to MSP CRM'}
+      >
+        <Send size={16} />
       </button>
 
       {/* Delete - Admin only */}
@@ -1899,6 +1911,13 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+
+      <SendToMspModal
+        lead={mspLead}
+        open={Boolean(mspLead)}
+        onClose={() => setMspLead(null)}
+        onSent={loadLeads}
+      />
     </>
   );
 }
