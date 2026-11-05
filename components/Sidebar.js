@@ -360,7 +360,6 @@ export default function Sidebar() {
         { name: 'Complaints', path: '/dashboard/complaints', badge: ((counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0)) > 0 ? (counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0) : null },
         { name: 'Customer Complaints', path: '/dashboard/customer-complaints' },
         { name: 'Complaint Settings', path: '/dashboard/complaint-categories' },
-        { name: 'Zone & City Settings', path: '/dashboard/zones' },
       ]
     },
     {
@@ -406,6 +405,7 @@ export default function Sidebar() {
         { name: 'Vendors', path: '/dashboard/vendors' },
         { name: 'Products', path: '/dashboard/products' },
         { name: 'Inventory', path: '/dashboard/inventory' },
+        { name: 'Zone & City Settings', path: '/dashboard/zones' },
         { name: 'VECTRA Knowledge', path: '/dashboard/admin/nexus-knowledge' },
         // Single timeline of every create/edit/delete across leads,
         // campaigns, and contacts. Built after the 22 Apr 2026 silent
