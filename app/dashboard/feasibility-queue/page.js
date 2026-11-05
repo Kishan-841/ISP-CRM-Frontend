@@ -56,6 +56,8 @@ export default function FeasibilityQueuePage() {
     fetchFeasibilityReviewHistory,
     feasibilityDisposition,
     getLeadMOMs,
+    zones,
+    fetchZones,
     isLoading
   } = useLeadStore();
 
@@ -85,6 +87,11 @@ export default function FeasibilityQueuePage() {
 
   // Store products for equipment dropdowns
   const [storeProducts, setStoreProducts] = useState([]);
+
+  // Service geography (required when FEASIBLE). Held as two ids because the
+  // city list depends on the chosen zone.
+  const [zoneId, setZoneId] = useState('');
+  const [cityId, setCityId] = useState('');
 
   // Vendor type state (when FEASIBLE is selected)
   const [vendorType, setVendorType] = useState('');
@@ -311,6 +318,13 @@ export default function FeasibilityQueuePage() {
     }
   }, [canAccessFeasibility, fetchFeasibilityReviewHistory]);
 
+  // Zone/city lists for the disposition form
+  useEffect(() => {
+    if (canAccessFeasibility) {
+      fetchZones();
+    }
+  }, [canAccessFeasibility, fetchZones]);
+
   // Fetch vendors for dropdown
   useEffect(() => {
     if (canAccessFeasibility) {
@@ -357,6 +371,8 @@ export default function FeasibilityQueuePage() {
   const resetDecision = () => {
     setDecision('');
     setNotes('');
+    setZoneId('');
+    setCityId('');
     setVendorType('');
     setVendorData({
       ownNetwork: { popLocation: '', popLatitude: '', popLongitude: '', fiberRequired: defaultEquipment(), switch: defaultEquipment(), sfp: defaultEquipment(), closure: defaultEquipment(), patchChord: defaultEquipment(), rf: defaultEquipment(), mediaConverter: defaultEquipment(), router: defaultEquipment(), capex: 0 },
@@ -498,6 +514,10 @@ export default function FeasibilityQueuePage() {
       return submitDispositionAction.fail('Please select a vendor type.');
     }
 
+    if (decision === 'FEASIBLE' && (!zoneId || !cityId)) {
+      return submitDispositionAction.fail('Please select a zone and city.');
+    }
+
     setIsSaving(true);
 
     // Build the simplified payload — vendor type + tentative pricing + POP + description
@@ -506,6 +526,8 @@ export default function FeasibilityQueuePage() {
       decision,
       notes: notes.trim() || null,
       vendorType: decision === 'FEASIBLE' ? vendorType : undefined,
+      zoneId: decision === 'FEASIBLE' ? zoneId : undefined,
+      cityId: decision === 'FEASIBLE' ? cityId : undefined,
       tentativeCapex: currentVD?.capex || null,
       tentativeOpex: currentVD?.opex || null,
       feasibilityDescription: currentVD?.description || null,
@@ -1425,6 +1447,49 @@ export default function FeasibilityQueuePage() {
               {/* Simplified Feasibility Fields (vendor setup moved to delivery) */}
               {decision === 'FEASIBLE' && (
                 <div className="space-y-4">
+                  {/* Service geography — the zone becomes SAM's "circle", so a
+                      lead cannot leave feasibility without one. */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        Zone <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={zoneId}
+                        onChange={(e) => {
+                          setZoneId(e.target.value);
+                          // The city list is scoped to the zone, so a zone
+                          // change invalidates whatever city was picked.
+                          setCityId('');
+                        }}
+                        className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                      >
+                        <option value="">Select zone...</option>
+                        {(zones || []).map((z) => (
+                          <option key={z.id} value={z.id}>{z.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        City <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={cityId}
+                        onChange={(e) => setCityId(e.target.value)}
+                        disabled={!zoneId}
+                        className="w-full h-10 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100 disabled:opacity-50"
+                      >
+                        <option value="">
+                          {zoneId ? 'Select city...' : 'Pick a zone first'}
+                        </option>
+                        {(zones.find((z) => z.id === zoneId)?.cities || []).map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   {/* Vendor Type Selection — just the type, no vendor creation at this stage */}
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Select Vendor Type <span className="text-red-500">*</span>

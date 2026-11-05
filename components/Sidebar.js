@@ -267,6 +267,7 @@ export default function Sidebar() {
       menuKey: 'masterFeasibility',
       submenu: [
         { name: 'Feasibility Queue', path: '/dashboard/feasibility-queue', badge: counts.feasibilityPending > 0 ? counts.feasibilityPending : null },
+        { name: 'Zone & City', path: '/dashboard/zone-city' },
         { name: 'Vendors', path: '/dashboard/vendors', badge: counts.vendorDocsPending > 0 ? counts.vendorDocsPending : null },
       ]
     },
@@ -359,6 +360,7 @@ export default function Sidebar() {
         { name: 'Complaints', path: '/dashboard/complaints', badge: ((counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0)) > 0 ? (counts.complaintsAssigned || 0) + (counts.customerRequestsPending || 0) : null },
         { name: 'Customer Complaints', path: '/dashboard/customer-complaints' },
         { name: 'Complaint Settings', path: '/dashboard/complaint-categories' },
+        { name: 'Zone & City Settings', path: '/dashboard/zones' },
       ]
     },
     {
@@ -533,6 +535,7 @@ export default function Sidebar() {
     // Feasibility Team-only items
     ...(isFeasibilityTeam ? [
       { name: 'Feasibility Queue', path: '/dashboard/feasibility-queue', icon: FileText, badge: counts.feasibilityPending > 0 ? counts.feasibilityPending : null },
+      { name: 'Zone & City', path: '/dashboard/zone-city', icon: MapPin },
       { name: 'Vendors', path: '/dashboard/vendors', icon: Building2, badge: counts.vendorDocsPending > 0 ? counts.vendorDocsPending : null },
     ] : []),
     // OPS Team-only items
@@ -709,6 +712,7 @@ export default function Sidebar() {
         ]
       },
       { name: 'Complaint Settings', path: '/dashboard/complaint-categories', icon: Settings },
+      { name: 'Zone & City Settings', path: '/dashboard/zones', icon: Globe },
       { name: 'Vendors', path: '/dashboard/vendors', icon: Building2 },
       { name: 'Inventory', path: '/dashboard/inventory', icon: Warehouse },
     ] : []),
