@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { MapPin, FileText, CheckCircle2, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/components/PageHeader';
+import { INDUSTRIES, OTHER_INDUSTRY } from '@/lib/industries';
 
 const emptyForm = {
   name: '',
@@ -17,6 +18,9 @@ const emptyForm = {
   email: '',
   title: '',
   industry: '',
+  // Only used when industry === OTHER_INDUSTRY; what the BDM types is
+  // what gets saved, so an unlisted industry is still captured properly.
+  industryOther: '',
   city: '',
   fullAddress: '',
   latitude: '',
@@ -65,6 +69,13 @@ export default function CreateOpportunityPage() {
 
   const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
+  // "Other" is a UI affordance, not a value worth storing — saving the literal
+  // string would just recreate the free-text mess under a tidier name.
+  const resolvedIndustry = () =>
+    form.industry === OTHER_INDUSTRY
+      ? form.industryOther.trim() || null
+      : form.industry || null;
+
   const toggleProduct = (pid) =>
     setSelectedProducts((prev) => (prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid]));
 
@@ -106,7 +117,7 @@ export default function CreateOpportunityPage() {
       phone: phoneDigits,
       email: form.email.trim(),
       title: form.title.trim() || null,
-      industry: form.industry.trim() || null,
+      industry: resolvedIndustry(),
       city: form.city.trim() || null,
       feasibilityAssignedToId: feasibilityUserId,
       latitude: parseFloat(form.latitude),
@@ -220,13 +231,27 @@ export default function CreateOpportunityPage() {
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Industry
                 </label>
-                <input
-                  type="text"
+                <select
                   value={form.industry}
                   onChange={(e) => setField('industry', e.target.value)}
-                  placeholder="e.g. Technology"
                   className="w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
-                />
+                >
+                  <option value="">Select industry...</option>
+                  {INDUSTRIES.map((industry) => (
+                    <option key={industry} value={industry}>
+                      {industry}
+                    </option>
+                  ))}
+                </select>
+                {form.industry === OTHER_INDUSTRY && (
+                  <input
+                    type="text"
+                    value={form.industryOther}
+                    onChange={(e) => setField('industryOther', e.target.value)}
+                    placeholder="Which industry?"
+                    className="mt-2 w-full h-9 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-100"
+                  />
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
