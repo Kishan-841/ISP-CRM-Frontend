@@ -36,6 +36,9 @@ export default function ZoneCityBackfillPage() {
   const [searchInput, setSearchInput] = useState('');
   // 'live' = customers already in SAM, where the gap is visible today.
   const [scope, setScope] = useState('live');
+  // 'missing' is the worklist; 'all' also lists leads already filled in, so a
+  // wrong entry can be corrected rather than being stuck once saved.
+  const [state, setState] = useState('missing');
   const [loading, setLoading] = useState(true);
   // Per-row pending selections, keyed by lead id.
   const [draft, setDraft] = useState({});
@@ -57,6 +60,7 @@ export default function ZoneCityBackfillPage() {
       limit: 25,
       search: search || undefined,
       scope: scope === 'all' ? 'all' : undefined,
+      state: state === 'all' ? 'all' : undefined,
     });
     if (result.success) {
       setRows(result.items || []);
@@ -65,7 +69,7 @@ export default function ZoneCityBackfillPage() {
       toast.error(result.error);
     }
     setLoading(false);
-  }, [canAccess, fetchZoneCityQueue, page, search, scope]);
+  }, [canAccess, fetchZoneCityQueue, page, search, scope, state]);
 
   useEffect(() => {
     load();
@@ -94,8 +98,21 @@ export default function ZoneCityBackfillPage() {
       toast.success(result.message || 'Saved');
       // Drop the row rather than refetching the page — the list is a worklist,
       // and a full reload would lose the reader's place.
-      setRows((prev) => prev.filter((r) => r.id !== lead.id));
-      setPagination((p) => (p ? { ...p, total: Math.max(0, p.total - 1) } : p));
+      if (state === 'all') {
+        // Editing, not working a queue — keep the row and show the new value.
+        const zoneName = zones.find((z) => z.id === picked.zoneId)?.name || null;
+        const cityName = citiesFor(picked.zoneId).find((c) => c.id === picked.cityId)?.name || null;
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === lead.id ? { ...r, ...picked, zoneName, cityName } : r
+          )
+        );
+      } else {
+        // Worklist: the row is done, so it leaves. Refetching instead would
+        // lose the reader's place.
+        setRows((prev) => prev.filter((r) => r.id !== lead.id));
+        setPagination((p) => (p ? { ...p, total: Math.max(0, p.total - 1) } : p));
+      }
     } else {
       toast.error(result.error);
     }
@@ -139,6 +156,28 @@ export default function ZoneCityBackfillPage() {
               ))}
             </div>
 
+            <div className="flex gap-2">
+              {[
+                { id: 'missing', label: 'Needs filling' },
+                { id: 'all', label: 'All' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setState(t.id);
+                    setPage(1);
+                  }}
+                  className={`px-3 h-9 rounded-md text-sm font-medium border transition-colors ${
+                    state === t.id
+                      ? 'bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -164,7 +203,8 @@ export default function ZoneCityBackfillPage() {
 
           {pagination && (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              {pagination.total} lead{pagination.total === 1 ? '' : 's'} still missing zone or city
+              {pagination.total} lead{pagination.total === 1 ? '' : 's'}
+              {state === 'all' ? '' : ' still missing zone or city'}
               {scope === 'live' && ' among live customers'}.
             </p>
           )}
@@ -176,9 +216,11 @@ export default function ZoneCityBackfillPage() {
               <Check className="h-8 w-8 mx-auto text-green-600 mb-2" />
               <p className="text-slate-700 dark:text-slate-300 font-medium">Nothing left here.</p>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                {scope === 'live'
-                  ? 'Every live customer has a zone and city. Try "All leads".'
-                  : 'Every lead has a zone and city.'}
+                {state === 'all'
+                  ? 'No leads match. Try a different search.'
+                  : scope === 'live'
+                    ? 'Every live customer has a zone and city. Try "All leads".'
+                    : 'Every lead has a zone and city.'}
               </p>
             </div>
           ) : (
@@ -187,7 +229,7 @@ export default function ZoneCityBackfillPage() {
                 <thead>
                   <tr className="text-left text-xs uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                     <th className="py-2 pr-3 font-medium">Lead</th>
-                    <th className="py-2 pr-3 font-medium">Typed city</th>
+                    <th className="py-2 pr-3 font-medium">Current</th>
                     <th className="py-2 pr-3 font-medium">Zone</th>
                     <th className="py-2 pr-3 font-medium">City</th>
                     <th className="py-2 font-medium" />
@@ -195,7 +237,10 @@ export default function ZoneCityBackfillPage() {
                 </thead>
                 <tbody>
                   {rows.map((lead) => {
-                    const picked = draft[lead.id] || {};
+                    const picked = draft[lead.id] || {
+                      zoneId: lead.zoneId || '',
+                      cityId: lead.cityId || '',
+                    };
                     return (
                       <tr
                         key={lead.id}
@@ -222,7 +267,16 @@ export default function ZoneCityBackfillPage() {
                         {/* The BDM's free text — a hint for whoever is filling this in,
                             not a value we trust. */}
                         <td className="py-3 pr-3 text-slate-500 dark:text-slate-400">
-                          {lead.typedCity || '—'}
+                          {lead.zoneName || lead.cityName ? (
+                            // Already filled in — show it, so an edit is a
+                            // correction of something visible rather than a
+                            // blind overwrite.
+                            <span className="text-slate-700 dark:text-slate-300">
+                              {lead.zoneName || '—'} / {lead.cityName || '—'}
+                            </span>
+                          ) : (
+                            lead.typedCity || '—'
+                          )}
                         </td>
                         <td className="py-3 pr-3">
                           <select
